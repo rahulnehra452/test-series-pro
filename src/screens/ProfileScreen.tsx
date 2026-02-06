@@ -1,0 +1,214 @@
+import React from 'react';
+import { StyleSheet, View, Text, Switch, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { useTheme } from '../contexts/ThemeContext';
+import { spacing, typography, borderRadius } from '../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { Card } from '../components/common/Card';
+
+const MenuItem = ({ icon, label, value, onPress, isSwitch, onSwitchChange }: any) => {
+  const { colors } = useTheme();
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={isSwitch ? 1 : 0.7}
+      style={[styles.menuItem, { borderBottomColor: colors.border }]}
+    >
+      <View style={styles.menuLeft}>
+        <View style={[styles.iconBox, { backgroundColor: colors.secondaryBackground }]}>
+          <Ionicons name={icon} size={20} color={colors.text} />
+        </View>
+        <Text style={[styles.menuLabel, { color: colors.text }]}>{label}</Text>
+      </View>
+
+      {isSwitch ? (
+        <Switch
+          value={value}
+          onValueChange={onSwitchChange}
+          trackColor={{ false: '#767577', true: colors.primary }}
+        />
+      ) : (
+        <View style={styles.menuRight}>
+          {value && <Text style={[styles.menuValue, { color: colors.textSecondary }]}>{value}</Text>}
+          <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+};
+
+export default function ProfileScreen() {
+  const { colors, theme, setThemePreference, isDark } = useTheme();
+
+  const toggleTheme = (value: boolean) => {
+    setThemePreference(value ? 'dark' : 'light');
+  };
+
+  const handleLogout = () => {
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Logout", style: "destructive" }
+    ]);
+  };
+
+  return (
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={styles.header}>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
+      </View>
+
+      <View style={styles.profileHeader}>
+        <View style={[styles.avatar, { backgroundColor: colors.primaryLight }]}>
+          <Text style={styles.avatarText}>S</Text>
+        </View>
+        <Text style={[styles.userName, { color: colors.text }]}>Student User</Text>
+        <Text style={[styles.userEmail, { color: colors.textSecondary }]}>student@example.com</Text>
+        <View style={[styles.planBadge, { backgroundColor: colors.primary }]}>
+          <Text style={styles.planText}>PRO MEMBER</Text>
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>PREFERENCES</Text>
+        <Card style={styles.card}>
+          <MenuItem
+            icon="moon-outline"
+            label="Dark Mode"
+            isSwitch
+            value={isDark}
+            onSwitchChange={toggleTheme}
+          />
+          <MenuItem
+            icon="notifications-outline"
+            label="Notifications"
+            isSwitch
+            value={true}
+          />
+        </Card>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>ACCOUNT</Text>
+        <Card style={styles.card}>
+          <MenuItem icon="person-outline" label="Edit Profile" onPress={() => { }} />
+          <MenuItem icon="card-outline" label="Subscription" value="Active" onPress={() => { }} />
+          <MenuItem icon="help-circle-outline" label="Help & Support" onPress={() => { }} />
+        </Card>
+      </View>
+
+      <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+        <Text style={styles.logoutText}>Log Out</Text>
+      </TouchableOpacity>
+
+      <Text style={[styles.versionText, { color: colors.textTertiary }]}>Version 1.0.0</Text>
+      <View style={{ height: 100 }} />
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingTop: 60,
+    paddingHorizontal: spacing.lg,
+  },
+  header: {
+    marginBottom: spacing.lg,
+  },
+  headerTitle: {
+    ...typography.largeTitle,
+  },
+  profileHeader: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  avatarText: {
+    ...typography.largeTitle,
+    color: '#FFFFFF',
+  },
+  userName: {
+    ...typography.title2,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  userEmail: {
+    ...typography.subhead,
+    marginBottom: spacing.md,
+  },
+  planBadge: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+  },
+  planText: {
+    ...typography.caption2,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  section: {
+    marginBottom: spacing.lg,
+  },
+  sectionTitle: {
+    ...typography.caption1,
+    fontWeight: '600',
+    marginBottom: spacing.sm,
+    marginLeft: spacing.xs,
+  },
+  card: {
+    padding: 0,
+    overflow: 'hidden',
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    borderBottomWidth: 0.5,
+  },
+  menuLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  iconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuLabel: {
+    ...typography.body,
+  },
+  menuRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  menuValue: {
+    ...typography.subhead,
+  },
+  logoutButton: {
+    alignItems: 'center',
+    padding: spacing.md,
+    marginTop: spacing.sm,
+  },
+  logoutText: {
+    ...typography.body,
+    color: '#FF3B30',
+    fontWeight: '600',
+  },
+  versionText: {
+    textAlign: 'center',
+    ...typography.caption2,
+    marginTop: spacing.sm,
+  },
+});
