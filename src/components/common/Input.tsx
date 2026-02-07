@@ -15,9 +15,16 @@ interface InputProps extends ComponentProps<typeof TextInput> {
   label?: string;
   error?: string;
   leftIcon?: keyof typeof Ionicons.glyphMap;
-  rightIcon?: keyof typeof Ionicons.glyphMap;
+  rightIcon?: keyof typeof Ionicons.glyphMap | React.ReactNode;
   onRightIconPress?: () => void;
   containerStyle?: ViewStyle;
+  value?: string;
+  onChangeText?: (text: string) => void;
+  placeholder?: string;
+  keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad';
+  secureTextEntry?: boolean;
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  editable?: boolean;
 }
 
 export const Input: React.FC<InputProps> = ({
@@ -68,12 +75,16 @@ export const Input: React.FC<InputProps> = ({
         />
         {rightIcon && (
           <TouchableOpacity onPress={onRightIconPress} disabled={!onRightIconPress}>
-            <Ionicons
-              name={rightIcon}
-              size={20}
-              color={colors.textTertiary}
-              style={styles.rightIcon}
-            />
+            {typeof rightIcon === 'string' ? (
+              <Ionicons
+                name={rightIcon as any}
+                size={20}
+                color={colors.textTertiary}
+                style={styles.rightIcon}
+              />
+            ) : (
+              <View style={styles.rightIcon}>{rightIcon}</View>
+            )}
           </TouchableOpacity>
         )}
       </View>

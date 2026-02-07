@@ -56,9 +56,9 @@ const SUBJECT_DETAILS: Record<string, SubjectDetail> = {
     gradient: ['#FF2D55', '#FF375F']
   },
   'General': {
-    color: colors.primary,
+    color: colors.light.primary,
     icon: 'book',
-    gradient: [colors.primary, '#6366F1']
+    gradient: [colors.light.primary, '#6366F1']
   }
 };
 

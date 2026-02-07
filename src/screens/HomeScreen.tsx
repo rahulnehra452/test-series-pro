@@ -35,6 +35,7 @@ const MOCK_RECENT_ACTIVITY = [
 ];
 
 // ... types and previous imports
+import { useAuthStore } from '../stores/authStore';
 import { useTestStore } from '../stores/testStore';
 
 export default function HomeScreen() {
@@ -43,6 +44,12 @@ export default function HomeScreen() {
   const navigation = useNavigation<NavigationProp>();
   const [greeting, setGreeting] = useState(getTimeBasedGreeting());
   const { history } = useTestStore();
+  const { user, checkStreak } = useAuthStore();
+
+  React.useEffect(() => {
+    checkStreak();
+    // Refresh streak on mount
+  }, []);
 
   const recentActivity = history.slice(0, 3); // Get last 3 attempts
 
@@ -74,16 +81,16 @@ export default function HomeScreen() {
             {greeting} 👋
           </Text>
           <Text style={[styles.userName, { color: colors.text }]}>
-            {MOCK_USER.name}
+            {user?.name || 'Student'}
           </Text>
         </View>
         <View style={[styles.avatar, { backgroundColor: colors.primaryLight }]}>
-          <Text style={styles.avatarText}>{MOCK_USER.name[0]}</Text>
+          <Text style={styles.avatarText}>{user?.name?.[0] || 'S'}</Text>
         </View>
       </View>
 
       {/* Streak Card */}
-      <StreakCard days={MOCK_USER.streak} style={styles.streakCard} />
+      <StreakCard days={user?.streak || 0} style={styles.streakCard} />
 
       {/* Progress Grid */}
       <ProgressGrid />
@@ -117,7 +124,7 @@ export default function HomeScreen() {
               }}
             >
               <View>
-                <Text style={[styles.activityTitle, { color: colors.text }]}>Test Attempt</Text>
+                <Text style={[styles.activityTitle, { color: colors.text }]}>{item.testTitle}</Text>
                 <Text style={[styles.activityDate, { color: colors.textTertiary }]}>
                   {new Date(item.startTime).toLocaleDateString()}
                 </Text>

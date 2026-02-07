@@ -20,71 +20,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 import { getSubjectDetails } from '../utils/subjectIcons';
+import { LibraryItem } from '../types';
 
 // Types
-interface KnowledgeItem {
-  id: string;
-  question: string;
-  subject: string;
-  difficulty: 'Easy' | 'Medium' | 'Hard';
-  type: 'saved' | 'wrong' | 'learn';
-  date: string;
-  note?: string;
-  exam?: string;
-}
 
 // Mock Data
+import { useTestStore } from '../stores/testStore';
+
+// Mock Data - Removed in favor of store
 const SUBJECTS = ['All', 'Polity', 'History', 'Economy', 'Geography', 'Quant', 'Current Affairs'];
 const EXAMS = ['All Exams', 'UPSC Prelims 2025', 'CSAT 2025', 'History Daily Quiz', 'Mains 2024'];
-
-const MOCK_DATA: KnowledgeItem[] = [
-  {
-    id: '1',
-    question: 'Which article of the constitution deals with fundamental rights?',
-    subject: 'Polity',
-    difficulty: 'Medium',
-    type: 'saved',
-    date: '2 hours ago',
-    exam: 'UPSC Prelims 2025',
-  },
-  {
-    id: '2',
-    question: 'The Harappan civilization was first discovered in...',
-    subject: 'History',
-    difficulty: 'Easy',
-    type: 'wrong',
-    date: '1 day ago',
-    exam: 'History Daily Quiz',
-  },
-  {
-    id: '3',
-    question: 'Concept of Repo Rate and its impact on inflation.',
-    subject: 'Economy',
-    difficulty: 'Hard',
-    type: 'learn',
-    date: '3 days ago',
-    note: 'Very important for UPSC Prelims. Refer to NCERT Class 12 Macroeconomics.',
-    exam: 'UPSC Prelims 2025',
-  },
-  {
-    id: '4',
-    question: 'What is the standard meridian of India?',
-    subject: 'Geography',
-    difficulty: 'Easy',
-    type: 'saved',
-    date: '4 days ago',
-    exam: 'Mains 2024',
-  },
-  {
-    id: '5',
-    question: 'Calculate the compound interest for...',
-    subject: 'Quant',
-    difficulty: 'Hard',
-    type: 'wrong',
-    date: '1 week ago',
-    exam: 'CSAT 2025',
-  },
-];
 
 const SummaryCard = ({ title, count, icon, colors, gradient, onPress, isActive }: any) => {
   const { isDark } = useTheme();
@@ -129,27 +74,29 @@ export default function LibraryScreen() {
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  const { library } = useTestStore();
+
   const filteredItems = useMemo(() => {
-    return MOCK_DATA.filter(item => {
-      const matchesSubject = selectedSubject === 'All' || item.subject === selectedSubject;
+    return library.filter(item => {
+      const matchesSubject = selectedSubject === 'All' || item.subject.toLowerCase() === selectedSubject.toLowerCase() || item.subject.toLowerCase().includes(selectedSubject.toLowerCase());
       const matchesExam = selectedExam === 'All Exams' || item.exam === selectedExam;
-      const matchesType = !selectedType || item.type === selectedType;
+      const matchesType = !selectedType || item.type.toLowerCase() === selectedType; // type is 'saved' | 'wrong' etc.
       const matchesSearch = item.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (item.exam && item.exam.toLowerCase().includes(searchQuery.toLowerCase()));
       return matchesSubject && matchesType && matchesSearch && matchesExam;
     });
-  }, [selectedSubject, selectedType, searchQuery, selectedExam]);
+  }, [selectedSubject, selectedType, searchQuery, selectedExam, library]);
 
   const stats = useMemo(() => ({
-    saved: MOCK_DATA.filter(i => i.type === 'saved').length,
-    wrong: MOCK_DATA.filter(i => i.type === 'wrong').length,
-    learn: MOCK_DATA.filter(i => i.type === 'learn').length,
-  }), []);
+    saved: library.filter(i => i.type === 'saved').length,
+    wrong: library.filter(i => i.type === 'wrong').length,
+    learn: library.filter(i => i.type === 'learn').length,
+  }), [library]);
 
   // Helper function removed in favor of getSubjectDetails utility
 
-  const renderItem = ({ item, index }: { item: KnowledgeItem, index: number }) => {
+  const renderItem = ({ item, index }: { item: LibraryItem, index: number }) => {
     const subjectDetails = getSubjectDetails(item.subject);
 
     return (
@@ -176,11 +123,12 @@ export default function LibraryScreen() {
                   <Text style={[styles.examTagText, { color: colors.textSecondary }]}>{item.exam}</Text>
                 </View>
               )}
-              <Text style={[styles.itemDate, { color: colors.textTertiary }]}>{item.date}</Text>
+              <Text style={[styles.itemDate, { color: colors.textTertiary }]}>{new Date(item.scaveTimestamp).toLocaleDateString()}</Text>
             </View>
 
             <Text style={[styles.itemQuestion, { color: colors.text }]} numberOfLines={3}>
               {item.question}
+
             </Text>
 
             {item.note && (

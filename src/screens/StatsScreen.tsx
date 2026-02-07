@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text, ScrollView, Dimensions } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
 import { LineChart } from "react-native-chart-kit";
 import { useTestStore } from '../stores/testStore';
 import { useTheme } from '../contexts/ThemeContext';
@@ -8,18 +8,7 @@ import { Card } from '../components/common/Card';
 import { Ionicons } from '@expo/vector-icons';
 
 // Mock Data
-const OVERVIEW_STATS = [
-  { label: 'Total Tests', value: '12', icon: 'clipboard-outline', color: '#007AFF' },
-  { label: 'Avg Score', value: '68%', icon: 'ribbon-outline', color: '#34C759' },
-  { label: 'Time Spent', value: '8.5h', icon: 'time-outline', color: '#FF9500' },
-  { label: 'Streak', value: '4 Days', icon: 'flame-outline', color: '#FF3B30' },
-];
-
-const MOCK_HISTORY = [
-  { id: '1', title: 'UPSC Prelims Mock 1', score: '112/200', date: 'Yesterday' },
-  { id: '2', title: 'Indian Polity Test', score: '85/100', date: '2 days ago' },
-  { id: '3', title: 'Modern History Quiz', score: '40/50', date: '4 days ago' },
-];
+// Mock Data Removed - using real data from store
 
 const StatCard = ({ label, value, icon, color }: { label: string, value: string, icon: any, color: string }) => {
   const { colors } = useTheme();
@@ -36,9 +25,36 @@ const StatCard = ({ label, value, icon, color }: { label: string, value: string,
   );
 };
 
+import { useNavigation } from '@react-navigation/native';
+
 export default function StatsScreen() {
   const { colors } = useTheme();
+  const navigation = useNavigation<any>();
   const { history } = useTestStore();
+
+  // ... (rest of the component)
+
+  // In the history map:
+  history.map((item) => (
+    <TouchableOpacity
+      key={item.id}
+      onPress={() => navigation.navigate('Results', { attemptId: item.id })}
+    >
+      <Card style={styles.historyCard}>
+        <View style={styles.historyRow}>
+          <View>
+            <Text style={[styles.historyTitle, { color: colors.text }]}>{item.testTitle}</Text>
+            <Text style={[styles.historyDate, { color: colors.textSecondary }]}>
+              {new Date(item.startTime).toLocaleDateString()}
+            </Text>
+          </View>
+          <View style={styles.scoreBadge}>
+            <Text style={styles.scoreText}>{item.score}/{item.totalMarks}</Text>
+          </View>
+        </View>
+      </Card>
+    </TouchableOpacity>
+  ))
 
   // Dynamic Stats Calculation
   const stats = React.useMemo(() => {
@@ -128,7 +144,7 @@ export default function StatsScreen() {
               <Card key={item.id} style={styles.historyCard}>
                 <View style={styles.historyRow}>
                   <View>
-                    <Text style={[styles.historyTitle, { color: colors.text }]}>Test Attempt</Text>
+                    <Text style={[styles.historyTitle, { color: colors.text }]}>{item.testTitle}</Text>
                     <Text style={[styles.historyDate, { color: colors.textSecondary }]}>
                       {new Date(item.startTime).toLocaleDateString()}
                     </Text>
@@ -231,10 +247,7 @@ const styles = StyleSheet.create({
     ...typography.callout,
     fontWeight: '700',
   },
-  historyList: {
-    gap: spacing.md,
-    paddingBottom: spacing.xl,
-  },
+  // Duplicates removed
   historyCard: {
     padding: spacing.md,
   },
@@ -243,14 +256,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  historyTitle: {
-    ...typography.body,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  historyDate: {
-    ...typography.caption1,
-  },
+  // Duplicates removed
   emptyChart: {
     width: Dimensions.get("window").width - spacing.lg * 2,
     height: 220,

@@ -31,6 +31,7 @@ interface ButtonProps extends PressableProps {
   style?: ViewStyle;
   textStyle?: TextStyle;
   fullWidth?: boolean;
+  onPress?: (event: any) => void;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);

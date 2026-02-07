@@ -14,12 +14,16 @@ import StatsScreen from '../screens/StatsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import TestInterfaceScreen from '../screens/TestInterfaceScreen';
 import ResultsScreen from '../screens/ResultsScreen';
+import SolutionsScreen from '../screens/SolutionsScreen';
 
 // Types
+import { TestAttempt } from '../types';
+
 export type RootStackParamList = {
   Main: undefined;
-  TestInterface: { testId: string };
-  Results: { attemptId: string };
+  TestInterface: { testId: string; testTitle: string };
+  Results: { attemptId?: string; result?: TestAttempt };
+  Solutions: { attemptId?: string; result?: TestAttempt };
 };
 
 export type MainTabParamList = {
@@ -112,6 +116,14 @@ export default function AppNavigator() {
         options={{
           presentation: 'modal',
           animation: 'slide_from_bottom',
+        }}
+      />
+      <Stack.Screen
+        name="Solutions"
+        component={SolutionsScreen}
+        options={{
+          headerShown: false,
+          animation: 'slide_from_right',
         }}
       />
     </Stack.Navigator>

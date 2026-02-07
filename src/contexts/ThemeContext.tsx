@@ -21,6 +21,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [themePreference, setThemePreference] = useState<ThemeType>('system');
   const [theme, setTheme] = useState<'light' | 'dark'>(systemColorScheme === 'dark' ? 'dark' : 'light');
 
+  const [isThemeLoaded, setIsThemeLoaded] = useState(false);
+
   useEffect(() => {
     loadThemePreference();
   }, []);
@@ -41,6 +43,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     } catch (error) {
       console.error('Failed to load theme preference', error);
+    } finally {
+      setIsThemeLoaded(true);
     }
   };
 
@@ -54,6 +58,10 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const activeColors = theme === 'dark' ? colors.dark : colors.light;
+
+  if (!isThemeLoaded) {
+    return null; // Or a splash screen component
+  }
 
   return (
     <ThemeContext.Provider

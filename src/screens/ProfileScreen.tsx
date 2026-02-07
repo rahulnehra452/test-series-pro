@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, View, Text, Switch, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import { spacing, typography, borderRadius } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../components/common/Card';
+import { useAuthStore } from '../stores/authStore';
+import { EditProfileModal } from '../components/profile/EditProfileModal';
 
 const MenuItem = ({ icon, label, value, onPress, isSwitch, onSwitchChange }: any) => {
   const { colors } = useTheme();
@@ -38,6 +40,8 @@ const MenuItem = ({ icon, label, value, onPress, isSwitch, onSwitchChange }: any
 
 export default function ProfileScreen() {
   const { colors, theme, setThemePreference, isDark } = useTheme();
+  const { user, logout } = useAuthStore();
+  const [modalVisible, setModalVisible] = useState(false);
 
   const toggleTheme = (value: boolean) => {
     setThemePreference(value ? 'dark' : 'light');
@@ -46,9 +50,25 @@ export default function ProfileScreen() {
   const handleLogout = () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
       { text: "Cancel", style: "cancel" },
-      { text: "Logout", style: "destructive" }
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: () => {
+          logout();
+        }
+      }
     ]);
   };
+
+  const getInitials = (name: string) => {
+    const names = name.split(' ');
+    if (names.length >= 2) {
+      return `${names[0][0]}${names[1][0]}`.toUpperCase();
+    }
+    return name[0]?.toUpperCase() || 'U';
+  };
+
+  if (!user) return null; // Should ideally redirect to login
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -58,13 +78,15 @@ export default function ProfileScreen() {
 
       <View style={styles.profileHeader}>
         <View style={[styles.avatar, { backgroundColor: colors.primaryLight }]}>
-          <Text style={styles.avatarText}>S</Text>
+          <Text style={styles.avatarText}>{getInitials(user.name)}</Text>
         </View>
-        <Text style={[styles.userName, { color: colors.text }]}>Student User</Text>
-        <Text style={[styles.userEmail, { color: colors.textSecondary }]}>student@example.com</Text>
-        <View style={[styles.planBadge, { backgroundColor: colors.primary }]}>
-          <Text style={styles.planText}>PRO MEMBER</Text>
-        </View>
+        <Text style={[styles.userName, { color: colors.text }]}>{user.name}</Text>
+        <Text style={[styles.userEmail, { color: colors.textSecondary }]}>{user.email}</Text>
+        {user.isPro && (
+          <View style={[styles.planBadge, { backgroundColor: colors.primary }]}>
+            <Text style={styles.planText}>PRO MEMBER</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.section}>
@@ -89,8 +111,8 @@ export default function ProfileScreen() {
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>ACCOUNT</Text>
         <Card style={styles.card}>
-          <MenuItem icon="person-outline" label="Edit Profile" onPress={() => { }} />
-          <MenuItem icon="card-outline" label="Subscription" value="Active" onPress={() => { }} />
+          <MenuItem icon="person-outline" label="Edit Profile" onPress={() => setModalVisible(true)} />
+          <MenuItem icon="card-outline" label="Subscription" value={user.isPro ? "Active" : "Inactive"} onPress={() => { }} />
           <MenuItem icon="help-circle-outline" label="Help & Support" onPress={() => { }} />
         </Card>
       </View>
@@ -101,6 +123,8 @@ export default function ProfileScreen() {
 
       <Text style={[styles.versionText, { color: colors.textTertiary }]}>Version 1.0.0</Text>
       <View style={{ height: 100 }} />
+
+      <EditProfileModal visible={modalVisible} onClose={() => setModalVisible(false)} />
     </ScrollView>
   );
 }

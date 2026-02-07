@@ -130,8 +130,8 @@ export default function TestsScreen() {
     return matchesCategory && matchesSearch;
   });
 
-  const handleTestPress = (testId: string) => {
-    navigation.navigate('TestInterface', { testId });
+  const handleTestPress = (testId: string, testTitle: string) => {
+    navigation.navigate('TestInterface', { testId, testTitle });
   };
 
   return (
@@ -184,7 +184,7 @@ export default function TestsScreen() {
                 duration={item.duration}
                 isPurchased={item.isPurchased}
                 price={item.price}
-                onPress={() => handleTestPress(item.id)}
+                onPress={() => handleTestPress(item.id, item.title)}
               />
             )}
             contentContainerStyle={styles.listContent}

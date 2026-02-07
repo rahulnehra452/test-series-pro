@@ -8,28 +8,56 @@ import { Card } from '../components/common/Card';
 import { Ionicons } from '@expo/vector-icons';
 
 // Mock Data
-const MOCK_RESULTS = {
-  score: 124,
-  totalMarks: 200,
-  percentage: 62,
-  rank: 156,
-  accuracy: 78,
-  timeTaken: '58m 20s',
-  correct: 62,
-  incorrect: 18,
-  unanswered: 20,
-};
+// Mock Data Removed
+
+import { useRoute } from '@react-navigation/native';
+import { useTestStore } from '../stores/testStore';
+import { TestAttempt } from '../types';
 
 export default function ResultsScreen() {
   const { colors } = useTheme();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
+  const route = useRoute();
+  const { result, attemptId } = (route.params as { result?: TestAttempt; attemptId?: string }) || {};
+  const { history } = useTestStore();
+
+  const attempt = result || history.find(h => h.id === attemptId);
+
+  if (!attempt) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: colors.text }}>Result not found</Text>
+        <Button title="Go Home" onPress={() => navigation.navigate('Main', { screen: 'Home' } as any)} />
+      </View>
+    );
+  }
+
+  const percentage = Math.round((attempt.score / attempt.totalMarks) * 100);
+  const correctCount = Object.values(attempt.answers).filter((ans, idx) => {
+    // We'd need questions to verify correctness strictly, but for now we assume score reflects it
+    // Actually, TestAttempt doesn't store 'correct' count directly. 
+    // We should probably rely on score or re-calculate if we had questions.
+    // For MVP transparency, let's just show Score and Percentage.
+    return false;
+  }).length;
+
+  // Quick stats approximations since we don't store full breakdown yet
+  const totalQuestions = attempt.totalMarks / 2; // Assuming 2 marks per question
+  const estimatedCorrect = Math.max(0, Math.floor(attempt.score / 2));
+  const estimatedWrong = totalQuestions - estimatedCorrect; // specific logic needed for negative marking
+
+  // Duration
+  const durationMs = (attempt.endTime || Date.now()) - attempt.startTime;
+  const mins = Math.floor(durationMs / 60000);
+  const secs = Math.floor((durationMs % 60000) / 1000);
+  const timeString = `${mins}m ${secs}s`;
 
   const handleHome = () => {
     (navigation as any).navigate('Main', { screen: 'Home' });
   };
 
   const handleSolutions = () => {
-    // Navigate to solutions view
+    (navigation as any).navigate('Solutions', { attemptId: attempt.id, result: attempt });
   };
 
   return (
@@ -39,26 +67,27 @@ export default function ResultsScreen() {
     >
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Test Results</Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>UPSC Prelims 2024 Complete</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{attempt.testTitle || 'Test Completed'}</Text>
       </View>
 
       <Card style={styles.scoreCard}>
         <Text style={[styles.scoreLabel, { color: colors.textSecondary }]}>Your Score</Text>
         <View style={styles.scoreContainer}>
-          <Text style={[styles.scoreValue, { color: colors.primary }]}>{MOCK_RESULTS.score}</Text>
-          <Text style={[styles.totalScore, { color: colors.textTertiary }]}>/{MOCK_RESULTS.totalMarks}</Text>
+          <Text style={[styles.scoreValue, { color: colors.primary }]}>{attempt.score}</Text>
+          <Text style={[styles.totalScore, { color: colors.textTertiary }]}>/{attempt.totalMarks}</Text>
         </View>
         <View style={styles.rankBadge}>
           <Ionicons name="trophy" size={16} color="#FFD700" />
-          <Text style={[styles.rankText, { color: colors.text }]}>Rank #{MOCK_RESULTS.rank}</Text>
+          <Text style={[styles.rankText, { color: colors.text }]}>{percentage >= 60 ? 'Great Job!' : 'Keep Practicing'}</Text>
         </View>
       </Card>
 
       <View style={styles.statsGrid}>
-        <StatBox label="Accuracy" value={`${MOCK_RESULTS.accuracy}%`} color={colors.primary} />
-        <StatBox label="Time" value={MOCK_RESULTS.timeTaken} color={colors.text} />
-        <StatBox label="Correct" value={MOCK_RESULTS.correct} color={colors.success} />
-        <StatBox label="Wrong" value={MOCK_RESULTS.incorrect} color={colors.error} />
+        <StatBox label="Percentage" value={`${percentage}%`} color={colors.primary} />
+        <StatBox label="Time" value={timeString} color={colors.text} />
+        {/* Placeholder stats as we need more data for exact counts */}
+        <StatBox label="Questions" value={Object.keys(attempt.answers).length} color={colors.success} />
+        <StatBox label="Skipped" value={totalQuestions - Object.keys(attempt.answers).length} color={colors.textSecondary} />
       </View>
 
       <Card style={styles.breakdownCard}>

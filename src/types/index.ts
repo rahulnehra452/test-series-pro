@@ -9,6 +9,7 @@ export interface User {
   avatar?: string;
   isPro: boolean;
   streak: number;
+  lastActiveDate?: string; // ISO Date string YYYY-MM-DD
 }
 
 export interface Question {
@@ -39,6 +40,7 @@ export interface TestSeries {
 export interface TestAttempt {
   id: string;
   testId: string;
+  testTitle: string;
   userId: string;
   startTime: number; // timestamp
   endTime?: number; // timestamp
@@ -50,9 +52,13 @@ export interface TestAttempt {
 }
 
 export interface LibraryItem {
-  id: string;
+  id: string; // unique ID for the library entry
   questionId: string;
-  savedAt: number;
-  type: 'Saved' | 'Wrong' | 'Correct' | 'Learn';
+  question: string;
+  subject: Subject;
+  difficulty: Difficulty;
+  type: 'saved' | 'wrong' | 'learn';
+  scaveTimestamp: number;
+  exam?: string; // Optional exam tag
   note?: string;
 }
