@@ -51,7 +51,7 @@ export default function HomeScreen() {
     // Refresh streak on mount
   }, []);
 
-  const recentActivity = history.slice(0, 3); // Get last 3 attempts
+  const recentActivity = history.slice(0, 5); // Get last 5 attempts
 
   function getTimeBasedGreeting() {
     const hour = new Date().getHours();

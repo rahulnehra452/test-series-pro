@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, View, Text, ScrollView, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../contexts/ThemeContext';
 import { spacing, typography } from '../constants/theme';
 import { Input } from '../components/common/Input';
@@ -121,6 +121,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export default function TestsScreen() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -141,7 +142,7 @@ export default function TestsScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + spacing.md }]}>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Test Series</Text>
           <Text style={[styles.headerSubtitle, { color: colors.textTertiary }]}>
             Explore and take practice tests

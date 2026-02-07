@@ -28,6 +28,9 @@ export default function StatsScreen() {
   const { colors, isDark } = useTheme();
   const navigation = useNavigation<any>();
   const { history } = useTestStore();
+  const [showAllHistory, setShowAllHistory] = React.useState(false);
+
+  const displayedHistory = showAllHistory ? history : history.slice(0, 5);
 
   const stats = React.useMemo(() => {
     const totalTests = history.length;
@@ -95,7 +98,7 @@ export default function StatsScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <FlatList
-        data={history}
+        data={displayedHistory}
         renderItem={renderHistoryItem}
         keyExtractor={item => item.id}
         showsVerticalScrollIndicator={false}
@@ -145,7 +148,16 @@ export default function StatsScreen() {
               </ScrollView>
             </View>
 
-            <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: spacing.md }]}>Test History</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Test History</Text>
+              {history.length > 5 && (
+                <TouchableOpacity onPress={() => setShowAllHistory(!showAllHistory)}>
+                  <Text style={[styles.viewAllText, { color: colors.primary }]}>
+                    {showAllHistory ? 'Show Less' : `View All (${history.length})`}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </>
         }
         ListEmptyComponent={
@@ -263,5 +275,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.md,
     ...typography.body,
-  }
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  viewAllText: {
+    ...typography.subhead,
+    fontWeight: '600',
+  },
 });

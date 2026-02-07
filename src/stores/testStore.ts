@@ -10,6 +10,8 @@ interface TestState {
   currentIndex: number;
   answers: Record<string, number>; // questionId -> optionIndex
   markedForReview: Record<string, boolean>;
+  timeSpent: Record<string, number>; // questionId -> seconds spent
+  questionVisitedAt: number | null; // timestamp when current question was visited
   timeRemaining: number;
   totalTime: number;
   endTime: number | null; // Added for robust timer
@@ -29,6 +31,7 @@ interface TestState {
   toggleTimer: () => void;
   finishTest: () => TestAttempt;
   addToLibrary: (item: Omit<LibraryItem, 'id' | 'saveTimestamp'>) => void;
+  updateLibraryItemType: (itemId: string, newType: LibraryItem['type']) => void;
   removeFromLibrary: (questionId: string, type?: LibraryItem['type']) => void;
   isQuestionInLibrary: (questionId: string, type?: LibraryItem['type']) => boolean;
   reset: () => void;
@@ -58,6 +61,8 @@ export const useTestStore = create<TestState>()(
       currentIndex: 0,
       answers: {},
       markedForReview: {},
+      timeSpent: {},
+      questionVisitedAt: null,
       timeRemaining: 0,
       totalTime: 0,
       endTime: null,
@@ -80,6 +85,8 @@ export const useTestStore = create<TestState>()(
           currentIndex: 0,
           answers: {},
           markedForReview: {},
+          timeSpent: {},
+          questionVisitedAt: now, // Start tracking first question
           isPlaying: true,
         });
       },
@@ -101,15 +108,59 @@ export const useTestStore = create<TestState>()(
         }
       })),
 
-      nextQuestion: () => set((state) => ({
-        currentIndex: Math.min(state.currentIndex + 1, state.questions.length - 1)
-      })),
+      nextQuestion: () => set((state) => {
+        const now = Date.now();
+        const newIndex = Math.min(state.currentIndex + 1, state.questions.length - 1);
+        const currentQ = state.questions[state.currentIndex];
 
-      prevQuestion: () => set((state) => ({
-        currentIndex: Math.max(state.currentIndex - 1, 0)
-      })),
+        // Accumulate time on current question before moving
+        let newTimeSpent = { ...state.timeSpent };
+        if (currentQ && state.questionVisitedAt && state.isPlaying) {
+          const elapsed = Math.floor((now - state.questionVisitedAt) / 1000);
+          newTimeSpent[currentQ.id] = (newTimeSpent[currentQ.id] || 0) + elapsed;
+        }
 
-      jumpToQuestion: (index) => set({ currentIndex: index }),
+        return {
+          currentIndex: newIndex,
+          timeSpent: newTimeSpent,
+          questionVisitedAt: now,
+        };
+      }),
+
+      prevQuestion: () => set((state) => {
+        const now = Date.now();
+        const newIndex = Math.max(state.currentIndex - 1, 0);
+        const currentQ = state.questions[state.currentIndex];
+
+        let newTimeSpent = { ...state.timeSpent };
+        if (currentQ && state.questionVisitedAt && state.isPlaying) {
+          const elapsed = Math.floor((now - state.questionVisitedAt) / 1000);
+          newTimeSpent[currentQ.id] = (newTimeSpent[currentQ.id] || 0) + elapsed;
+        }
+
+        return {
+          currentIndex: newIndex,
+          timeSpent: newTimeSpent,
+          questionVisitedAt: now,
+        };
+      }),
+
+      jumpToQuestion: (index) => set((state) => {
+        const now = Date.now();
+        const currentQ = state.questions[state.currentIndex];
+
+        let newTimeSpent = { ...state.timeSpent };
+        if (currentQ && state.questionVisitedAt && state.isPlaying) {
+          const elapsed = Math.floor((now - state.questionVisitedAt) / 1000);
+          newTimeSpent[currentQ.id] = (newTimeSpent[currentQ.id] || 0) + elapsed;
+        }
+
+        return {
+          currentIndex: index,
+          timeSpent: newTimeSpent,
+          questionVisitedAt: now,
+        };
+      }),
 
       tickTimer: () => set((state) => {
         if (!state.isPlaying || !state.endTime) return {};
@@ -136,7 +187,16 @@ export const useTestStore = create<TestState>()(
 
       finishTest: () => {
         const state = get();
+        const now = Date.now();
         const score = calculateScore(state.questions, state.answers);
+
+        // Capture time spent on the last question
+        let finalTimeSpent = { ...state.timeSpent };
+        const currentQ = state.questions[state.currentIndex];
+        if (currentQ && state.questionVisitedAt && state.isPlaying) {
+          const elapsed = Math.floor((now - state.questionVisitedAt) / 1000);
+          finalTimeSpent[currentQ.id] = (finalTimeSpent[currentQ.id] || 0) + elapsed;
+        }
 
         // Auto-add wrong answers to Library
         const newLibraryItems: LibraryItem[] = [];
@@ -154,7 +214,6 @@ export const useTestStore = create<TestState>()(
                 difficulty: q.difficulty,
                 type: 'wrong',
                 saveTimestamp: Date.now(),
-                // exam: state.currentTestId // Ideally pass exam name
               });
             }
           }
@@ -164,14 +223,15 @@ export const useTestStore = create<TestState>()(
           id: Math.random().toString(36).substr(2, 9),
           testId: state.currentTestId!,
           testTitle: state.currentTestTitle || 'Unknown Test',
-          userId: 'current-user', // Should come from auth store ideally
+          userId: 'current-user',
           startTime: state.sessionStartTime || Date.now(),
-          endTime: Date.now(),
+          endTime: now,
           score,
           totalMarks: state.questions.length * 2,
+          questions: state.questions, // Store the exact questions for this attempt
           answers: state.answers,
           markedForReview: { ...state.markedForReview },
-          timeSpent: {}, // Placeholder
+          timeSpent: finalTimeSpent,
           status: 'Completed'
         };
 
@@ -200,6 +260,12 @@ export const useTestStore = create<TestState>()(
         };
         return { library: [newItem, ...state.library] };
       }),
+
+      updateLibraryItemType: (itemId, newType) => set((state) => ({
+        library: state.library.map(item =>
+          item.id === itemId ? { ...item, type: newType } : item
+        )
+      })),
 
       removeFromLibrary: (questionId, type) => set((state) => ({
         library: state.library.filter(i => {

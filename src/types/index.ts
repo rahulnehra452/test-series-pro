@@ -46,6 +46,7 @@ export interface TestAttempt {
   endTime?: number; // timestamp
   score: number;
   totalMarks: number;
+  questions: Question[]; // Store the actual questions for this attempt
   answers: Record<string, number>; // questionId -> optionIndex
   markedForReview: Record<string, boolean>; // questionId -> marked
   timeSpent: Record<string, number>; // questionId -> seconds

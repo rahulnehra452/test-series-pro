@@ -73,19 +73,21 @@ export const CircularProgress = ({
           strokeWidth={strokeWidth}
           strokeOpacity={1}
           opacity={1}
+          fill="none"
         />
         {/* Progress Circle */}
         <AnimatedCircle
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke="url(#grad)" // Use gradient
+          stroke="url(#grad)"
           strokeWidth={strokeWidth}
           strokeDasharray={`${circumference} ${circumference}`}
           animatedProps={animatedProps}
           strokeLinecap="round"
           rotation="-90"
           origin={`${size / 2}, ${size / 2}`}
+          fill="none"
         />
       </Svg>
       <View style={styles.content}>

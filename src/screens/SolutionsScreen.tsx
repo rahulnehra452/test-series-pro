@@ -6,7 +6,6 @@ import { useTheme } from '../contexts/ThemeContext';
 import { spacing, typography, borderRadius } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useTestStore } from '../stores/testStore';
-import { getQuestionsForTest } from '../data/mockQuestions';
 import { Card } from '../components/common/Card';
 
 type FilterMode = 'all' | 'marked' | 'incorrect' | 'correct';
@@ -24,7 +23,8 @@ export default function SolutionsScreen() {
 
   const allQuestions = useMemo(() => {
     if (!attempt) return [];
-    return getQuestionsForTest(attempt.testId);
+    // Use the stored questions from the attempt for exact sync
+    return attempt.questions || [];
   }, [attempt]);
 
   const filteredQuestions = useMemo(() => {

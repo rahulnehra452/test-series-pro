@@ -89,3 +89,12 @@ export const getQuestionsForTest = (testId: string): Question[] => {
   // Return mixed/randomized default questions for others to ensure content
   return [...MOCK_QUESTIONS_POOL['default']].sort(() => Math.random() - 0.5);
 };
+
+// Get a specific question by ID
+export const getQuestionById = (questionId: string): Question | null => {
+  const allQuestions = [
+    ...MOCK_QUESTIONS_POOL['default'],
+    ...MOCK_QUESTIONS_POOL['UPSCPrelims'],
+  ];
+  return allQuestions.find(q => q.id === questionId) || null;
+};
