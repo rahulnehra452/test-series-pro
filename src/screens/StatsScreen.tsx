@@ -1,19 +1,18 @@
 import React from 'react';
-import { StyleSheet, View, Text, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, Dimensions, TouchableOpacity, FlatList } from 'react-native';
 import { LineChart } from "react-native-chart-kit";
 import { useTestStore } from '../stores/testStore';
 import { useTheme } from '../contexts/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '../constants/theme';
 import { Card } from '../components/common/Card';
 import { Ionicons } from '@expo/vector-icons';
-
-// Mock Data
-// Mock Data Removed - using real data from store
+import { useNavigation } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const StatCard = ({ label, value, icon, color }: { label: string, value: string, icon: any, color: string }) => {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   return (
-    <Card style={styles.statCard}>
+    <Card style={[styles.statCard, { backgroundColor: isDark ? colors.card : colors.background, borderColor: isDark ? colors.border : 'transparent', borderWidth: isDark ? 1 : 0 }]}>
       <View style={[styles.iconContainer, { backgroundColor: color + '20' }]}>
         <Ionicons name={icon} size={24} color={color} />
       </View>
@@ -25,48 +24,18 @@ const StatCard = ({ label, value, icon, color }: { label: string, value: string,
   );
 };
 
-import { useNavigation } from '@react-navigation/native';
-
 export default function StatsScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const navigation = useNavigation<any>();
   const { history } = useTestStore();
 
-  // ... (rest of the component)
-
-  // In the history map:
-  history.map((item) => (
-    <TouchableOpacity
-      key={item.id}
-      onPress={() => navigation.navigate('Results', { attemptId: item.id })}
-    >
-      <Card style={styles.historyCard}>
-        <View style={styles.historyRow}>
-          <View>
-            <Text style={[styles.historyTitle, { color: colors.text }]}>{item.testTitle}</Text>
-            <Text style={[styles.historyDate, { color: colors.textSecondary }]}>
-              {new Date(item.startTime).toLocaleDateString()}
-            </Text>
-          </View>
-          <View style={styles.scoreBadge}>
-            <Text style={styles.scoreText}>{item.score}/{item.totalMarks}</Text>
-          </View>
-        </View>
-      </Card>
-    </TouchableOpacity>
-  ))
-
-  // Dynamic Stats Calculation
   const stats = React.useMemo(() => {
     const totalTests = history.length;
     const avgScore = totalTests > 0
       ? (history.reduce((acc, curr) => acc + curr.score, 0) / totalTests).toFixed(1)
       : '0';
 
-    // Simple streak logic: sequential days with tests (simplified for MVP)
     const uniqueDays = new Set(history.map(h => new Date(h.startTime).toDateString())).size;
-
-    // Total duration in hours
     const totalTimeMs = history.reduce((acc, curr) => acc + (curr.endTime || 0) - curr.startTime, 0);
     const totalHours = (totalTimeMs / (1000 * 60 * 60)).toFixed(1);
 
@@ -78,101 +47,125 @@ export default function StatsScreen() {
     ];
   }, [history]);
 
-  // Chart Data
   const chartData = React.useMemo(() => {
-    const recentHistory = history.slice(0, 6).reverse(); // Last 6 tests
+    const recentHistory = history.slice(0, 6).reverse();
     if (recentHistory.length === 0) return null;
 
     return {
-      labels: recentHistory.map((_, i) => `T${i + 1}`),
+      labels: recentHistory.map(h => {
+        const date = new Date(h.startTime);
+        return `${date.getDate()}/${date.getMonth() + 1}`;
+      }),
       datasets: [{
         data: recentHistory.map(h => h.score)
       }]
     };
   }, [history]);
 
-  return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Statistics</Text>
-      </View>
-
-      <View style={styles.gridContainer}>
-        {stats.map((stat, index) => (
-          <View key={index} style={styles.gridItem}>
-            <StatCard {...stat} />
-          </View>
-        ))}
-      </View>
-
-      <View style={styles.chartSection}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Performance Trend</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chartScroll}>
-          {chartData ? (
-            <LineChart
-              data={chartData}
-              width={Dimensions.get("window").width - spacing.lg * 2}
-              height={220}
-              yAxisLabel=""
-              yAxisSuffix=""
-              chartConfig={{
-                backgroundColor: colors.background,
-                backgroundGradientFrom: colors.card,
-                backgroundGradientTo: colors.card,
-                decimalPlaces: 1,
-                color: (opacity = 1) => colors.primary,
-                labelColor: (opacity = 1) => colors.textSecondary,
-                style: { borderRadius: borderRadius.lg },
-                propsForDots: { r: "4", strokeWidth: "2", stroke: colors.primary }
-              }}
-              bezier
-              style={{ marginVertical: 8, borderRadius: borderRadius.lg }}
-            />
-          ) : (
-            <View style={[styles.emptyChart, { backgroundColor: colors.card }]}>
-              <Text style={{ color: colors.textSecondary }}>No test data available yet</Text>
-            </View>
-          )}
-        </ScrollView>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Test History</Text>
-        <View style={styles.historyList}>
-          {history.length > 0 ? (
-            history.map((item) => (
-              <Card key={item.id} style={styles.historyCard}>
-                <View style={styles.historyRow}>
-                  <View>
-                    <Text style={[styles.historyTitle, { color: colors.text }]}>{item.testTitle}</Text>
-                    <Text style={[styles.historyDate, { color: colors.textSecondary }]}>
-                      {new Date(item.startTime).toLocaleDateString()}
-                    </Text>
-                  </View>
-                  <View style={styles.scoreBadge}>
-                    <Text style={styles.scoreText}>{item.score}/{item.totalMarks}</Text>
-                  </View>
-                </View>
-              </Card>
-            ))
-          ) : (
-            <Text style={[styles.noHistoryText, { color: colors.textSecondary }]}>
-              No tests taken yet. Start a test to see history!
+  const renderHistoryItem = ({ item }: { item: any }) => (
+    <TouchableOpacity
+      key={item.id}
+      onPress={() => navigation.navigate('Results', { attemptId: item.id })}
+      activeOpacity={0.7}
+    >
+      <Card style={[styles.historyCard, { backgroundColor: colors.card }]}>
+        <View style={styles.historyRow}>
+          <View style={styles.historyInfo}>
+            <Text style={[styles.historyTitle, { color: colors.text }]} numberOfLines={1}>
+              {item.testTitle || 'Practice Test'}
             </Text>
-          )}
-        </View>
-      </View>
+            <Text style={[styles.historyDate, { color: colors.textSecondary }]}>
+              {new Date(item.startTime).toLocaleDateString()} • {new Date(item.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </Text>
+          </View>
 
-      <View style={{ height: 100 }} />
-    </ScrollView>
+          <View style={styles.scoreContainer}>
+            <View style={[styles.scoreBadge, { backgroundColor: colors.secondaryBackground }]}>
+              <Text style={[styles.scoreText, { color: colors.text }]}>
+                {item.score}/{item.totalMarks}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} style={{ marginLeft: 8 }} />
+          </View>
+        </View>
+      </Card>
+    </TouchableOpacity>
+  );
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <FlatList
+        data={history}
+        renderItem={renderHistoryItem}
+        keyExtractor={item => item.id}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        ListHeaderComponent={
+          <>
+            <View style={styles.header}>
+              <Text style={[styles.headerTitle, { color: colors.text }]}>Statistics</Text>
+            </View>
+
+            <View style={styles.gridContainer}>
+              {stats.map((stat, index) => (
+                <View key={index} style={styles.gridItem}>
+                  <StatCard {...stat} />
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.chartSection}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Performance Trend</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chartScroll}>
+                {chartData ? (
+                  <LineChart
+                    data={chartData}
+                    width={Dimensions.get("window").width - spacing.lg * 2}
+                    height={220}
+                    yAxisLabel=""
+                    yAxisSuffix=""
+                    chartConfig={{
+                      backgroundColor: colors.card,
+                      backgroundGradientFrom: colors.card,
+                      backgroundGradientTo: colors.card,
+                      decimalPlaces: 1,
+                      color: (opacity = 1) => colors.primary,
+                      labelColor: (opacity = 1) => colors.textSecondary,
+                      style: { borderRadius: borderRadius.lg },
+                      propsForDots: { r: "4", strokeWidth: "2", stroke: colors.primary }
+                    }}
+                    bezier
+                    style={{ marginVertical: 8, borderRadius: borderRadius.lg }}
+                  />
+                ) : (
+                  <View style={[styles.emptyChart, { backgroundColor: colors.card }]}>
+                    <Text style={{ color: colors.textSecondary }}>No test data available yet</Text>
+                  </View>
+                )}
+              </ScrollView>
+            </View>
+
+            <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: spacing.md }]}>Test History</Text>
+          </>
+        }
+        ListEmptyComponent={
+          <Text style={[styles.noHistoryText, { color: colors.textSecondary }]}>
+            No tests taken yet. Start a test to see history!
+          </Text>
+        }
+        ListFooterComponent={<View style={{ height: 100 }} />}
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 60,
+  },
+  scrollContent: {
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
   },
   header: {
     marginBottom: spacing.lg,
@@ -207,6 +200,7 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     ...typography.caption1,
+    marginTop: 4,
   },
   chartSection: {
     marginBottom: spacing.xl,
@@ -222,41 +216,42 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   historyList: {
-    gap: spacing.sm,
+    gap: spacing.md,
   },
-  historyItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.md,
-  },
-  historyTitle: {
-    ...typography.body,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  historyDate: {
-    ...typography.caption2,
-  },
-  scoreBadge: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-  },
-  scoreText: {
-    ...typography.callout,
-    fontWeight: '700',
-  },
-  // Duplicates removed
   historyCard: {
     padding: spacing.md,
+    // Add shadow if needed, Card component handles it usually
   },
   historyRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  // Duplicates removed
+  historyInfo: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
+  historyTitle: {
+    ...typography.body,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  historyDate: {
+    ...typography.caption2,
+  },
+  scoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  scoreBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.sm,
+  },
+  scoreText: {
+    ...typography.caption1,
+    fontWeight: '700',
+  },
   emptyChart: {
     width: Dimensions.get("window").width - spacing.lg * 2,
     height: 220,

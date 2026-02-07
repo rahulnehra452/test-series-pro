@@ -114,8 +114,9 @@ export default function AppNavigator() {
         name="Results"
         component={ResultsScreen}
         options={{
-          presentation: 'modal',
           animation: 'slide_from_bottom',
+          headerShown: false,
+          gestureEnabled: false,
         }}
       />
       <Stack.Screen

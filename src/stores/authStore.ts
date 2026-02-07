@@ -19,6 +19,7 @@ const MOCK_USER: User = {
   email: 'student@example.com',
   isPro: true,
   streak: 5,
+  lastActiveDate: '2026-02-06',
 };
 
 export const useAuthStore = create<AuthState>()(

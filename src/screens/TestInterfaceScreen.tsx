@@ -44,6 +44,8 @@ export default function TestInterfaceScreen() {
     isQuestionInLibrary,
   } = useTestStore();
 
+  const [isPaletteVisible, setPaletteVisible] = React.useState(false);
+
   useEffect(() => {
     if (testId) {
       // Only start a new test if we aren't already in this test session
@@ -193,7 +195,6 @@ export default function TestInterfaceScreen() {
     );
   };
 
-  const [isPaletteVisible, setPaletteVisible] = React.useState(false);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>

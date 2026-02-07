@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, View, Text, Switch, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../contexts/ThemeContext';
 import { spacing, typography, borderRadius } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -68,10 +69,15 @@ export default function ProfileScreen() {
     return name[0]?.toUpperCase() || 'U';
   };
 
+  const insets = useSafeAreaInsets();
+
   if (!user) return null; // Should ideally redirect to login
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      contentContainerStyle={{ paddingTop: insets.top + spacing.md }}
+    >
       <View style={styles.header}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
       </View>
@@ -132,7 +138,6 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 60,
     paddingHorizontal: spacing.lg,
   },
   header: {

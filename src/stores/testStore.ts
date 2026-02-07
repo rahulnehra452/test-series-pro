@@ -14,6 +14,7 @@ interface TestState {
   totalTime: number;
   endTime: number | null; // Added for robust timer
   isPlaying: boolean;
+  sessionStartTime: number | null;
   history: TestAttempt[];
   library: LibraryItem[];
 
@@ -27,7 +28,7 @@ interface TestState {
   tickTimer: () => void;
   toggleTimer: () => void;
   finishTest: () => TestAttempt;
-  addToLibrary: (item: Omit<LibraryItem, 'id' | 'scaveTimestamp'>) => void;
+  addToLibrary: (item: Omit<LibraryItem, 'id' | 'saveTimestamp'>) => void;
   removeFromLibrary: (questionId: string, type?: LibraryItem['type']) => void;
   isQuestionInLibrary: (questionId: string, type?: LibraryItem['type']) => boolean;
   reset: () => void;
@@ -40,10 +41,12 @@ const calculateScore = (questions: Question[], answers: Record<string, number>) 
     if (answers[q.id] === q.correctAnswer) {
       score += 2; // +2 for correct
     } else if (answers[q.id] !== undefined && answers[q.id] !== null) {
-      score -= 0.66; // -0.66 for wrong
+      score -= 0.66; // -0.66 for UPSC (Standard 1/3rd penalty approximation)
     }
   });
-  return Number(score.toFixed(2));
+  // Use Math.round to avoid floating point drift before toFixed
+  const finalScore = Number((Math.round(score * 100) / 100).toFixed(2));
+  return Math.max(0, finalScore);
 };
 
 export const useTestStore = create<TestState>()(
@@ -58,6 +61,7 @@ export const useTestStore = create<TestState>()(
       timeRemaining: 0,
       totalTime: 0,
       endTime: null,
+      sessionStartTime: null,
       isPlaying: false,
       history: [],
       library: [],
@@ -72,6 +76,7 @@ export const useTestStore = create<TestState>()(
           timeRemaining: duration * 60,
           totalTime: duration * 60,
           endTime: now + durationMs,
+          sessionStartTime: now,
           currentIndex: 0,
           answers: {},
           markedForReview: {},
@@ -115,7 +120,19 @@ export const useTestStore = create<TestState>()(
         return { timeRemaining: secondsRemaining };
       }),
 
-      toggleTimer: () => set((state) => ({ isPlaying: !state.isPlaying })),
+      toggleTimer: () => set((state) => {
+        const isNowPlaying = !state.isPlaying;
+        if (isNowPlaying) {
+          // Resuming: recalculate endTime based on current timeRemaining
+          return {
+            isPlaying: true,
+            endTime: Date.now() + state.timeRemaining * 1000
+          };
+        } else {
+          // Pausing
+          return { isPlaying: false };
+        }
+      }),
 
       finishTest: () => {
         const state = get();
@@ -136,7 +153,7 @@ export const useTestStore = create<TestState>()(
                 subject: q.subject,
                 difficulty: q.difficulty,
                 type: 'wrong',
-                scaveTimestamp: Date.now(),
+                saveTimestamp: Date.now(),
                 // exam: state.currentTestId // Ideally pass exam name
               });
             }
@@ -148,11 +165,12 @@ export const useTestStore = create<TestState>()(
           testId: state.currentTestId!,
           testTitle: state.currentTestTitle || 'Unknown Test',
           userId: 'current-user', // Should come from auth store ideally
-          startTime: Date.now() - ((state.totalTime - state.timeRemaining) * 1000),
+          startTime: state.sessionStartTime || Date.now(),
           endTime: Date.now(),
           score,
           totalMarks: state.questions.length * 2,
           answers: state.answers,
+          markedForReview: { ...state.markedForReview },
           timeSpent: {}, // Placeholder
           status: 'Completed'
         };
@@ -178,7 +196,7 @@ export const useTestStore = create<TestState>()(
         const newItem: LibraryItem = {
           ...item,
           id: Math.random().toString(36).substr(2, 9),
-          scaveTimestamp: Date.now(),
+          saveTimestamp: Date.now(),
         };
         return { library: [newItem, ...state.library] };
       }),

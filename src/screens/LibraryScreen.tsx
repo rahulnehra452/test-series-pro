@@ -123,7 +123,7 @@ export default function LibraryScreen() {
                   <Text style={[styles.examTagText, { color: colors.textSecondary }]}>{item.exam}</Text>
                 </View>
               )}
-              <Text style={[styles.itemDate, { color: colors.textTertiary }]}>{new Date(item.scaveTimestamp).toLocaleDateString()}</Text>
+              <Text style={[styles.itemDate, { color: colors.textTertiary }]}>{new Date(item.saveTimestamp).toLocaleDateString()}</Text>
             </View>
 
             <Text style={[styles.itemQuestion, { color: colors.text }]} numberOfLines={3}>
@@ -140,7 +140,7 @@ export default function LibraryScreen() {
               </View>
             )}
 
-            <View style={styles.itemFooter}>
+            <View style={[styles.itemFooter, { borderTopColor: colors.border }]}>
               <View style={styles.typeTag}>
                 <Ionicons
                   name={item.type === 'saved' ? 'bookmark' : item.type === 'wrong' ? 'close-circle' : 'bulb'}
@@ -222,87 +222,83 @@ export default function LibraryScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView
+      <FlatList
+        data={filteredItems}
+        renderItem={renderItem}
+        keyExtractor={item => item.id}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-      >
-        {/* Stats Grid */}
-        <View style={styles.statsGrid}>
-          <SummaryCard
-            title="Saved"
-            count={stats.saved}
-            icon="bookmark"
-            gradient={['#007AFF', '#00C6FF']}
-            onPress={() => setSelectedType(selectedType === 'saved' ? null : 'saved')}
-            isActive={selectedType === 'saved'}
-          />
-          <SummaryCard
-            title="Incorrect"
-            count={stats.wrong}
-            icon="close-circle"
-            gradient={['#FF3B30', '#FF9500']}
-            onPress={() => setSelectedType(selectedType === 'wrong' ? null : 'wrong')}
-            isActive={selectedType === 'wrong'}
-          />
-          <SummaryCard
-            title="Revision"
-            count={stats.learn}
-            icon="bulb"
-            gradient={['#34C759', '#30D158']}
-            onPress={() => setSelectedType(selectedType === 'learn' ? null : 'learn')}
-            isActive={selectedType === 'learn'}
-          />
-        </View>
+        ListHeaderComponent={
+          <>
+            {/* Stats Grid */}
+            <View style={styles.statsGrid}>
+              <SummaryCard
+                title="Saved"
+                count={stats.saved}
+                icon="bookmark"
+                gradient={['#007AFF', '#00C6FF']}
+                onPress={() => setSelectedType(selectedType === 'saved' ? null : 'saved')}
+                isActive={selectedType === 'saved'}
+              />
+              <SummaryCard
+                title="Incorrect"
+                count={stats.wrong}
+                icon="close-circle"
+                gradient={['#FF3B30', '#FF9500']}
+                onPress={() => setSelectedType(selectedType === 'wrong' ? null : 'wrong')}
+                isActive={selectedType === 'wrong'}
+              />
+              <SummaryCard
+                title="Revision"
+                count={stats.learn}
+                icon="bulb"
+                gradient={['#34C759', '#30D158']}
+                onPress={() => setSelectedType(selectedType === 'learn' ? null : 'learn')}
+                isActive={selectedType === 'learn'}
+              />
+            </View>
 
-        {/* Search */}
-        <View style={styles.searchSection}>
-          <Input
-            placeholder="Search saved items..."
-            leftIcon="search"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            containerStyle={styles.searchInput}
-          />
-        </View>
+            {/* Search */}
+            <View style={styles.searchSection}>
+              <Input
+                placeholder="Search saved items..."
+                leftIcon="search"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                containerStyle={styles.searchInput}
+              />
+            </View>
 
-        <View style={styles.categoryWrap}>
-          {/* Subject Chips Only - Exam Chips Moved to Modal */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.subjectList}>
-            {SUBJECTS.map(subject => (
-              <TouchableOpacity
-                key={subject}
-                onPress={() => setSelectedSubject(subject)}
-                style={[
-                  styles.subjectChip,
-                  {
-                    backgroundColor: selectedSubject === subject ? colors.primary : colors.secondaryBackground,
-                    borderColor: selectedSubject === subject ? colors.primary : colors.border
-                  }
-                ]}
-              >
-                <Text style={[
-                  styles.subjectChipText,
-                  { color: selectedSubject === subject ? '#FFF' : colors.textSecondary }
-                ]}>
-                  {subject}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Content List */}
-        <View style={styles.listSection}>
-          {filteredItems.length > 0 ? (
-            filteredItems.map((item, index) => renderItem({ item, index }))
-          ) : (
-            renderEmptyState()
-          )}
-        </View>
-
-        {/* Bottom Spacing */}
-        <View style={{ height: 100 }} />
-      </ScrollView>
+            <View style={styles.categoryWrap}>
+              {/* Subject Chips Only - Exam Chips Moved to Modal */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.subjectList}>
+                {SUBJECTS.map(subject => (
+                  <TouchableOpacity
+                    key={subject}
+                    onPress={() => setSelectedSubject(subject)}
+                    style={[
+                      styles.subjectChip,
+                      {
+                        backgroundColor: selectedSubject === subject ? colors.primary : colors.secondaryBackground,
+                        borderColor: selectedSubject === subject ? colors.primary : colors.border
+                      }
+                    ]}
+                  >
+                    <Text style={[
+                      styles.subjectChipText,
+                      { color: selectedSubject === subject ? '#FFF' : colors.textSecondary }
+                    ]}>
+                      {subject}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </>
+        }
+        ListEmptyComponent={renderEmptyState()}
+        ListFooterComponent={<View style={{ height: 100 }} />}
+      />
 
       {/* Filter Modal */}
       <Modal
@@ -318,7 +314,7 @@ export default function LibraryScreen() {
         >
           <TouchableWithoutFeedback>
             <View style={[styles.modalContent, { backgroundColor: isDark ? '#1C1C1E' : '#FFF', paddingBottom: insets.bottom + 20 }]}>
-              <View style={styles.modalHeader}>
+              <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                 <Text style={[styles.modalTitle, { color: colors.text }]}>Filter by Exam</Text>
                 <TouchableOpacity
                   onPress={() => setModalVisible(false)}
@@ -564,7 +560,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   modalTitle: {
     fontSize: 18,
@@ -598,7 +593,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 12,
     borderTopWidth: 0.5,
-    borderTopColor: 'rgba(0,0,0,0.05)',
   },
   typeTag: {
     flexDirection: 'row',

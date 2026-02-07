@@ -1,128 +1,266 @@
-import React from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import React, { useMemo, useEffect } from 'react';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Platform, Alert } from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+
 import { useTheme } from '../contexts/ThemeContext';
-import { borderRadius, spacing, typography, shadows } from '../constants/theme';
+import { borderRadius, spacing, typography } from '../constants/theme';
 import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
 import { Ionicons } from '@expo/vector-icons';
-
-// Mock Data
-// Mock Data Removed
-
-import { useRoute } from '@react-navigation/native';
 import { useTestStore } from '../stores/testStore';
 import { TestAttempt } from '../types';
+import { getQuestionsForTest } from '../data/mockQuestions';
+import { CircularProgress } from '../components/common/CircularProgress';
 
 export default function ResultsScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const route = useRoute();
   const { result, attemptId } = (route.params as { result?: TestAttempt; attemptId?: string }) || {};
   const { history } = useTestStore();
 
   const attempt = result || history.find(h => h.id === attemptId);
 
-  if (!attempt) {
+  // Re-fetch calculations
+  const questions = useMemo(() => {
+    if (!attempt) return [];
+    return getQuestionsForTest(attempt.testId);
+  }, [attempt]);
+
+  const stats = useMemo(() => {
+    if (!attempt || !questions.length) return null;
+    let correct = 0;
+    let incorrect = 0;
+    let skipped = 0;
+    let attempted = 0;
+
+    questions.forEach(q => {
+      const userAnswer = attempt.answers[q.id];
+      const hasAnswer = userAnswer !== undefined && userAnswer !== null;
+
+      if (hasAnswer) {
+        attempted++;
+        if (userAnswer === q.correctAnswer) correct++;
+        else incorrect++;
+      } else {
+        skipped++;
+      }
+    });
+
+    // Fallback if skipped calc is missed (e.g. if answer map is smaller than question list)
+    // Actually, skipped should be total - attempted
+    skipped = questions.length - attempted;
+
+    return { correct, incorrect, skipped, attempted, total: questions.length };
+  }, [attempt, questions]);
+
+  // Haptics
+  useEffect(() => {
+    if (attempt) {
+      const percentage = Math.round((attempt.score / attempt.totalMarks) * 100);
+      Haptics.notificationAsync(
+        percentage >= 70 ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning
+      );
+    }
+  }, [attempt]);
+
+  if (!attempt || !stats) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }]}>
         <Text style={{ color: colors.text }}>Result not found</Text>
         <Button title="Go Home" onPress={() => navigation.navigate('Main', { screen: 'Home' } as any)} />
       </View>
     );
   }
 
-  const percentage = Math.round((attempt.score / attempt.totalMarks) * 100);
-  const correctCount = Object.values(attempt.answers).filter((ans, idx) => {
-    // We'd need questions to verify correctness strictly, but for now we assume score reflects it
-    // Actually, TestAttempt doesn't store 'correct' count directly. 
-    // We should probably rely on score or re-calculate if we had questions.
-    // For MVP transparency, let's just show Score and Percentage.
-    return false;
-  }).length;
+  // Accuracy Calculation: Correct / Attempted
+  const accuracy = stats.attempted > 0
+    ? Math.round((stats.correct / stats.attempted) * 100)
+    : 0;
 
-  // Quick stats approximations since we don't store full breakdown yet
-  const totalQuestions = attempt.totalMarks / 2; // Assuming 2 marks per question
-  const estimatedCorrect = Math.max(0, Math.floor(attempt.score / 2));
-  const estimatedWrong = totalQuestions - estimatedCorrect; // specific logic needed for negative marking
+  // Progress Ring Calculation (Based on Score % or Correct %?) 
+  // User asked: "Ring should show: (correctCount / totalQuestions) * 100"
+  // But wait, score might differ from correct count due to negative marking.
+  // Visual fill is usually Score %. But user emphasized "with 0 correct... should show 0%".
+  // Let's use Score / Total Marks, but clamped to 0.
+  const scorePercentage = Math.max(0, (attempt.score / attempt.totalMarks) * 100);
 
-  // Duration
+  // Time String
   const durationMs = (attempt.endTime || Date.now()) - attempt.startTime;
   const mins = Math.floor(durationMs / 60000);
   const secs = Math.floor((durationMs % 60000) / 1000);
-  const timeString = `${mins}m ${secs}s`;
+  const timeString = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
 
-  const handleHome = () => {
-    (navigation as any).navigate('Main', { screen: 'Home' });
+  // Messaging Logic
+  const getMessage = () => {
+    if (scorePercentage < 30) return { text: "Review & Learn 📚", color: colors.error };
+    if (scorePercentage < 50) return { text: "Keep Practicing 💪", color: colors.warning };
+    if (scorePercentage < 70) return { text: "Good Progress 📈", color: colors.primary };
+    return { text: "Excellent Work! 🎉", color: colors.success };
+  };
+  const message = getMessage();
+
+  const handleSolutions = () => navigation.navigate('Solutions', { attemptId: attempt.id });
+
+  const handleRetry = () => {
+    Alert.alert(
+      "Retry Test",
+      "Are you sure? Your current results for this attempt will be discarded.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Retry", style: "destructive", onPress: () => navigation.replace('TestInterface', { testId: attempt.testId, title: attempt.testTitle }) }
+      ]
+    );
   };
 
-  const handleSolutions = () => {
-    (navigation as any).navigate('Solutions', { attemptId: attempt.id, result: attempt });
-  };
+  const handleHome = () => navigation.navigate('Main', { screen: 'Home' });
+
+  // Timestamp
+  const timeAgo = new Date(attempt.endTime || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}
-    >
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Test Results</Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{attempt.testTitle || 'Test Completed'}</Text>
-      </View>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
 
-      <Card style={styles.scoreCard}>
-        <Text style={[styles.scoreLabel, { color: colors.textSecondary }]}>Your Score</Text>
-        <View style={styles.scoreContainer}>
-          <Text style={[styles.scoreValue, { color: colors.primary }]}>{attempt.score}</Text>
-          <Text style={[styles.totalScore, { color: colors.textTertiary }]}>/{attempt.totalMarks}</Text>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + (Platform.OS === 'android' ? 60 : 20) }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header with Back Button */}
+        <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.header}>
+          <TouchableOpacity onPress={handleHome} style={styles.backBtn}>
+            <Ionicons name="chevron-back" size={24} color={colors.text} />
+          </TouchableOpacity>
+          <View style={styles.headerTextContainer}>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>Test Results</Text>
+            <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+              {attempt.testTitle} • {stats.attempted} of {stats.total} attempted
+            </Text>
+          </View>
+        </Animated.View>
+
+        {/* Hero Section */}
+        <Animated.View entering={FadeInDown.delay(300).springify()} style={styles.heroSection}>
+          <CircularProgress
+            score={Math.max(0, attempt.score)}
+            total={attempt.totalMarks}
+            size={220}
+            strokeWidth={20}
+          />
+
+          {/* Motivator Badge */}
+          <View style={[styles.motivationalContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : colors.secondaryBackground }]}>
+            <Text style={[styles.motivationalText, { color: message.color }]}>
+              {message.text}
+            </Text>
+          </View>
+
+          <Text style={[styles.timestamp, { color: colors.textTertiary }]}>
+            Completed at {timeAgo}
+          </Text>
+        </Animated.View>
+
+        {/* Stats Grid - Reordered */}
+        <View style={styles.gridContainer}>
+          {/* Row 1: Correct, Wrong, Skipped */}
+          <View style={styles.row}>
+            <BentoCard
+              label="Correct"
+              value={stats.correct}
+              icon="checkmark-circle"
+              color={colors.success}
+              delay={400}
+              flex={1}
+            />
+            <BentoCard
+              label="Wrong"
+              value={stats.incorrect}
+              icon="close-circle"
+              color={colors.error}
+              delay={500}
+              flex={1}
+            />
+            <BentoCard
+              label="Skipped"
+              value={stats.skipped}
+              icon="help-circle"
+              color={colors.textTertiary}
+              delay={600}
+              flex={1}
+            />
+          </View>
+
+          {/* Row 2: Combined Time & Accuracy */}
+          <Animated.View entering={FadeInDown.delay(700).springify()}>
+            <Card style={[styles.combinedCard]} padding={spacing.md}>
+              <View style={styles.statItem}>
+                <Ionicons name="time" size={20} color={colors.primary} />
+                <View style={{ marginLeft: 8 }}>
+                  <Text style={[styles.statValue, { color: colors.text }]}>{timeString}</Text>
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Time Taken</Text>
+                </View>
+              </View>
+
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+              <View style={styles.statItem}>
+                <Ionicons name="stats-chart" size={20} color={colors.warning} />
+                <View style={{ marginLeft: 8 }}>
+                  <Text style={[styles.statValue, { color: colors.text }]}>{accuracy}%</Text>
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Accuracy</Text>
+                </View>
+              </View>
+            </Card>
+          </Animated.View>
         </View>
-        <View style={styles.rankBadge}>
-          <Ionicons name="trophy" size={16} color="#FFD700" />
-          <Text style={[styles.rankText, { color: colors.text }]}>{percentage >= 60 ? 'Great Job!' : 'Keep Practicing'}</Text>
-        </View>
-      </Card>
 
-      <View style={styles.statsGrid}>
-        <StatBox label="Percentage" value={`${percentage}%`} color={colors.primary} />
-        <StatBox label="Time" value={timeString} color={colors.text} />
-        {/* Placeholder stats as we need more data for exact counts */}
-        <StatBox label="Questions" value={Object.keys(attempt.answers).length} color={colors.success} />
-        <StatBox label="Skipped" value={totalQuestions - Object.keys(attempt.answers).length} color={colors.textSecondary} />
-      </View>
+        {/* Actions */}
+        <Animated.View entering={FadeInUp.delay(900).springify()} style={styles.actionsContainer}>
+          <Button
+            title="Review Solutions"
+            onPress={handleSolutions}
+            variant="primary"
+            fullWidth
+            style={styles.primaryBtn}
+            leftIcon={<Ionicons name="book-outline" size={20} color="#FFF" />}
+          />
 
-      <Card style={styles.breakdownCard}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>Subject Breakdown</Text>
-        <View style={styles.placeholderChart}>
-          <Text style={{ color: colors.textTertiary }}>Chart Placeholder</Text>
-        </View>
-      </Card>
+          <View style={styles.secondaryActions}>
+            <Button
+              title="Retry Test"
+              onPress={handleRetry}
+              variant="outline"
+              style={{ flex: 1, marginRight: 8, borderColor: colors.primary }}
+              textStyle={{ color: colors.primary }}
+            />
+            <Button
+              title="Home"
+              onPress={handleHome}
+              variant="outline"
+              style={{ flex: 1, borderColor: colors.border }}
+              textStyle={{ color: colors.text }}
+            />
+          </View>
+        </Animated.View>
 
-      <View style={styles.actions}>
-        <Button
-          title="View Solutions"
-          variant="secondary"
-          onPress={handleSolutions}
-          fullWidth
-          style={{ marginBottom: spacing.md }}
-        />
-        <Button
-          title="Return to Home"
-          variant="primary"
-          onPress={handleHome}
-          fullWidth
-        />
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
-const StatBox = ({ label, value, color }: { label: string, value: string | number, color: string }) => {
+const BentoCard = ({ label, value, icon, color, delay, flex }: any) => {
   const { colors } = useTheme();
   return (
-    <View style={[styles.statBox, { backgroundColor: colors.secondaryBackground }]}>
-      <Text style={[styles.statBoxValue, { color }]}>{value}</Text>
-      <Text style={[styles.statBoxLabel, { color: colors.textSecondary }]}>{label}</Text>
-    </View>
+    <Animated.View entering={FadeInDown.delay(delay).springify()} style={{ flex }}>
+      <Card style={styles.bentoCardContent} padding={spacing.sm}>
+        <Ionicons name={icon} size={24} color={color} style={{ marginBottom: 4 }} />
+        <Text style={[styles.cardValue, { color: colors.text }]}>{value}</Text>
+        <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>{label}</Text>
+      </Card>
+    </Animated.View>
   );
 };
 
@@ -132,97 +270,115 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    paddingTop: 60,
     paddingBottom: 100,
   },
   header: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.xl,
-  },
-  title: {
-    ...typography.title2,
-    marginBottom: spacing.xs,
-  },
-  subtitle: {
-    ...typography.body,
-  },
-  scoreCard: {
-    alignItems: 'center',
-    padding: spacing.xl,
     marginBottom: spacing.lg,
   },
-  scoreLabel: {
-    ...typography.subhead,
-    marginBottom: spacing.xs,
+  backBtn: {
+    padding: 8,
+    marginRight: 8,
+    marginLeft: -8,
   },
-  scoreContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: spacing.md,
-  },
-  scoreValue: {
-    ...typography.largeTitle,
-    fontSize: 48,
-    fontWeight: '800',
-  },
-  totalScore: {
-    ...typography.title3,
-    marginLeft: 4,
-  },
-  rankBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 215, 0, 0.2)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-    gap: spacing.xs,
-  },
-  rankText: {
-    ...typography.caption1,
-    fontWeight: '700',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  statBox: {
+  headerTextContainer: {
     flex: 1,
-    minWidth: '40%',
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    marginRight: 32, // Balance out back button
+  },
+  headerTitle: {
+    ...typography.headline,
+    fontWeight: '700',
+  },
+  headerSubtitle: {
+    ...typography.caption1,
+    marginTop: 2,
+  },
+  heroSection: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+  },
+  motivationalContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginTop: spacing.lg,
+  },
+  motivationalText: {
+    ...typography.subhead,
+    fontWeight: '700',
+  },
+  timestamp: {
+    ...typography.caption2,
+    marginTop: 8,
+  },
+  gridContainer: {
+    gap: spacing.md,
+    marginBottom: spacing.xl,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  bentoCardContent: {
+    height: 100,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  statBoxValue: {
-    ...typography.title3,
+  cardValue: {
+    ...typography.title2,
     fontWeight: '700',
-    marginBottom: 4,
   },
-  statBoxLabel: {
+  cardLabel: {
     ...typography.caption2,
-  },
-  breakdownCard: {
-    marginBottom: spacing.xl,
-    minHeight: 200,
-  },
-  cardTitle: {
-    ...typography.headline,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
     fontWeight: '600',
-    marginBottom: spacing.md,
+    marginTop: 2,
   },
-  placeholderChart: {
+  combinedCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  divider: {
+    width: 1,
+    height: 30,
+  },
+  statValue: {
+    ...typography.subhead,
+    fontWeight: '700',
+  },
+  statLabel: {
+    ...typography.caption2,
+    fontWeight: '500',
+  },
+  actionsContainer: {
+    gap: spacing.md,
+  },
+  primaryBtn: {
+    height: 52,
+    borderRadius: borderRadius.lg,
+  },
+  secondaryActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  textBtn: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-    borderStyle: 'dashed',
-    borderRadius: borderRadius.md,
-    minHeight: 150,
+    height: 48,
   },
-  actions: {
-    marginTop: 'auto',
+  textBtnTitle: {
+    ...typography.body,
+    fontWeight: '600',
   },
 });

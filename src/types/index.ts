@@ -47,6 +47,7 @@ export interface TestAttempt {
   score: number;
   totalMarks: number;
   answers: Record<string, number>; // questionId -> optionIndex
+  markedForReview: Record<string, boolean>; // questionId -> marked
   timeSpent: Record<string, number>; // questionId -> seconds
   status: 'In Progress' | 'Completed' | 'Abandoned';
 }
@@ -58,7 +59,7 @@ export interface LibraryItem {
   subject: Subject;
   difficulty: Difficulty;
   type: 'saved' | 'wrong' | 'learn';
-  scaveTimestamp: number;
+  saveTimestamp: number;
   exam?: string; // Optional exam tag
   note?: string;
 }
