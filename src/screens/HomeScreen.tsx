@@ -60,9 +60,21 @@ export default function HomeScreen() {
     return 'Good evening';
   }
 
+  // Find latest in-progress test
+  const currentAttempt = history
+    .filter(h => h.status === 'In Progress')
+    .sort((a, b) => b.startTime - a.startTime)[0];
+
   const handleContinue = () => {
-    // Navigate to specific test or series
-    navigation.navigate('Main', { screen: 'Tests' } as any);
+    if (currentAttempt) {
+      navigation.navigate('TestInterface', {
+        testId: currentAttempt.testId,
+        testTitle: currentAttempt.testTitle
+      });
+    } else {
+      // Navigate to Tests screen
+      navigation.navigate('Main', { screen: 'Tests' } as any);
+    }
   };
 
   return (
@@ -97,10 +109,14 @@ export default function HomeScreen() {
 
       {/* Continue Learning */}
       <ContinueLearning
-        title={MOCK_PROGESS.title}
-        progress={MOCK_PROGESS.progress}
-        totalTests={MOCK_PROGESS.totalTests}
-        completedTests={MOCK_PROGESS.completedTests}
+        title={currentAttempt ? currentAttempt.testTitle : MOCK_PROGESS.title}
+        subtitle={currentAttempt
+          ? `Question ${(currentAttempt.currentIndex || 0) + 1} of ${currentAttempt.questions.length || '?'} • Resume`
+          : `${MOCK_PROGESS.completedTests} of ${MOCK_PROGESS.totalTests} tests completed`}
+        progress={currentAttempt
+          ? ((currentAttempt.currentIndex || 0) / (currentAttempt.questions.length || 1))
+          : MOCK_PROGESS.progress}
+        buttonText={currentAttempt ? "Resume Test" : "Continue Series"}
         onPress={handleContinue}
       />
 

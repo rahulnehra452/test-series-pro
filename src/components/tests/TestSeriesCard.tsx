@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { borderRadius, spacing, typography } from '../../constants/theme';
 import { Card } from '../common/Card';
+import { TestAttempt } from '../../types';
 
 interface TestSeriesCardProps {
   title: string;
@@ -16,6 +17,7 @@ interface TestSeriesCardProps {
   isPurchased: boolean;
   price?: string;
   onPress: () => void;
+  activeAttempt?: TestAttempt;
 }
 
 export const TestSeriesCard: React.FC<TestSeriesCardProps> = ({
@@ -29,6 +31,7 @@ export const TestSeriesCard: React.FC<TestSeriesCardProps> = ({
   isPurchased,
   price,
   onPress,
+  activeAttempt,
 }) => {
   const { colors } = useTheme();
 
@@ -71,8 +74,20 @@ export const TestSeriesCard: React.FC<TestSeriesCardProps> = ({
         </View>
 
         <View style={styles.footer}>
-          {isPurchased ? (
-            <Text style={[styles.statusText, { color: colors.success }]}>Purchased</Text>
+          {activeAttempt ? (
+            <View style={styles.resumeContainer}>
+              <View style={styles.resumeInfo}>
+                <Text style={[styles.resumeText, { color: colors.primary }]}>Resume Test</Text>
+                <Text style={[styles.resumeSubtext, { color: colors.textSecondary }]}>
+                  Q{(activeAttempt.currentIndex || 0) + 1} • {Math.floor((activeAttempt.timeRemaining || 0) / 60)}m left
+                </Text>
+              </View>
+              <View style={[styles.resumeButton, { backgroundColor: colors.primary }]}>
+                <Ionicons name="play" size={16} color="#FFF" />
+              </View>
+            </View>
+          ) : isPurchased ? (
+            <Text style={[styles.statusText, { color: colors.success }]}>Start Test</Text>
           ) : (
             <Text style={[styles.priceText, { color: colors.primary }]}>{price}</Text>
           )}
@@ -95,16 +110,15 @@ const StatItem = ({ label, value }: { label: string; value: number }) => {
 const styles = StyleSheet.create({
   container: {
     marginBottom: spacing.base,
-    padding: spacing.lg, // Increased padding
-    borderWidth: 1, // Added border
-    borderColor: '#E5E5EA', // Light border
-    minHeight: 180, // Consistent height
+    padding: spacing.lg,
+    borderWidth: 1,
+    minHeight: 180,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: spacing.md, // Increased spacing
+    marginBottom: spacing.md,
   },
   badges: {
     flexDirection: 'row',
@@ -129,17 +143,17 @@ const styles = StyleSheet.create({
   title: {
     ...typography.headline,
     fontWeight: '700',
-    marginBottom: 6, // Adjusted spacing
+    marginBottom: 6,
   },
   description: {
     ...typography.subhead,
-    marginBottom: spacing.lg, // Increased spacing
+    marginBottom: spacing.lg,
     lineHeight: 20,
   },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: spacing.md, // Increased padding
+    paddingVertical: spacing.md,
     borderTopWidth: 1,
     borderBottomWidth: 1,
     marginBottom: spacing.md,
@@ -168,5 +182,35 @@ const styles = StyleSheet.create({
   priceText: {
     ...typography.headline,
     fontWeight: '700',
+  },
+  resumeContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(0,0,0,0.03)',
+    borderRadius: borderRadius.sm,
+    padding: spacing.xs,
+    paddingHorizontal: spacing.sm,
+  },
+  resumeInfo: {
+    flex: 1,
+  },
+  resumeText: {
+    ...typography.caption1,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  resumeSubtext: {
+    fontSize: 10,
+    fontWeight: '500',
+  },
+  resumeButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: spacing.sm,
   },
 });

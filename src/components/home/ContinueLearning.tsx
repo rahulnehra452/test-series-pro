@@ -9,16 +9,16 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 interface ContinueLearningProps {
   title: string;
   progress: number;
-  totalTests: number;
-  completedTests: number;
+  subtitle: string;
+  buttonText?: string;
   onPress: () => void;
 }
 
 export const ContinueLearning: React.FC<ContinueLearningProps> = ({
   title,
   progress,
-  totalTests,
-  completedTests,
+  subtitle,
+  buttonText = "Continue",
   onPress,
 }) => {
   const { colors } = useTheme();
@@ -34,7 +34,7 @@ export const ContinueLearning: React.FC<ContinueLearningProps> = ({
           <View style={{ flex: 1 }}>
             <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
             <Text style={[styles.subtitle, { color: colors.textTertiary }]}>
-              {completedTests} of {totalTests} tests completed
+              {subtitle}
             </Text>
           </View>
           <View style={[styles.progressCircle, { borderColor: colors.secondaryBackground }]}>
@@ -55,7 +55,7 @@ export const ContinueLearning: React.FC<ContinueLearningProps> = ({
         </View>
 
         <Button
-          title="Continue"
+          title={buttonText}
           onPress={onPress}
           style={styles.button}
           fullWidth

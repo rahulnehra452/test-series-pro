@@ -1,199 +1,134 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
+import { StyleSheet, View, Text, FlatList, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
-import { spacing, typography } from '../constants/theme';
+import { borderRadius, spacing, typography } from '../constants/theme';
 import { Input } from '../components/common/Input';
-// Removed FlashList due to installation issues
-// import { FlashList } from '@shopify/flash-list';
-
-// Components
-import { CategoryPill } from '../components/tests/CategoryPill';
 import { TestSeriesCard } from '../components/tests/TestSeriesCard';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { CategoryPill } from '../components/common/CategoryPill';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { useTestStore } from '../stores/testStore';
 
 // Mock Data
 const CATEGORIES = ['All', 'UPSC', 'SSC', 'Banking', 'Railways', 'State PCS'];
-
-const MOCK_TEST_SERIES = [
+export const MOCK_TEST_SERIES = [
   {
-    id: '1',
-    title: 'UPSC Prelims 2024 Complete',
-    description: 'Comprehensive test series covering all subjects for UPSC Prelims',
+    id: 'upsc-pre-2024',
+    title: 'UPSC Prelims 2024 Test Series',
+    description: 'Comprehensive test series for UPSC CSE Prelims 2024 including GS and CSAT papers.',
     category: 'UPSC',
     difficulty: 'Hard' as const,
     totalTests: 30,
-    totalQuestions: 3000,
+    totalQuestions: 100,
     duration: 120,
     isPurchased: true,
-    price: '₹2999',
   },
   {
-    id: '2',
-    title: 'SSC CGL Tier 1 Practice',
-    description: 'Full-length mock tests for SSC CGL Tier 1 examination',
+    id: 'ssc-cgl-tier1',
+    title: 'SSC CGL Tier I Full Length Mocks',
+    description: 'Based on latest pattern. Includes previous year questions.',
     category: 'SSC',
     difficulty: 'Medium' as const,
     totalTests: 20,
-    totalQuestions: 2000,
+    totalQuestions: 100,
     duration: 60,
-    isPurchased: true,
-    price: '₹999',
-  },
-  {
-    id: '3',
-    title: 'Banking Awareness Complete',
-    description: 'Essential banking awareness questions for IBPS/SBI exams',
-    category: 'Banking',
-    difficulty: 'Easy' as const,
-    totalTests: 15,
-    totalQuestions: 750,
-    duration: 30,
-    isPurchased: true,
+    isPurchased: false,
     price: '₹499',
   },
-  // ... existing tests ...
   {
-    id: '4',
-    title: 'RRB NTPC CBT-2 Mock',
-    description: 'High-yield mock test for Railway Recruitment Board exams',
-    category: 'Railways',
-    difficulty: 'Medium' as const,
-    totalTests: 12,
-    totalQuestions: 1440,
-    duration: 90,
+    id: 'sbi-po-pre',
+    title: 'SBI PO Prelims 2024',
+    description: 'High level puzzles and DI questions for SBI PO preparation.',
+    category: 'Banking',
+    difficulty: 'Hard' as const,
+    totalTests: 15,
+    totalQuestions: 100,
+    duration: 60,
     isPurchased: false,
     price: '₹399',
   },
   {
-    id: '5',
-    title: 'UPPSC Prelims 2024',
-    description: 'Full syllabus coverage for Uttar Pradesh Public Service Commission',
-    category: 'State PCS',
-    difficulty: 'Hard' as const,
-    totalTests: 25,
-    totalQuestions: 3750,
-    duration: 120,
-    isPurchased: true,
-    price: '₹1499',
-  },
-  {
-    id: '6',
-    title: 'RBI Grade B Phase 1',
-    description: 'Specialized test series for RBI Grade B officers exam',
-    category: 'Banking',
-    difficulty: 'Hard' as const,
+    id: 'rrb-ntpc',
+    title: 'RRB NTPC CBT 2',
+    description: 'Focus on General Awareness and Mathematics.',
+    category: 'Railways',
+    difficulty: 'Medium' as const,
     totalTests: 10,
-    totalQuestions: 2000,
-    duration: 120,
-    isPurchased: false,
-    price: '₹1999',
-  },
-  {
-    id: '7',
-    title: 'SSC CHSL Tier 1',
-    description: 'Targeted practice for Combined Higher Secondary Level exam',
-    category: 'SSC',
-    difficulty: 'Medium' as const,
-    totalTests: 15,
-    totalQuestions: 1500,
-    duration: 60,
+    totalQuestions: 120,
+    duration: 90,
     isPurchased: true,
-    price: '₹699',
-  },
-  {
-    id: '8',
-    title: 'CSAT Compendium',
-    description: 'Dedicated tests for UPSC Paper II (CSAT)',
-    category: 'UPSC',
-    difficulty: 'Medium' as const,
-    totalTests: 8,
-    totalQuestions: 640,
-    duration: 120,
-    isPurchased: true,
-    price: '₹999',
   },
 ];
-
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export default function TestsScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<NavigationProp>();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const { history } = useTestStore();
 
   const filteredTests = MOCK_TEST_SERIES.filter((test) => {
-    const matchesCategory = selectedCategory === 'All' || test.category === CATEGORIES.find(c => c === selectedCategory);
+    const matchesCategory = selectedCategory === 'All' || test.category === selectedCategory;
     const matchesSearch = test.title.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
-  const handleTestPress = (testId: string, testTitle: string) => {
-    navigation.navigate('TestInterface', { testId, testTitle });
+  const handleTestPress = (id: string, title: string) => {
+    // Navigate to TestInterface directly for now as per mock flow
+    navigation.navigate('TestInterface', { testId: id, testTitle: title });
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-      >
-        <View style={[styles.header, { paddingTop: insets.top + spacing.md }]}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Test Series</Text>
-          <Text style={[styles.headerSubtitle, { color: colors.textTertiary }]}>
-            Explore and take practice tests
-          </Text>
-        </View>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: colors.text }]}>Test Series</Text>
+        <Input
+          placeholder="Search tests..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          leftIcon="search"
+          containerStyle={styles.searchBar}
+        />
 
-        <View style={styles.searchContainer}>
-          <Input
-            placeholder="Search test series..."
-            leftIcon="search"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
+        <FlatList
+          horizontal
+          data={CATEGORIES}
+          keyExtractor={(item) => item}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoriesList}
+          renderItem={({ item }) => (
+            <CategoryPill
+              label={item}
+              isSelected={selectedCategory === item}
+              onPress={() => setSelectedCategory(item)}
+            />
+          )}
+        />
+      </View>
+
+      <FlatList
+        data={filteredTests}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <TestSeriesCard
+            title={item.title}
+            description={item.description}
+            category={item.category}
+            difficulty={item.difficulty}
+            totalTests={item.totalTests}
+            totalQuestions={item.totalQuestions}
+            duration={item.duration}
+            isPurchased={item.isPurchased}
+            price={item.price}
+            onPress={() => handleTestPress(item.id, item.title)}
+            activeAttempt={history.find(h => h.testId === item.id && h.status === 'In Progress')}
           />
-        </View>
-
-        <View style={styles.categoriesContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesContent}>
-            {CATEGORIES.map((cat) => (
-              <CategoryPill
-                key={cat}
-                label={cat}
-                isActive={selectedCategory === cat}
-                onPress={() => setSelectedCategory(cat)}
-              />
-            ))}
-          </ScrollView>
-        </View>
-
-        <View style={styles.listContainer}>
-          <FlatList
-            data={filteredTests}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <TestSeriesCard
-                title={item.title}
-                description={item.description}
-                category={item.category}
-                difficulty={item.difficulty}
-                totalTests={item.totalTests}
-                totalQuestions={item.totalQuestions}
-                duration={item.duration}
-                isPurchased={item.isPurchased}
-                price={item.price}
-                onPress={() => handleTestPress(item.id, item.title)}
-              />
-            )}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-          />
-        </View>
-      </KeyboardAvoidingView>
+        )}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+      />
     </View>
   );
 }
@@ -204,30 +139,21 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: spacing.lg,
-    marginBottom: spacing.md,
+    paddingBottom: spacing.md,
   },
-  headerTitle: {
+  title: {
     ...typography.largeTitle,
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    ...typography.body,
-  },
-  searchContainer: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
-  },
-  categoriesContainer: {
+    fontWeight: '700',
     marginBottom: spacing.md,
   },
-  categoriesContent: {
-    paddingHorizontal: spacing.lg,
+  searchBar: {
+    marginBottom: spacing.md,
   },
-  listContainer: {
-    flex: 1,
+  categoriesList: {
+    paddingRight: spacing.lg,
   },
   listContent: {
-    paddingHorizontal: spacing.base,
-    paddingBottom: 100,
+    padding: spacing.lg,
+    paddingTop: 0,
   },
 });

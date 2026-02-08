@@ -51,6 +51,8 @@ export interface TestAttempt {
   markedForReview: Record<string, boolean>; // questionId -> marked
   timeSpent: Record<string, number>; // questionId -> seconds
   status: 'In Progress' | 'Completed' | 'Abandoned';
+  currentIndex?: number; // For resuming
+  timeRemaining?: number; // For resuming
 }
 
 export interface LibraryItem {

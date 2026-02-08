@@ -35,6 +35,7 @@ interface TestState {
   removeFromLibrary: (questionId: string, type?: LibraryItem['type']) => void;
   isQuestionInLibrary: (questionId: string, type?: LibraryItem['type']) => boolean;
   reset: () => void;
+  saveProgress: () => void;
 }
 
 // Helper to calculate score
@@ -71,7 +72,84 @@ export const useTestStore = create<TestState>()(
       history: [],
       library: [],
 
+      saveProgress: () => set((state) => {
+        if (!state.currentTestId) return {};
+
+        const now = Date.now();
+
+        // Calculate pending time
+        let finalTimeSpent = { ...state.timeSpent };
+        const currentQ = state.questions[state.currentIndex];
+        if (currentQ && state.questionVisitedAt) {
+          // If playing, add elapsed time. If paused, questionVisitedAt is null so this skips.
+          // Check isPlaying too? If questionVisitedAt is set, it implies we were tracking.
+          const elapsed = Math.floor((now - state.questionVisitedAt) / 1000);
+          finalTimeSpent[currentQ.id] = (finalTimeSpent[currentQ.id] || 0) + elapsed;
+        }
+
+        const currentAttempt: TestAttempt = {
+          id: state.currentTestId + '-progress', // ID for in-progress attempt
+          testId: state.currentTestId,
+          testTitle: state.currentTestTitle || 'Unknown',
+          userId: 'current-user',
+          startTime: state.sessionStartTime || now,
+          score: calculateScore(state.questions, state.answers),
+          totalMarks: state.questions.length * 2,
+          questions: state.questions,
+          answers: state.answers,
+          markedForReview: state.markedForReview,
+          timeSpent: finalTimeSpent,
+          status: 'In Progress',
+          currentIndex: state.currentIndex,
+          timeRemaining: state.timeRemaining,
+        };
+
+        // Remove existing in-progress for this test and add updated one
+        const newHistory = state.history.filter(h =>
+          !(h.testId === state.currentTestId && h.status === 'In Progress')
+        );
+
+        // Update history but keep current state (user might stay on screen)
+        return {
+          history: [...newHistory, currentAttempt]
+        };
+      }),
+
       startTest: (testId, title, questions, duration) => {
+        // 1. Auto-save previous active test if switching
+        const state = get();
+        if (state.currentTestId && state.currentTestId !== testId) {
+          state.saveProgress();
+        }
+
+        // 2. Check for resume
+        const resumeAttempt = state.history.find(h =>
+          h.testId === testId && h.status === 'In Progress'
+        );
+
+        if (resumeAttempt) {
+          // RESUME
+          set({
+            currentTestId: testId,
+            currentTestTitle: title || resumeAttempt.testTitle,
+            questions: resumeAttempt.questions && resumeAttempt.questions.length > 0
+              ? resumeAttempt.questions
+              : questions, // Fallback if old attempt didn't store questions
+            timeRemaining: resumeAttempt.timeRemaining || duration * 60,
+            totalTime: duration * 60,
+            endTime: Date.now() + (resumeAttempt.timeRemaining || duration * 60) * 1000,
+            sessionStartTime: resumeAttempt.startTime,
+            currentIndex: resumeAttempt.currentIndex || 0,
+            answers: resumeAttempt.answers || {},
+            markedForReview: resumeAttempt.markedForReview || {},
+            timeSpent: resumeAttempt.timeSpent || {},
+            questionVisitedAt: Date.now(), // Start tracking immediately
+            isPlaying: true,
+          });
+          return;
+        }
+
+        // 3. Start Fresh
         const now = Date.now();
         const durationMs = duration * 60 * 1000;
         set({
@@ -173,15 +251,30 @@ export const useTestStore = create<TestState>()(
 
       toggleTimer: () => set((state) => {
         const isNowPlaying = !state.isPlaying;
+        const now = Date.now();
+
         if (isNowPlaying) {
           // Resuming: recalculate endTime based on current timeRemaining
           return {
             isPlaying: true,
-            endTime: Date.now() + state.timeRemaining * 1000
+            endTime: Date.now() + state.timeRemaining * 1000,
+            questionVisitedAt: now, // Start tracking from now
           };
         } else {
           // Pausing
-          return { isPlaying: false };
+          // Accumulate time spent so far before pausing
+          let newTimeSpent = { ...state.timeSpent };
+          const currentQ = state.questions[state.currentIndex];
+          if (currentQ && state.questionVisitedAt) {
+            const elapsed = Math.floor((now - state.questionVisitedAt) / 1000);
+            newTimeSpent[currentQ.id] = (newTimeSpent[currentQ.id] || 0) + elapsed;
+          }
+
+          return {
+            isPlaying: false,
+            timeSpent: newTimeSpent,
+            questionVisitedAt: null, // Stop tracking
+          };
         }
       }),
 
@@ -235,15 +328,25 @@ export const useTestStore = create<TestState>()(
           status: 'Completed'
         };
 
-        set((state) => ({
-          history: [attempt, ...state.history],
-          library: [...newLibraryItems, ...state.library],
-          currentTestId: null,
-          currentTestTitle: null,
-          isPlaying: false,
-          answers: {},
-          markedForReview: {}
-        }));
+        set((state) => {
+          // Remove existing 'In Progress' for this test to avoid resuming a completed test
+          const filteredHistory = state.history.filter(h =>
+            !(h.testId === state.currentTestId && h.status === 'In Progress')
+          );
+
+          return {
+            history: [attempt, ...filteredHistory],
+            library: [...newLibraryItems, ...state.library],
+            currentTestId: null,
+            currentTestTitle: null,
+            questions: [],
+            isPlaying: false,
+            answers: {},
+            markedForReview: {},
+            timeSpent: {},
+            questionVisitedAt: null,
+          };
+        });
 
         return attempt;
       },
