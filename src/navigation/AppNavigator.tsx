@@ -30,7 +30,7 @@ export type MainTabParamList = {
   Home: undefined;
   Tests: undefined;
   Library: undefined;
-  Stats: undefined;
+  Progress: undefined;
   Profile: undefined;
 };
 
@@ -72,7 +72,7 @@ function MainTabs() {
             iconName = focused ? 'book' : 'book-outline';
           } else if (route.name === 'Library') {
             iconName = focused ? 'bookmarks' : 'bookmarks-outline';
-          } else if (route.name === 'Stats') {
+          } else if (route.name === 'Progress') {
             iconName = focused ? 'bar-chart' : 'bar-chart-outline';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
@@ -85,7 +85,7 @@ function MainTabs() {
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Tests" component={TestsScreen} />
       <Tab.Screen name="Library" component={LibraryScreen} />
-      <Tab.Screen name="Stats" component={StatsScreen} />
+      <Tab.Screen name="Progress" component={StatsScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );

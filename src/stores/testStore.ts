@@ -19,6 +19,8 @@ interface TestState {
   sessionStartTime: number | null;
   history: TestAttempt[];
   library: LibraryItem[];
+  hasSeenSwipeHint: boolean;
+  markSwipeHintSeen: () => void;
 
   // Actions
   startTest: (testId: string, title: string, questions: Question[], duration: number) => void;
@@ -71,6 +73,8 @@ export const useTestStore = create<TestState>()(
       isPlaying: false,
       history: [],
       library: [],
+      hasSeenSwipeHint: false,
+      markSwipeHintSeen: () => set({ hasSeenSwipeHint: true }),
 
       saveProgress: () => set((state) => {
         if (!state.currentTestId) return {};
@@ -409,6 +413,18 @@ export const useTestStore = create<TestState>()(
       partialize: (state) => ({
         history: state.history,
         library: state.library,
+        // Active test state persistence
+        currentTestId: state.currentTestId,
+        currentTestTitle: state.currentTestTitle,
+        questions: state.questions,
+        currentIndex: state.currentIndex,
+        answers: state.answers,
+        markedForReview: state.markedForReview,
+        timeRemaining: state.timeRemaining,
+        totalTime: state.totalTime,
+        sessionStartTime: state.sessionStartTime,
+        isPlaying: state.isPlaying,
+        hasSeenSwipeHint: state.hasSeenSwipeHint,
       }),
     }
   )

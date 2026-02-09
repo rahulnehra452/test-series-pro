@@ -1,6 +1,7 @@
 import React from 'react';
-import { StyleSheet, View, Text } from 'react-native';
+import { StyleSheet, View, Text, ViewStyle } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useTestStore } from '../../stores/testStore';
 import { borderRadius, spacing, typography } from '../../constants/theme';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
@@ -36,7 +37,21 @@ const StatItem: React.FC<ProgressStatProps> = ({ label, value, subValue, index }
 };
 
 export const ProgressGrid: React.FC = () => {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
+  const { history } = useTestStore();
+
+  // Calculate metrics
+  const completedTests = history.filter(h => h.status === 'Completed').length;
+
+  const totalQuestions = history.reduce((acc, curr) => {
+    // Count questions actually answered (non-null/undefined)
+    const answeredCount = Object.values(curr.answers).filter(a => a !== undefined && a !== null).length;
+    return acc + answeredCount;
+  }, 0);
+
+  const averageScore = history.length > 0
+    ? Math.round(history.reduce((acc, curr) => acc + (curr.score || 0), 0) / history.length)
+    : 0;
 
   return (
     <View style={styles.container}>
@@ -47,9 +62,27 @@ export const ProgressGrid: React.FC = () => {
         Your Progress
       </Animated.Text>
       <View style={styles.grid}>
-        <StatItem label="Tests" value="0" subValue="Completed" index={0} />
-        <StatItem label="Average" value="0%" subValue="Score" index={1} />
-        <StatItem label="Rank" value="#156" subValue="Overall" index={2} />
+        <StatItem
+          label="Tests"
+          value={completedTests.toString()}
+          subValue="Completed"
+          index={0}
+          customStyle={{ backgroundColor: isDark ? '#1C1C1E' : colors.card }}
+        />
+        <StatItem
+          label="Average"
+          value={`${averageScore}%`}
+          subValue="Score"
+          index={1}
+          customStyle={{ backgroundColor: isDark ? '#1C1C1E' : colors.card }}
+        />
+        <StatItem
+          label="Questions"
+          value={totalQuestions.toString()}
+          subValue="Solved"
+          index={2}
+          customStyle={{ backgroundColor: isDark ? '#1C1C1E' : colors.card }}
+        />
       </View>
     </View>
   );

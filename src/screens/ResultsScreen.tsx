@@ -117,7 +117,7 @@ export default function ResultsScreen() {
     );
   };
 
-  const handleHome = () => navigation.navigate('Main', { screen: 'Home' });
+  const handleSeries = () => navigation.navigate('Main', { screen: 'Tests' });
 
   // Timestamp
   const timeAgo = new Date(attempt.endTime || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -131,7 +131,7 @@ export default function ResultsScreen() {
       >
         {/* Header with Back Button */}
         <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.header}>
-          <TouchableOpacity onPress={handleHome} style={styles.backBtn}>
+          <TouchableOpacity onPress={handleSeries} style={styles.backBtn}>
             <Ionicons name="chevron-back" size={24} color={colors.text} />
           </TouchableOpacity>
           <View style={styles.headerTextContainer}>
@@ -237,8 +237,8 @@ export default function ResultsScreen() {
               textStyle={{ color: colors.primary }}
             />
             <Button
-              title="Home"
-              onPress={handleHome}
+              title="Back to Series"
+              onPress={handleSeries}
               variant="outline"
               style={{ flex: 1, borderColor: colors.border }}
               textStyle={{ color: colors.text }}

@@ -7,7 +7,19 @@ import { useNavigation } from '@react-navigation/native';
 import { safeHaptics as Haptics } from '../utils/haptics';
 import { useToastStore } from '../stores/toastStore';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
-import Animated, { FadeIn, SlideInRight, SlideOutLeft, SlideInLeft, SlideOutRight, runOnJS } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  SlideInRight,
+  SlideOutLeft,
+  SlideInLeft,
+  SlideOutRight,
+  runOnJS,
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withTiming,
+  withSpring
+} from 'react-native-reanimated';
 import { audio } from '../utils/audio';
 
 // Components
@@ -46,10 +58,39 @@ export default function TestInterfaceScreen() {
     removeFromLibrary,
     isQuestionInLibrary,
     saveProgress,
+    hasSeenSwipeHint,
+    markSwipeHintSeen,
   } = useTestStore();
 
   const [isPaletteVisible, setPaletteVisible] = useState(false);
   const [direction, setDirection] = useState<'next' | 'prev' | null>(null);
+
+  // Swipe Hint
+  const offsetX = useSharedValue(0);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: offsetX.value }],
+    };
+  });
+
+  useEffect(() => {
+    if (!hasSeenSwipeHint && questions.length > 1) {
+      const timeout = setTimeout(() => {
+        // Peek animation: move left 50px, then back
+        offsetX.value = withSequence(
+          withTiming(-50, { duration: 500 }),
+          withSpring(0, { damping: 10 })
+        );
+
+        showToast('Swipe left to skip, Tap options to answer', 'info');
+        markSwipeHintSeen();
+      }, 1500); // Wait for entry
+
+      return () => clearTimeout(timeout);
+    }
+  }, [hasSeenSwipeHint, questions.length]);
+
 
   useEffect(() => {
     if (testId) {
@@ -303,6 +344,10 @@ export default function TestInterfaceScreen() {
   };
 
 
+
+
+
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <TestHeader
@@ -323,7 +368,7 @@ export default function TestInterfaceScreen() {
             key={currentIndex}
             entering={direction ? (direction === 'next' ? SlideInRight : SlideInLeft) : undefined}
             exiting={direction ? (direction === 'next' ? SlideOutLeft : SlideOutRight) : undefined}
-            style={{ flex: 1 }}
+            style={[{ flex: 1 }, animatedStyle]}
           >
             <View style={styles.mainContent}>
               <QuestionDisplay

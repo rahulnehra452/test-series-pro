@@ -33,8 +33,30 @@ import { getQuestionById } from '../data/mockQuestions';
 import { Question } from '../types';
 
 // Mock Data - Removed in favor of store
+// Mock Data - Removed in favor of store
 const SUBJECTS = ['All', 'Polity', 'History', 'Economy', 'Geography', 'Quant', 'Current Affairs'];
-const EXAMS = ['All Exams', 'UPSC Prelims 2025', 'CSAT 2025', 'History Daily Quiz', 'Mains 2024'];
+// const EXAMS = ['All Exams', 'UPSC Prelims 2025', 'CSAT 2025', 'History Daily Quiz', 'Mains 2024'];
+import { CATEGORIES, MOCK_TEST_SERIES } from './TestsScreen';
+const EXAM_FILTERS = ['All Exams', ...CATEGORIES.filter(c => c !== 'All')];
+
+const getExamCategory = (examStr: string | undefined): string => {
+  if (!examStr) return 'Other';
+  // If the exam string IS a category
+  if (CATEGORIES.includes(examStr)) return examStr;
+
+  // Try to find a test with this ID
+  const test = MOCK_TEST_SERIES.find(t => t.id === examStr || t.title === examStr);
+  if (test) return test.category;
+
+  // Fallback heuristics
+  const lower = examStr.toLowerCase();
+  if (lower.includes('upsc')) return 'UPSC';
+  if (lower.includes('ssc')) return 'SSC';
+  if (lower.includes('banking') || lower.includes('sbi') || lower.includes('ibps')) return 'Banking';
+  if (lower.includes('railway') || lower.includes('rrb') || lower.includes('ntpc')) return 'Railways';
+
+  return 'Other';
+};
 
 const SummaryCard = ({ title, count, icon, colors, gradient, onPress, isActive }: any) => {
   const { isDark } = useTheme();
@@ -93,8 +115,10 @@ export default function LibraryScreen() {
   const filteredItems = useMemo(() => {
     // First filter by criteria
     const filtered = library.filter(item => {
+      const itemCategory = getExamCategory(item.exam);
+
       const matchesSubject = selectedSubject === 'All' || item.subject.toLowerCase() === selectedSubject.toLowerCase() || item.subject.toLowerCase().includes(selectedSubject.toLowerCase());
-      const matchesExam = selectedExam === 'All Exams' || item.exam === selectedExam;
+      const matchesExam = selectedExam === 'All Exams' || itemCategory === selectedExam;
       const matchesType = !selectedType || item.type.toLowerCase() === selectedType;
       const matchesSearch = item.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -111,11 +135,17 @@ export default function LibraryScreen() {
     });
   }, [selectedSubject, selectedType, searchQuery, selectedExam, library]);
 
-  const stats = useMemo(() => ({
-    saved: library.filter(i => i.type === 'saved').length,
-    wrong: library.filter(i => i.type === 'wrong').length,
-    learn: library.filter(i => i.type === 'learn').length,
-  }), [library]);
+  const stats = useMemo(() => {
+    const relevantItems = selectedExam === 'All Exams'
+      ? library
+      : library.filter(i => getExamCategory(i.exam) === selectedExam);
+
+    return {
+      saved: relevantItems.filter(i => i.type === 'saved').length,
+      wrong: relevantItems.filter(i => i.type === 'wrong').length,
+      learn: relevantItems.filter(i => i.type === 'learn').length,
+    };
+  }, [library, selectedExam]);
 
   // Helper function removed in favor of getSubjectDetails utility
 
@@ -467,7 +497,7 @@ export default function LibraryScreen() {
               </View>
 
               <ScrollView contentContainerStyle={styles.modalScroll}>
-                {EXAMS.map((exam) => (
+                {EXAM_FILTERS.map((exam) => (
                   <TouchableOpacity
                     key={exam}
                     style={[

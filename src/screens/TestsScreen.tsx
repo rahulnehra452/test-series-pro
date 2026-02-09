@@ -11,7 +11,7 @@ import { RootStackParamList } from '../navigation/AppNavigator';
 import { useTestStore } from '../stores/testStore';
 
 // Mock Data
-const CATEGORIES = ['All', 'UPSC', 'SSC', 'Banking', 'Railways', 'State PCS'];
+export const CATEGORIES = ['All', 'UPSC', 'SSC', 'Banking', 'Railways', 'State PCS'];
 export const MOCK_TEST_SERIES = [
   {
     id: 'upsc-pre-2024',
