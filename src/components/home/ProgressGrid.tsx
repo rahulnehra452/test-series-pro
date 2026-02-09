@@ -10,9 +10,10 @@ interface ProgressStatProps {
   value: string;
   subValue?: string;
   index: number;
+  customStyle?: ViewStyle;
 }
 
-const StatItem: React.FC<ProgressStatProps> = ({ label, value, subValue, index }) => {
+const StatItem: React.FC<ProgressStatProps> = ({ label, value, subValue, index, customStyle }) => {
   const { colors } = useTheme();
 
   return (
@@ -24,7 +25,8 @@ const StatItem: React.FC<ProgressStatProps> = ({ label, value, subValue, index }
           backgroundColor: colors.card,
           borderWidth: 1,
           borderColor: colors.border,
-        }
+        },
+        customStyle
       ]}
     >
       <Text style={[styles.statLabel, { color: colors.textTertiary }]}>{label}</Text>

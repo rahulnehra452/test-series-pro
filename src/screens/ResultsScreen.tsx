@@ -228,22 +228,40 @@ export default function ResultsScreen() {
             leftIcon={<Ionicons name="book-outline" size={20} color="#FFF" />}
           />
 
-          <View style={styles.secondaryActions}>
+          <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
             <Button
-              title="Retry Test"
+              title="Retry"
               onPress={handleRetry}
               variant="outline"
-              style={{ flex: 1, marginRight: 8, borderColor: colors.primary }}
-              textStyle={{ color: colors.primary }}
+              style={{ flex: 1, borderColor: colors.border, backgroundColor: colors.secondaryBackground }}
+              textStyle={{ color: colors.text }}
+              leftIcon={<Ionicons name="refresh" size={18} color={colors.text} />}
             />
             <Button
-              title="Back to Series"
+              title="Series"
               onPress={handleSeries}
               variant="outline"
-              style={{ flex: 1, borderColor: colors.border }}
+              style={{ flex: 1, borderColor: colors.border, backgroundColor: colors.secondaryBackground }}
               textStyle={{ color: colors.text }}
+              leftIcon={<Ionicons name="list" size={18} color={colors.text} />}
             />
           </View>
+
+          <Button
+            title="Back to Home"
+            onPress={() => navigation.navigate('Main', { screen: 'Home' } as any)}
+            variant="outline"
+            style={{
+              marginTop: 16,
+              borderColor: colors.border,
+              backgroundColor: colors.secondaryBackground,
+              alignSelf: 'center',
+              minWidth: 160,
+              paddingHorizontal: 24
+            }}
+            textStyle={{ color: colors.textSecondary }}
+            leftIcon={<Ionicons name="home-outline" size={18} color={colors.textSecondary} />}
+          />
         </Animated.View>
 
       </ScrollView>

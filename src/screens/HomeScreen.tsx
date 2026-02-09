@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, View, Text, ScrollView, Image, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
@@ -87,6 +88,7 @@ export default function HomeScreen() {
       showsVerticalScrollIndicator={false}
     >
       {/* Header */}
+      {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={[styles.greeting, { color: colors.textSecondary }]}>
@@ -96,9 +98,13 @@ export default function HomeScreen() {
             {user?.name || 'Student'}
           </Text>
         </View>
-        <View style={[styles.avatar, { backgroundColor: colors.primaryLight }]}>
-          <Text style={styles.avatarText}>{user?.name?.[0] || 'S'}</Text>
-        </View>
+        <TouchableOpacity
+          style={[styles.subscriptionButton, { backgroundColor: colors.warning + '20' }]}
+          onPress={() => navigation.navigate('Main', { screen: 'Profile' } as any)}
+        >
+          <Ionicons name="diamond" size={20} color={colors.warning} />
+          <Text style={[styles.subscriptionText, { color: colors.warning }]}>Pro</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Streak Card */}
@@ -123,7 +129,7 @@ export default function HomeScreen() {
       {/* Recent Activity */}
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Activity</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Main', { screen: 'Stats' } as any)}>
+        <TouchableOpacity onPress={() => navigation.navigate('Main', { screen: 'Progress' } as any)}>
           <Text style={[styles.seeAll, { color: colors.primary }]}>See All</Text>
         </TouchableOpacity>
       </View>
@@ -141,13 +147,18 @@ export default function HomeScreen() {
             >
               <View>
                 <Text style={[styles.activityTitle, { color: colors.text }]}>{item.testTitle}</Text>
-                <Text style={[styles.activityDate, { color: colors.textTertiary }]}>
+                <Text style={[styles.activityDate, { color: colors.textSecondary }]}>
                   {new Date(item.startTime).toLocaleDateString()}
                 </Text>
               </View>
               <Text style={[
                 styles.activityScore,
-                { color: item.status === 'Completed' ? colors.success : colors.warning }
+                {
+                  color: item.status !== 'Completed' ? colors.textTertiary :
+                    (item.score / item.totalMarks) >= 0.6 ? colors.success :
+                      (item.score / item.totalMarks) >= 0.2 ? colors.warning :
+                        colors.error
+                }
               ]}>
                 {item.score}/{item.totalMarks}
               </Text>
@@ -183,22 +194,25 @@ const styles = StyleSheet.create({
   },
   greeting: {
     ...typography.subhead,
-    marginBottom: 4,
+    marginBottom: 0,
   },
   userName: {
     ...typography.title1,
     fontSize: 28,
+    marginTop: -4,
+    lineHeight: 34,
   },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.full,
+  subscriptionButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: borderRadius.full,
+    gap: 6,
   },
-  avatarText: {
-    ...typography.title3,
-    color: '#FFFFFF',
+  subscriptionText: {
+    ...typography.subhead,
+    fontWeight: '700',
   },
   streakCard: {
     marginBottom: spacing.md,
