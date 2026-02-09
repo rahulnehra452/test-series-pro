@@ -18,11 +18,12 @@ import { useTheme } from '../contexts/ThemeContext';
 import { borderRadius, spacing, typography, colors as themeColors } from '../constants/theme';
 import { Card } from '../components/common/Card';
 import { Input } from '../components/common/Input';
+import { ExpandableText } from '../components/common/ExpandableText';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 import { getSubjectDetails } from '../utils/subjectIcons';
-import { LibraryItem } from '../types';
+import { LibraryItem, LibraryItemType } from '../types';
 
 // Types
 
@@ -147,7 +148,7 @@ export default function LibraryScreen() {
   };
 
   // Handle changing item type
-  const handleTypeChange = (itemId: string, currentType: string) => {
+  const handleTypeChange = (itemId: string, currentType: LibraryItemType) => {
     // Simple toggle: Saved ↔ Revision (no Incorrect option)
     const options = currentType === 'saved'
       ? ['Mark for Revision', 'Remove from Library', 'Cancel']
@@ -580,9 +581,11 @@ export default function LibraryScreen() {
                       <Ionicons name="bulb" size={18} color="#FF9500" />
                       <Text style={[styles.explanationTitle, { color: colors.text }]}>Explanation</Text>
                     </View>
-                    <Text style={[styles.explanationContent, { color: colors.textSecondary }]}>
-                      {selectedQuestion.explanation}
-                    </Text>
+                    <ExpandableText
+                      text={selectedQuestion.explanation}
+                      style={[styles.explanationContent, { color: colors.textSecondary }]}
+                      maxLines={3}
+                    />
                   </View>
                 )}
 

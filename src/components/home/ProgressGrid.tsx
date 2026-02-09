@@ -17,7 +17,14 @@ const StatItem: React.FC<ProgressStatProps> = ({ label, value, subValue, index }
   return (
     <Animated.View
       entering={FadeInDown.delay(index * 100 + 200).springify()}
-      style={[styles.statItem, { backgroundColor: colors.secondaryBackground }]}
+      style={[
+        styles.statItem,
+        {
+          backgroundColor: colors.card,
+          borderWidth: 1,
+          borderColor: colors.border,
+        }
+      ]}
     >
       <Text style={[styles.statLabel, { color: colors.textTertiary }]}>{label}</Text>
       <Text style={[styles.statValue, { color: colors.text }]}>{value}</Text>

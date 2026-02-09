@@ -55,13 +55,15 @@ export interface TestAttempt {
   timeRemaining?: number; // For resuming
 }
 
+export type LibraryItemType = 'saved' | 'wrong' | 'learn';
+
 export interface LibraryItem {
   id: string; // unique ID for the library entry
   questionId: string;
   question: string;
   subject: Subject;
   difficulty: Difficulty;
-  type: 'saved' | 'wrong' | 'learn';
+  type: LibraryItemType;
   saveTimestamp: number;
   exam?: string; // Optional exam tag
   note?: string;

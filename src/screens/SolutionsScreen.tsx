@@ -7,6 +7,7 @@ import { spacing, typography, borderRadius } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useTestStore } from '../stores/testStore';
 import { Card } from '../components/common/Card';
+import { ExpandableText } from '../components/common/ExpandableText';
 
 type FilterMode = 'all' | 'marked' | 'incorrect' | 'correct';
 
@@ -205,7 +206,11 @@ export default function SolutionsScreen() {
                     <Ionicons name="bulb-outline" size={16} color={colors.warning} />
                     <Text style={[styles.explanationTitle, { color: colors.text }]}>Explanation</Text>
                   </View>
-                  <Text style={[styles.explanationText, { color: colors.textSecondary }]}>{q.explanation}</Text>
+                  <ExpandableText
+                    text={q.explanation}
+                    style={[styles.explanationText, { color: colors.textSecondary }]}
+                    maxLines={3}
+                  />
                 </View>
               )}
             </Card>

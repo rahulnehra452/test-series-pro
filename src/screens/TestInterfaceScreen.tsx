@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, SafeAreaView, Alert, ActivityIndicator } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { useTestStore } from '../stores/testStore';
@@ -8,6 +8,7 @@ import { safeHaptics as Haptics } from '../utils/haptics';
 import { useToastStore } from '../stores/toastStore';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, { FadeIn, SlideInRight, SlideOutLeft, SlideInLeft, SlideOutRight, runOnJS } from 'react-native-reanimated';
+import { audio } from '../utils/audio';
 
 // Components
 import { TestHeader } from '../components/test/TestHeader';
@@ -47,8 +48,8 @@ export default function TestInterfaceScreen() {
     saveProgress,
   } = useTestStore();
 
-  const [isPaletteVisible, setPaletteVisible] = React.useState(false);
-  const [direction, setDirection] = React.useState<'next' | 'prev'>('next');
+  const [isPaletteVisible, setPaletteVisible] = useState(false);
+  const [direction, setDirection] = useState<'next' | 'prev' | null>(null);
 
   useEffect(() => {
     if (testId) {
@@ -62,6 +63,9 @@ export default function TestInterfaceScreen() {
       Alert.alert("Error", "No Test ID provided");
       navigation.goBack();
     }
+
+    // Initialize audio
+    audio.loadSounds();
   }, [testId]);
 
   // Timer Effect
@@ -153,6 +157,14 @@ export default function TestInterfaceScreen() {
 
   const handleOptionSelect = (idx: number) => {
     Haptics.selectionAsync();
+
+    // Play sound based on correctness
+    if (idx === currentQuestion.correctAnswer) {
+      audio.playSuccess();
+    } else {
+      audio.playFailure();
+    }
+
     submitAnswer(currentQuestion.id, idx);
   };
 
@@ -305,33 +317,35 @@ export default function TestInterfaceScreen() {
         isLearn={isLearn}
       />
 
-      <GestureDetector gesture={panGesture}>
-        <Animated.View
-          key={currentIndex}
-          entering={direction === 'next' ? SlideInRight : SlideInLeft}
-          exiting={direction === 'next' ? SlideOutLeft : SlideOutRight}
-          style={{ flex: 1 }}
-        >
-          <View style={styles.mainContent}>
-            <QuestionDisplay
-              question={currentQuestion}
-              questionNumber={currentIndex + 1}
-            />
+      <View style={{ flex: 1 }}>
+        <GestureDetector gesture={panGesture}>
+          <Animated.View
+            key={currentIndex}
+            entering={direction ? (direction === 'next' ? SlideInRight : SlideInLeft) : undefined}
+            exiting={direction ? (direction === 'next' ? SlideOutLeft : SlideOutRight) : undefined}
+            style={{ flex: 1 }}
+          >
+            <View style={styles.mainContent}>
+              <QuestionDisplay
+                question={currentQuestion}
+                questionNumber={currentIndex + 1}
+              />
 
-            <View style={styles.optionsContainer}>
-              {currentQuestion.options.map((opt, idx) => (
-                <OptionButton
-                  key={idx}
-                  label={String.fromCharCode(65 + idx)}
-                  text={opt}
-                  isSelected={selectedOption === idx}
-                  onPress={() => handleOptionSelect(idx)}
-                />
-              ))}
+              <View style={styles.optionsContainer}>
+                {currentQuestion.options.map((opt, idx) => (
+                  <OptionButton
+                    key={idx}
+                    label={String.fromCharCode(65 + idx)}
+                    text={opt}
+                    isSelected={selectedOption === idx}
+                    onPress={() => handleOptionSelect(idx)}
+                  />
+                ))}
+              </View>
             </View>
-          </View>
-        </Animated.View>
-      </GestureDetector>
+          </Animated.View>
+        </GestureDetector>
+      </View>
 
       <ActionBar
         onClear={handleClear}
@@ -354,7 +368,7 @@ export default function TestInterfaceScreen() {
         marked={markedForReview}
         onJumpToQuestion={useTestStore.getState().jumpToQuestion}
       />
-    </SafeAreaView>
+    </SafeAreaView >
   );
 }
 

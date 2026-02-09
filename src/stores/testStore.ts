@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Question, TestAttempt, LibraryItem } from '../types';
+import { Question, TestAttempt, LibraryItem, LibraryItemType } from '../types';
 
 interface TestState {
   currentTestId: string | null;
@@ -31,9 +31,9 @@ interface TestState {
   toggleTimer: () => void;
   finishTest: () => TestAttempt;
   addToLibrary: (item: Omit<LibraryItem, 'id' | 'saveTimestamp'>) => void;
-  updateLibraryItemType: (itemId: string, newType: LibraryItem['type']) => void;
-  removeFromLibrary: (questionId: string, type?: LibraryItem['type']) => void;
-  isQuestionInLibrary: (questionId: string, type?: LibraryItem['type']) => boolean;
+  updateLibraryItemType: (itemId: string, newType: LibraryItemType) => void;
+  removeFromLibrary: (questionId: string, type?: LibraryItemType) => void;
+  isQuestionInLibrary: (questionId: string, type?: LibraryItemType) => boolean;
   reset: () => void;
   saveProgress: () => void;
 }
