@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, View, Platform } from 'react-native';
-import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
+
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -31,9 +31,7 @@ export const Toast = () => {
   };
 
   return (
-    <Animated.View
-      entering={FadeInUp.springify()}
-      exiting={FadeOutUp}
+    <View
       style={[
         styles.container,
         {
@@ -47,7 +45,7 @@ export const Toast = () => {
         <Ionicons name={getIconName()} size={24} color={getIconColor()} />
         <Text style={[styles.message, { color: colors.text }]}>{message}</Text>
       </View>
-    </Animated.View>
+    </View>
   );
 };
 

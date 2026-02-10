@@ -3,7 +3,7 @@ import { StyleSheet, View, Text, ViewStyle } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useTestStore } from '../../stores/testStore';
 import { borderRadius, spacing, typography } from '../../constants/theme';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+
 
 interface ProgressStatProps {
   label: string;
@@ -17,8 +17,7 @@ const StatItem: React.FC<ProgressStatProps> = ({ label, value, subValue, index, 
   const { colors } = useTheme();
 
   return (
-    <Animated.View
-      entering={FadeInDown.delay(index * 100 + 200).springify()}
+    <View
       style={[
         styles.statItem,
         {
@@ -34,7 +33,7 @@ const StatItem: React.FC<ProgressStatProps> = ({ label, value, subValue, index, 
       {subValue && (
         <Text style={[styles.statSubValue, { color: colors.textSecondary }]}>{subValue}</Text>
       )}
-    </Animated.View>
+    </View>
   );
 };
 
@@ -57,12 +56,11 @@ export const ProgressGrid: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <Animated.Text
-        entering={FadeInDown.delay(100).duration(400)}
+      <Text
         style={[styles.sectionTitle, { color: colors.text }]}
       >
         Your Progress
-      </Animated.Text>
+      </Text>
       <View style={styles.grid}>
         <StatItem
           label="Tests"

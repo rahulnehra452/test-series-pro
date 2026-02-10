@@ -4,7 +4,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { borderRadius, spacing, typography } from '../../constants/theme';
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+
 
 interface ContinueLearningProps {
   title: string;
@@ -24,8 +24,7 @@ export const ContinueLearning: React.FC<ContinueLearningProps> = ({
   const { colors } = useTheme();
 
   return (
-    <Animated.View
-      entering={FadeInDown.delay(600).springify()}
+    <View
       style={styles.container}
     >
       <Text style={[styles.sectionTitle, { color: colors.text }]}>Continue Learning</Text>
@@ -43,7 +42,7 @@ export const ContinueLearning: React.FC<ContinueLearningProps> = ({
         </View>
 
         <View style={[styles.progressBarBg, { backgroundColor: colors.secondaryBackground }]}>
-          <Animated.View
+          <View
             style={[
               styles.progressBarFill,
               {
@@ -61,7 +60,7 @@ export const ContinueLearning: React.FC<ContinueLearningProps> = ({
           fullWidth
         />
       </Card>
-    </Animated.View>
+    </View>
   );
 };
 

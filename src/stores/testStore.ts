@@ -401,25 +401,17 @@ export const useTestStore = create<TestState>()(
 
         const user = session.session.user;
 
-        // Ensure we are not inserting duplicates if ID exists?
-        // Supabase ID is UUID, local ID is random string.
-        // Let Supabase generate ID or use local if UUID?
-        // We will insert and let Supabase gen ID.
+        // generated UUID validation regex
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+        if (!uuidRegex.test(attempt.testId)) {
+          console.log('Skipping upload for local test attempt:', attempt.testId);
+          return;
+        }
 
         const { error } = await supabase.from('attempts').insert({
           user_id: user.id,
-          test_id: attempt.testId.includes('-') ? attempt.testId : undefined, // Handle loose IDs?
-          // If testId is from mock, it might not match UUID in DB. 
-          // For now, we store string, but schema expects UUID for test_id?
-          // Schema: test_id uuid references public.tests(id).
-          // ERROR: If testId is 'upsc-pre-2024' (string) and DB expects UUID, it fails.
-          // FIX: We need to look up the UUID from the 'tests' table by title/slug OR
-          // Relax the foreign key constraint? No, we seeded tests!
-          // We need the REAL UUID from the 'tests' table.
-
-          // Workaround for now: Store test info in a separate jsonb or text column if needed?
-          // Or we fetch the Test ID from Supabase before uploading.
-
+          test_id: attempt.testId,
           score: attempt.score,
           total_marks: attempt.totalMarks,
           status: attempt.status,

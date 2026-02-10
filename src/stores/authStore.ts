@@ -13,6 +13,7 @@ interface AuthState {
   logout: () => Promise<void>;
   checkSession: () => Promise<void>;
   checkStreak: () => Promise<void>;
+  updateProfile: (updates: { name?: string; email?: string }) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -148,7 +149,36 @@ export const useAuthStore = create<AuthState>()(
             lastActiveDate: new Date().toISOString()
           }
         });
-      }
+      },
+
+      updateProfile: async (updates: { name?: string; email?: string }) => {
+        const state = get();
+        if (!state.user) return;
+
+        // 1. Update Supabase Profile
+        if (updates.name) {
+          const { error } = await supabase
+            .from('profiles')
+            .update({ full_name: updates.name })
+            .eq('id', state.user.id);
+
+          if (error) throw error;
+
+          // 2. Update Auth Metadata
+          await supabase.auth.updateUser({
+            data: { full_name: updates.name }
+          });
+        }
+
+        // 3. Update Local State
+        set({
+          user: {
+            ...state.user,
+            name: updates.name || state.user.name,
+            email: updates.email || state.user.email,
+          }
+        });
+      },
     }),
     {
       name: 'auth-storage-supabase',

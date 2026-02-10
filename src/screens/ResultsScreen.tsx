@@ -2,7 +2,7 @@ import React, { useMemo, useEffect } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Platform, Alert } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+
 import * as Haptics from 'expo-haptics';
 
 import { useTheme } from '../contexts/ThemeContext';
@@ -130,7 +130,7 @@ export default function ResultsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header with Back Button */}
-        <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.header}>
+        <View style={styles.header}>
           <TouchableOpacity onPress={handleSeries} style={styles.backBtn}>
             <Ionicons name="chevron-back" size={24} color={colors.text} />
           </TouchableOpacity>
@@ -140,10 +140,10 @@ export default function ResultsScreen() {
               {attempt.testTitle} • {stats.attempted} of {stats.total} attempted
             </Text>
           </View>
-        </Animated.View>
+        </View>
 
         {/* Hero Section */}
-        <Animated.View entering={FadeInDown.delay(300).springify()} style={styles.heroSection}>
+        <View style={styles.heroSection}>
           <CircularProgress
             score={Math.max(0, attempt.score)}
             total={attempt.totalMarks}
@@ -161,7 +161,7 @@ export default function ResultsScreen() {
           <Text style={[styles.timestamp, { color: colors.textTertiary }]}>
             Completed at {timeAgo}
           </Text>
-        </Animated.View>
+        </View>
 
         {/* Stats Grid - Reordered */}
         <View style={styles.gridContainer}>
@@ -194,7 +194,7 @@ export default function ResultsScreen() {
           </View>
 
           {/* Row 2: Combined Time & Accuracy */}
-          <Animated.View entering={FadeInDown.delay(700).springify()}>
+          <View>
             <Card style={[styles.combinedCard]} padding={spacing.md}>
               <View style={styles.statItem}>
                 <Ionicons name="time" size={20} color={colors.primary} />
@@ -214,11 +214,11 @@ export default function ResultsScreen() {
                 </View>
               </View>
             </Card>
-          </Animated.View>
+          </View>
         </View>
 
         {/* Actions */}
-        <Animated.View entering={FadeInUp.delay(900).springify()} style={styles.actionsContainer}>
+        <View style={styles.actionsContainer}>
           <Button
             title="Review Solutions"
             onPress={handleSolutions}
@@ -262,7 +262,7 @@ export default function ResultsScreen() {
             textStyle={{ color: colors.textSecondary }}
             leftIcon={<Ionicons name="home-outline" size={18} color={colors.textSecondary} />}
           />
-        </Animated.View>
+        </View>
 
       </ScrollView>
     </View>
@@ -272,13 +272,13 @@ export default function ResultsScreen() {
 const BentoCard = ({ label, value, icon, color, delay, flex }: any) => {
   const { colors } = useTheme();
   return (
-    <Animated.View entering={FadeInDown.delay(delay).springify()} style={{ flex }}>
+    <View style={{ flex }}>
       <Card style={styles.bentoCardContent} padding={spacing.sm}>
         <Ionicons name={icon} size={24} color={color} style={{ marginBottom: 4 }} />
         <Text style={[styles.cardValue, { color: colors.text }]}>{value}</Text>
         <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>{label}</Text>
       </Card>
-    </Animated.View>
+    </View>
   );
 };
 

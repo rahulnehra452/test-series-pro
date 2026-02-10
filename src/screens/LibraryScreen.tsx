@@ -21,7 +21,7 @@ import { Input } from '../components/common/Input';
 import { ExpandableText } from '../components/common/ExpandableText';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
+
 import { getSubjectDetails } from '../utils/subjectIcons';
 import { LibraryItem, LibraryItemType } from '../types';
 
@@ -88,8 +88,7 @@ const SummaryCard = ({ title, count, icon, colors, gradient, onPress, isActive }
         </View>
       </LinearGradient>
       {isActive && (
-        <Animated.View
-          entering={FadeInDown}
+        <View
           style={[styles.activeIndicator, { backgroundColor: gradient[0] }]}
         />
       )}
@@ -258,10 +257,7 @@ export default function LibraryScreen() {
     const status = statusConfig[item.type as keyof typeof statusConfig] || statusConfig.saved;
 
     return (
-      <Animated.View
-        entering={FadeInDown.delay(Math.min(index * 80, 400))}
-        layout={Layout.springify()}
-      >
+      <View>
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => {
@@ -315,7 +311,7 @@ export default function LibraryScreen() {
             </View>
           </Card>
         </TouchableOpacity>
-      </Animated.View>
+      </View>
     );
   };
 

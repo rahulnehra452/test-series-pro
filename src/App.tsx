@@ -1,7 +1,7 @@
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
+import { NavigationContainer, LinkingOptions, DefaultTheme } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import AppNavigator, { RootStackParamList } from './navigation/AppNavigator';
@@ -45,6 +45,7 @@ function NavigationWrapper() {
           border: colors.border,
           notification: colors.error,
         },
+        fonts: DefaultTheme.fonts,
       }}
     >
       <AppNavigator />

@@ -6,20 +6,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { safeHaptics as Haptics } from '../utils/haptics';
 import { useToastStore } from '../stores/toastStore';
-import { GestureDetector, Gesture } from 'react-native-gesture-handler';
-import Animated, {
-  FadeIn,
-  SlideInRight,
-  SlideOutLeft,
-  SlideInLeft,
-  SlideOutRight,
-  runOnJS,
-  useSharedValue,
-  useAnimatedStyle,
-  withSequence,
-  withTiming,
-  withSpring
-} from 'react-native-reanimated';
+
 import { audio } from '../utils/audio';
 
 // Components
@@ -65,31 +52,7 @@ export default function TestInterfaceScreen() {
   const [isPaletteVisible, setPaletteVisible] = useState(false);
   const [direction, setDirection] = useState<'next' | 'prev' | null>(null);
 
-  // Swipe Hint
-  const offsetX = useSharedValue(0);
 
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ translateX: offsetX.value }],
-    };
-  });
-
-  useEffect(() => {
-    if (!hasSeenSwipeHint && questions.length > 1) {
-      const timeout = setTimeout(() => {
-        // Peek animation: move left 50px, then back
-        offsetX.value = withSequence(
-          withTiming(-50, { duration: 500 }),
-          withSpring(0, { damping: 10 })
-        );
-
-        showToast('Swipe left to skip, Tap options to answer', 'info');
-        markSwipeHintSeen();
-      }, 1500); // Wait for entry
-
-      return () => clearTimeout(timeout);
-    }
-  }, [hasSeenSwipeHint, questions.length]);
 
 
   useEffect(() => {
@@ -270,15 +233,7 @@ export default function TestInterfaceScreen() {
     prevQuestion();
   };
 
-  const panGesture = Gesture.Pan()
-    .activeOffsetX([-20, 20])
-    .onEnd((e) => {
-      if (e.translationX < -50) {
-        runOnJS(handleNext)();
-      } else if (e.translationX > 50) {
-        runOnJS(handlePrev)();
-      }
-    });
+
 
   const handleSubmit = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -363,33 +318,29 @@ export default function TestInterfaceScreen() {
       />
 
       <View style={{ flex: 1 }}>
-        <GestureDetector gesture={panGesture}>
-          <Animated.View
-            key={currentIndex}
-            entering={direction ? (direction === 'next' ? SlideInRight : SlideInLeft) : undefined}
-            exiting={direction ? (direction === 'next' ? SlideOutLeft : SlideOutRight) : undefined}
-            style={[{ flex: 1 }, animatedStyle]}
-          >
-            <View style={styles.mainContent}>
-              <QuestionDisplay
-                question={currentQuestion}
-                questionNumber={currentIndex + 1}
-              />
+        <View
+          key={currentIndex}
+          style={[{ flex: 1 }]}
+        >
+          <View style={styles.mainContent}>
+            <QuestionDisplay
+              question={currentQuestion}
+              questionNumber={currentIndex + 1}
+            />
 
-              <View style={styles.optionsContainer}>
-                {currentQuestion.options.map((opt, idx) => (
-                  <OptionButton
-                    key={idx}
-                    label={String.fromCharCode(65 + idx)}
-                    text={opt}
-                    isSelected={selectedOption === idx}
-                    onPress={() => handleOptionSelect(idx)}
-                  />
-                ))}
-              </View>
+            <View style={styles.optionsContainer}>
+              {currentQuestion.options.map((opt, idx) => (
+                <OptionButton
+                  key={idx}
+                  label={String.fromCharCode(65 + idx)}
+                  text={opt}
+                  isSelected={selectedOption === idx}
+                  onPress={() => handleOptionSelect(idx)}
+                />
+              ))}
             </View>
-          </Animated.View>
-        </GestureDetector>
+          </View>
+        </View>
       </View>
 
       <ActionBar

@@ -3,7 +3,7 @@ import { StyleSheet, View, Text, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { borderRadius, spacing, typography, shadows } from '../../constants/theme';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+
 
 interface StreakCardProps {
   days: number;
@@ -13,8 +13,7 @@ interface StreakCardProps {
 
 export const StreakCard: React.FC<StreakCardProps> = ({ days, style, index = 0 }) => {
   return (
-    <Animated.View
-      entering={FadeInDown.delay(index * 100).springify()}
+    <View
       style={[styles.wrapper, style]}
     >
       <LinearGradient
@@ -33,7 +32,7 @@ export const StreakCard: React.FC<StreakCardProps> = ({ days, style, index = 0 }
           <Ionicons name="trophy" size={32} color="#FFD700" />
         </View>
       </LinearGradient>
-    </Animated.View>
+    </View>
   );
 };
 

@@ -1,18 +1,11 @@
 import React, { useEffect } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
-import Animated, {
-  useAnimatedProps,
-  useSharedValue,
-  withTiming,
-  withDelay,
-  Easing,
-  interpolate,
-} from 'react-native-reanimated';
+
 import { useTheme } from '../../contexts/ThemeContext';
 import { typography } from '../../constants/theme';
 
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
 
 interface CircularProgressProps {
   score: number;
@@ -30,30 +23,9 @@ export const CircularProgress = ({
   duration = 1500,
 }: CircularProgressProps) => {
   const { colors, isDark } = useTheme();
-  const progress = useSharedValue(0);
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-
-  useEffect(() => {
-    progress.value = withDelay(
-      300,
-      withTiming(score / total, {
-        duration,
-        easing: Easing.out(Easing.exp),
-      })
-    );
-  }, [score, total]); // Added dependencies for reliability
-
-  const animatedProps = useAnimatedProps(() => {
-    const strokeDashoffset = interpolate(
-      progress.value,
-      [0, 1],
-      [circumference, 0]
-    );
-    return {
-      strokeDashoffset,
-    };
-  });
+  const strokeDashoffset = circumference - (score / total) * circumference;
 
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
@@ -76,14 +48,14 @@ export const CircularProgress = ({
           fill="none"
         />
         {/* Progress Circle */}
-        <AnimatedCircle
+        <Circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           stroke="url(#grad)"
           strokeWidth={strokeWidth}
           strokeDasharray={`${circumference} ${circumference}`}
-          animatedProps={animatedProps}
+          strokeDashoffset={strokeDashoffset}
           strokeLinecap="round"
           rotation="-90"
           origin={`${size / 2}, ${size / 2}`}

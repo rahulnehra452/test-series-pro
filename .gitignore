@@ -48,3 +48,4 @@ ios/*.xcodeproj/xcuserdata
 # Expo
 .expo/
 *.expo-shared
+node_modules
