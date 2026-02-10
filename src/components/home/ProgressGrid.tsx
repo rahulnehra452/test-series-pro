@@ -69,21 +69,21 @@ export const ProgressGrid: React.FC = () => {
           value={completedTests.toString()}
           subValue="Completed"
           index={0}
-          customStyle={{ backgroundColor: isDark ? '#1C1C1E' : colors.card }}
+          customStyle={{ backgroundColor: colors.secondaryBackground }}
         />
         <StatItem
           label="Average"
           value={`${averageScore}%`}
           subValue="Score"
           index={1}
-          customStyle={{ backgroundColor: isDark ? '#1C1C1E' : colors.card }}
+          customStyle={{ backgroundColor: colors.secondaryBackground }}
         />
         <StatItem
           label="Questions"
           value={totalQuestions.toString()}
           subValue="Solved"
           index={2}
-          customStyle={{ backgroundColor: isDark ? '#1C1C1E' : colors.card }}
+          customStyle={{ backgroundColor: colors.secondaryBackground }}
         />
       </View>
     </View>

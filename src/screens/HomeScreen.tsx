@@ -38,10 +38,12 @@ const MOCK_RECENT_ACTIVITY = [
 // ... types and previous imports
 import { useAuthStore } from '../stores/authStore';
 import { useTestStore } from '../stores/testStore';
+// import { useInAppUpdates } from '../hooks/useInAppUpdates';
 
 export default function HomeScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  // useInAppUpdates(); // Requires expo-updates
   const navigation = useNavigation<NavigationProp>();
   const [greeting, setGreeting] = useState(getTimeBasedGreeting());
   const { history } = useTestStore();

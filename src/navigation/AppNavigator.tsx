@@ -19,8 +19,10 @@ import SolutionsScreen from '../screens/SolutionsScreen';
 // Types
 import { TestAttempt } from '../types';
 
+import { NavigatorScreenParams } from '@react-navigation/native';
+
 export type RootStackParamList = {
-  Main: undefined;
+  Main: NavigatorScreenParams<MainTabParamList>;
   TestInterface: { testId: string; testTitle: string };
   Results: { attemptId?: string; result?: TestAttempt };
   Solutions: { attemptId?: string; result?: TestAttempt };
