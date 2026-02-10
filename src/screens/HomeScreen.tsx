@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, ScrollView, Image, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -46,8 +46,12 @@ export default function HomeScreen() {
   // useInAppUpdates(); // Requires expo-updates
   const navigation = useNavigation<NavigationProp>();
   const [greeting, setGreeting] = useState(getTimeBasedGreeting());
-  const { history } = useTestStore();
+  const { history, fetchHistory } = useTestStore();
   const { user, checkStreak } = useAuthStore();
+
+  useEffect(() => {
+    fetchHistory();
+  }, []);
 
   React.useEffect(() => {
     checkStreak();

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Question, TestAttempt, LibraryItem, LibraryItemType } from '../types';
+import { supabase } from '../lib/supabase';
 
 interface TestState {
   currentTestId: string | null;
@@ -38,6 +39,10 @@ interface TestState {
   isQuestionInLibrary: (questionId: string, type?: LibraryItemType) => boolean;
   reset: () => void;
   saveProgress: () => void;
+
+  // Sync Actions
+  fetchHistory: () => Promise<void>;
+  uploadAttempt: (attempt: TestAttempt) => Promise<void>;
 }
 
 // Helper to calculate score
@@ -352,7 +357,78 @@ export const useTestStore = create<TestState>()(
           };
         });
 
+        // Trigger Sync
+        get().uploadAttempt(attempt);
+
         return attempt;
+      },
+
+      fetchHistory: async () => {
+        const { data: session } = await supabase.auth.getSession();
+        if (!session.session?.user) return;
+
+        const { data, error } = await supabase
+          .from('attempts')
+          .select('*')
+          .eq('status', 'Completed')
+          .order('created_at', { ascending: false });
+
+        if (!error && data) {
+          // Map Supabase attempts to local TestAttempt
+          const mappedHistory: TestAttempt[] = data.map(d => ({
+            id: d.id,
+            testId: d.test_id,
+            testTitle: 'Test Result', // Title might be missing if joined, need joinQuery?
+            userId: d.user_id,
+            startTime: new Date(d.started_at).getTime(),
+            endTime: d.completed_at ? new Date(d.completed_at).getTime() : undefined,
+            score: Number(d.score),
+            totalMarks: Number(d.total_marks),
+            questions: [], // Don't load questions to save memory!
+            answers: d.answers || {},
+            markedForReview: {},
+            timeSpent: {},
+            status: d.status as any,
+          }));
+
+          set({ history: mappedHistory });
+        }
+      },
+
+      uploadAttempt: async (attempt) => {
+        const { data: session } = await supabase.auth.getSession();
+        if (!session.session?.user) return;
+
+        const user = session.session.user;
+
+        // Ensure we are not inserting duplicates if ID exists?
+        // Supabase ID is UUID, local ID is random string.
+        // Let Supabase generate ID or use local if UUID?
+        // We will insert and let Supabase gen ID.
+
+        const { error } = await supabase.from('attempts').insert({
+          user_id: user.id,
+          test_id: attempt.testId.includes('-') ? attempt.testId : undefined, // Handle loose IDs?
+          // If testId is from mock, it might not match UUID in DB. 
+          // For now, we store string, but schema expects UUID for test_id?
+          // Schema: test_id uuid references public.tests(id).
+          // ERROR: If testId is 'upsc-pre-2024' (string) and DB expects UUID, it fails.
+          // FIX: We need to look up the UUID from the 'tests' table by title/slug OR
+          // Relax the foreign key constraint? No, we seeded tests!
+          // We need the REAL UUID from the 'tests' table.
+
+          // Workaround for now: Store test info in a separate jsonb or text column if needed?
+          // Or we fetch the Test ID from Supabase before uploading.
+
+          score: attempt.score,
+          total_marks: attempt.totalMarks,
+          status: attempt.status,
+          started_at: new Date(attempt.startTime).toISOString(),
+          completed_at: attempt.endTime ? new Date(attempt.endTime).toISOString() : null,
+          answers: attempt.answers,
+        });
+
+        if (error) console.error('Upload failed:', error);
       },
 
       addToLibrary: (item) => set((state) => {

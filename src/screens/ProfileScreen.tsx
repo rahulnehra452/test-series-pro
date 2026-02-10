@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, Switch, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { StyleSheet, View, Text, Switch, TouchableOpacity, ScrollView, Alert, Image } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../contexts/ThemeContext';
 import { spacing, typography, borderRadius } from '../constants/theme';
@@ -42,6 +43,7 @@ const MenuItem = ({ icon, label, value, onPress, isSwitch, onSwitchChange }: any
 export default function ProfileScreen() {
   const { colors, theme, setThemePreference, isDark } = useTheme();
   const { user, logout } = useAuthStore();
+  const navigation = useNavigation<any>();
   const [modalVisible, setModalVisible] = useState(false);
 
   const toggleTheme = (value: boolean) => {
@@ -83,8 +85,16 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.profileHeader}>
-        <View style={[styles.avatar, { backgroundColor: colors.primaryLight }]}>
-          <Text style={styles.avatarText}>{getInitials(user.name)}</Text>
+        <View style={[styles.avatar, { backgroundColor: colors.primaryLight, overflow: 'hidden' }]}>
+          {user.avatar ? (
+            <Image
+              source={{ uri: user.avatar }}
+              style={{ width: '100%', height: '100%' }}
+              resizeMode="cover"
+            />
+          ) : (
+            <Text style={styles.avatarText}>{getInitials(user.name)}</Text>
+          )}
         </View>
         <Text style={[styles.userName, { color: colors.text }]}>{user.name}</Text>
         <Text style={[styles.userEmail, { color: colors.textSecondary }]}>{user.email}</Text>
@@ -118,6 +128,12 @@ export default function ProfileScreen() {
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>ACCOUNT</Text>
         <Card style={styles.card}>
           <MenuItem icon="person-outline" label="Edit Profile" onPress={() => setModalVisible(true)} />
+          {/* Admin / Dev only */}
+          <MenuItem
+            icon="cloud-upload-outline"
+            label="Sync Data (Admin)"
+            onPress={() => navigation.navigate('SeedData')}
+          />
           <MenuItem icon="card-outline" label="Subscription" value={user.isPro ? "Active" : "Inactive"} onPress={() => { }} />
           <MenuItem icon="help-circle-outline" label="Help & Support" onPress={() => { }} />
         </Card>

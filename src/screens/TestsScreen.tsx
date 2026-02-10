@@ -9,6 +9,8 @@ import { TestSeriesCard } from '../components/tests/TestSeriesCard';
 import { CategoryPill } from '../components/common/CategoryPill';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useTestStore } from '../stores/testStore';
+import { supabase } from '../lib/supabase';
+import { useEffect } from 'react';
 
 // Mock Data
 export const CATEGORIES = ['All', 'UPSC', 'SSC', 'Banking', 'Railways', 'State PCS'];
@@ -68,8 +70,28 @@ export default function TestsScreen() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const { history } = useTestStore();
+  const [tests, setTests] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredTests = MOCK_TEST_SERIES.filter((test) => {
+  useEffect(() => {
+    fetchTests();
+  }, []);
+
+  const fetchTests = async () => {
+    try {
+      const { data, error } = await supabase.from('tests').select('*').order('created_at', { ascending: false });
+      if (data && data.length > 0) setTests(data);
+      else setTests(MOCK_TEST_SERIES);
+    } catch (e) {
+      setTests(MOCK_TEST_SERIES);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const displayTests = tests.length > 0 ? tests : MOCK_TEST_SERIES;
+
+  const filteredTests = displayTests.filter((test) => {
     const matchesCategory = selectedCategory === 'All' || test.category === selectedCategory;
     const matchesSearch = test.title.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;

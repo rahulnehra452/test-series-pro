@@ -15,18 +15,12 @@ import ProfileScreen from '../screens/ProfileScreen';
 import TestInterfaceScreen from '../screens/TestInterfaceScreen';
 import ResultsScreen from '../screens/ResultsScreen';
 import SolutionsScreen from '../screens/SolutionsScreen';
+import SeedDataScreen from '../screens/SeedDataScreen'; // Hidden
 
 // Types
 import { TestAttempt } from '../types';
 
 import { NavigatorScreenParams } from '@react-navigation/native';
-
-export type RootStackParamList = {
-  Main: NavigatorScreenParams<MainTabParamList>;
-  TestInterface: { testId: string; testTitle: string };
-  Results: { attemptId?: string; result?: TestAttempt };
-  Solutions: { attemptId?: string; result?: TestAttempt };
-};
 
 export type MainTabParamList = {
   Home: undefined;
@@ -93,8 +87,57 @@ function MainTabs() {
   );
 }
 
+import LoginScreen from '../screens/LoginScreen';
+import SignupScreen from '../screens/SignupScreen';
+import { useAuthStore } from '../stores/authStore';
+import { useEffect } from 'react';
+
+// ... (Keep existing imports)
+
+export type RootStackParamList = {
+  Auth: undefined; // New Auth Group
+  Main: NavigatorScreenParams<MainTabParamList>;
+  TestInterface: { testId: string; testTitle: string };
+  Results: { attemptId?: string; result?: TestAttempt };
+  Solutions: { attemptId?: string; result?: TestAttempt };
+  SeedData: undefined;
+};
+
+export type AuthStackParamList = {
+  Login: undefined;
+  Signup: undefined;
+};
+
+const AuthStack = createNativeStackNavigator<AuthStackParamList>();
+
+function AuthNavigator() {
+  const { colors } = useTheme();
+  return (
+    <AuthStack.Navigator
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: colors.background },
+        animation: 'slide_from_right',
+      }}
+    >
+      <AuthStack.Screen name="Login" component={LoginScreen} />
+      <AuthStack.Screen name="Signup" component={SignupScreen} />
+    </AuthStack.Navigator>
+  );
+}
+
 export default function AppNavigator() {
   const { colors } = useTheme();
+  const { isAuthenticated, checkSession, isLoading } = useAuthStore();
+
+  useEffect(() => {
+    checkSession();
+  }, []);
+
+  if (isLoading) {
+    // Return null or a Splash Screen
+    return null;
+  }
 
   return (
     <Stack.Navigator
@@ -103,32 +146,39 @@ export default function AppNavigator() {
         contentStyle: { backgroundColor: colors.background },
       }}
     >
-      <Stack.Screen name="Main" component={MainTabs} />
-      <Stack.Screen
-        name="TestInterface"
-        component={TestInterfaceScreen}
-        options={{
-          gestureEnabled: false,
-          animation: 'slide_from_bottom',
-        }}
-      />
-      <Stack.Screen
-        name="Results"
-        component={ResultsScreen}
-        options={{
-          animation: 'slide_from_bottom',
-          headerShown: false,
-          gestureEnabled: false,
-        }}
-      />
-      <Stack.Screen
-        name="Solutions"
-        component={SolutionsScreen}
-        options={{
-          headerShown: false,
-          animation: 'slide_from_right',
-        }}
-      />
+      {!isAuthenticated ? (
+        <Stack.Screen name="Auth" component={AuthNavigator} />
+      ) : (
+        <>
+          <Stack.Screen name="Main" component={MainTabs} />
+          <Stack.Screen
+            name="TestInterface"
+            component={TestInterfaceScreen}
+            options={{
+              gestureEnabled: false,
+              animation: 'slide_from_bottom',
+            }}
+          />
+          <Stack.Screen
+            name="Results"
+            component={ResultsScreen}
+            options={{
+              animation: 'slide_from_bottom',
+              headerShown: false,
+              gestureEnabled: false,
+            }}
+          />
+          <Stack.Screen
+            name="Solutions"
+            component={SolutionsScreen}
+            options={{
+              headerShown: false,
+              animation: 'slide_from_right',
+            }}
+          />
+          <Stack.Screen name="SeedData" component={SeedDataScreen} />
+        </>
+      )}
     </Stack.Navigator>
   );
 }
