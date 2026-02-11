@@ -57,13 +57,18 @@ function NavigationWrapper() {
 }
 
 export default function App() {
-  React.useEffect(() => {
-    // 1. Initialize Auth Session
-    useAuthStore.getState().checkSession();
+  const authHydrated = useAuthStore(state => state.hasHydrated);
+  const testHydrated = useTestStore(state => state.hasHydrated);
 
-    // 2. Sync Offline Data
-    useTestStore.getState().syncPendingUploads();
-  }, []);
+  React.useEffect(() => {
+    if (authHydrated && testHydrated) {
+      // 1. Initialize Auth Session
+      useAuthStore.getState().checkSession();
+
+      // 2. Sync Offline Data
+      useTestStore.getState().syncPendingUploads();
+    }
+  }, [authHydrated, testHydrated]);
 
   return (
     <ErrorBoundary>

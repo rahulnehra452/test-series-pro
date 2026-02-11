@@ -128,13 +128,9 @@ function AuthNavigator() {
 
 export default function AppNavigator() {
   const { colors } = useTheme();
-  const { isAuthenticated, checkSession, isLoading } = useAuthStore();
+  const { isAuthenticated, isLoading, hasHydrated } = useAuthStore();
 
-  useEffect(() => {
-    checkSession();
-  }, []);
-
-  if (isLoading) {
+  if (isLoading || !hasHydrated) {
     // Return null or a Splash Screen
     return null;
   }

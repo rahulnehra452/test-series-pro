@@ -14,6 +14,8 @@ interface AuthState {
   checkSession: () => Promise<void>;
   checkStreak: () => Promise<void>;
   updateProfile: (updates: { name?: string; email?: string }) => Promise<void>;
+  hasHydrated: boolean;
+  setHasHydrated: (state: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -148,41 +150,48 @@ export const useAuthStore = create<AuthState>()(
 
       checkStreak: async () => {
         const state = get();
-        if (!state.user) return;
+        if (!state.user || !state.isAuthenticated) return;
 
+        // Use UTC-based date for consistency if possible, or simple ISO format
         const today = new Date().toISOString().split('T')[0];
-        const lastActive = state.user.lastActiveDate ? new Date(state.user.lastActiveDate).toISOString().split('T')[0] : null;
+        const lastActiveDateStr = state.user.lastActiveDate ? new Date(state.user.lastActiveDate).toISOString().split('T')[0] : null;
 
-        if (lastActive === today) return; // Already logged today
+        if (lastActiveDateStr === today) return; // Already checked today
+
+        const now = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
 
         let newStreak = 1;
-        if (lastActive) {
-          const yesterday = new Date();
-          yesterday.setDate(yesterday.getDate() - 1);
-          const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-          if (lastActive === yesterdayStr) {
-            newStreak = (state.user.streak || 0) + 1;
-          }
+        if (lastActiveDateStr === yesterdayStr) {
+          newStreak = (state.user.streak || 0) + 1;
+        } else if (lastActiveDateStr && lastActiveDateStr < yesterdayStr) {
+          // Streak broken
+          newStreak = 1;
+        } else if (!lastActiveDateStr) {
+          newStreak = 1;
         }
 
         // Update Supabase
-        await supabase
+        const { error } = await supabase
           .from('profiles')
           .update({
             streak: newStreak,
-            last_active_at: new Date().toISOString()
+            last_active_at: now.toISOString()
           })
           .eq('id', state.user.id);
 
-        // Update Local State
-        set({
-          user: {
-            ...state.user,
-            streak: newStreak,
-            lastActiveDate: new Date().toISOString()
-          }
-        });
+        if (!error) {
+          // Update Local State
+          set({
+            user: {
+              ...state.user,
+              streak: newStreak,
+              lastActiveDate: now.toISOString()
+            }
+          });
+        }
       },
 
       updateProfile: async (updates: { name?: string; email?: string }) => {
@@ -213,10 +222,16 @@ export const useAuthStore = create<AuthState>()(
           }
         });
       },
+
+      hasHydrated: false,
+      setHasHydrated: (state) => set({ hasHydrated: state }),
     }),
     {
       name: 'test-series-auth',
       storage: createJSONStorage(() => AsyncStorage),
+      onRehydrateStorage: (state) => {
+        return () => state?.setHasHydrated(true);
+      }
     }
   )
 );

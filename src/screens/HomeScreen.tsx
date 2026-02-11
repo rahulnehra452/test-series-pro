@@ -47,16 +47,7 @@ export default function HomeScreen() {
   const navigation = useNavigation<NavigationProp>();
   const [greeting, setGreeting] = useState(getTimeBasedGreeting());
   const { history, fetchHistory } = useTestStore();
-  const { user, checkStreak } = useAuthStore();
-
-  useEffect(() => {
-    fetchHistory();
-  }, []);
-
-  React.useEffect(() => {
-    checkStreak();
-    // Refresh streak on mount
-  }, []);
+  const { user } = useAuthStore();
 
   const recentActivity = history.slice(0, 5); // Get last 5 attempts
 
@@ -80,7 +71,7 @@ export default function HomeScreen() {
       });
     } else {
       // Navigate to Tests screen
-      navigation.navigate('Main', { screen: 'Tests' } as any);
+      navigation.navigate('Main', { screen: 'Tests' });
     }
   };
 
@@ -106,7 +97,7 @@ export default function HomeScreen() {
         </View>
         <TouchableOpacity
           style={[styles.subscriptionButton, { backgroundColor: colors.warning + '20' }]}
-          onPress={() => navigation.navigate('Main', { screen: 'Profile' } as any)}
+          onPress={() => navigation.navigate('Main', { screen: 'Profile' })}
         >
           <Ionicons name="diamond" size={20} color={colors.warning} />
           <Text style={[styles.subscriptionText, { color: colors.warning }]}>Pro</Text>
@@ -135,7 +126,7 @@ export default function HomeScreen() {
       {/* Recent Activity */}
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Activity</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Main', { screen: 'Progress' } as any)}>
+        <TouchableOpacity onPress={() => navigation.navigate('Main', { screen: 'Progress' })}>
           <Text style={[styles.seeAll, { color: colors.primary }]}>See All</Text>
         </TouchableOpacity>
       </View>

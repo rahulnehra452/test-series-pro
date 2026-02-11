@@ -270,7 +270,7 @@ export default function TestInterfaceScreen() {
             const result = finishTest();
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             showToast('Test submitted successfully!', 'success');
-            (navigation as any).replace('Results', { result });
+            navigation.replace('Results', { result });
           }
         }
       ]

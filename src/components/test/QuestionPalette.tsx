@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Modal, FlatList, Dimensions } from 'react-native';
+import { Question } from '../../types';
 import { useTheme } from '../../contexts/ThemeContext';
 import { spacing, typography, borderRadius } from '../../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,7 +10,7 @@ import { BlurView } from 'expo-blur';
 interface QuestionPaletteProps {
   isVisible: boolean;
   onClose: () => void;
-  questions: any[];
+  questions: Question[];
   currentIndex: number;
   answers: Record<string, number>;
   marked: Record<string, boolean>;

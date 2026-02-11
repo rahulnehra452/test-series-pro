@@ -53,6 +53,8 @@ interface TestState {
 
   uploadAttempt: (attempt: TestAttempt) => Promise<void>;
   syncPendingUploads: () => Promise<void>;
+  hasHydrated: boolean;
+  setHasHydrated: (state: boolean) => void;
 }
 
 // Helper to calculate score
@@ -311,23 +313,32 @@ export const useTestStore = create<TestState>()(
           finalTimeSpent[currentQ.id] = (finalTimeSpent[currentQ.id] || 0) + elapsed;
         }
 
-        // Auto-add wrong answers to Library
-        const newLibraryItems: LibraryItem[] = [];
+        // Sync Library items (Wrong answers)
+        const updatedLibrary = [...state.library];
         state.questions.forEach(q => {
           const userAnswer = state.answers[q.id];
-          if (userAnswer !== undefined && userAnswer !== q.correctAnswer) {
-            // Check if already in library
-            const alreadyExists = state.library.some(item => item.questionId === q.id && item.type === 'wrong');
-            if (!alreadyExists) {
-              newLibraryItems.push({
-                id: Crypto.randomUUID(),
-                questionId: q.id,
-                question: q.text,
-                subject: q.subject,
-                difficulty: q.difficulty,
-                type: 'wrong',
-                saveTimestamp: Date.now(),
-              });
+          if (userAnswer !== undefined) {
+            if (userAnswer !== q.correctAnswer) {
+              // Add to 'wrong' if not already there
+              const alreadyExists = updatedLibrary.some(item => item.questionId === q.id && item.type === 'wrong');
+              if (!alreadyExists) {
+                updatedLibrary.unshift({
+                  id: Crypto.randomUUID(),
+                  questionId: q.id,
+                  question: q.text,
+                  subject: q.subject,
+                  difficulty: q.difficulty,
+                  type: 'wrong',
+                  saveTimestamp: Date.now(),
+                  exam: state.currentTestId || undefined,
+                });
+              }
+            } else {
+              // Remove from 'wrong' if solved correctly now
+              const wrongIndex = updatedLibrary.findIndex(item => item.questionId === q.id && item.type === 'wrong');
+              if (wrongIndex > -1) {
+                updatedLibrary.splice(wrongIndex, 1);
+              }
             }
           }
         });
@@ -356,7 +367,7 @@ export const useTestStore = create<TestState>()(
 
           return {
             history: [attempt, ...filteredHistory],
-            library: [...newLibraryItems, ...state.library],
+            library: updatedLibrary,
             currentTestId: null,
             currentTestTitle: null,
             questions: [],
@@ -570,14 +581,19 @@ export const useTestStore = create<TestState>()(
         timeRemaining: 0,
         totalTime: 0,
         endTime: null,
-        isPlaying: false,
         history: [],
         library: [],
       }),
+
+      hasHydrated: false,
+      setHasHydrated: (state) => set({ hasHydrated: state }),
     }),
     {
       name: 'test-series-data',
       storage: createJSONStorage(() => AsyncStorage),
+      onRehydrateStorage: (state) => {
+        return () => state?.setHasHydrated(true);
+      },
       partialize: (state) => ({
         // Prune history to only keep the last 20 attempts locally to prevent AsyncStorage overflow
         history: state.history.slice(0, 20),
