@@ -8,6 +8,8 @@ import AppNavigator, { RootStackParamList } from './navigation/AppNavigator';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import { Toast } from './components/common/Toast';
 import * as Linking from 'expo-linking';
+import { useAuthStore } from './stores/authStore';
+import { useTestStore } from './stores/testStore';
 
 const linking: LinkingOptions<RootStackParamList> = {
   prefixes: [Linking.createURL('/'), 'testseriespro://', 'https://testseriespro.com'],
@@ -55,6 +57,14 @@ function NavigationWrapper() {
 }
 
 export default function App() {
+  React.useEffect(() => {
+    // 1. Initialize Auth Session
+    useAuthStore.getState().checkSession();
+
+    // 2. Sync Offline Data
+    useTestStore.getState().syncPendingUploads();
+  }, []);
+
   return (
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>

@@ -69,15 +69,42 @@ export const useAuthStore = create<AuthState>()(
         // Better to rely on Trigger. Assuming trigger acts on NEW.raw_user_meta_data
 
         if (data.user) {
-          // Setup simple user object, full profile comes later
+          // Setup initial user state from metadata immediately
           const user: User = {
             id: data.user.id,
             email: data.user.email!,
             name: name,
             isPro: false,
             streak: 0,
+            avatar: data.user.user_metadata?.avatar_url || data.user.user_metadata?.picture,
           };
           set({ user, isAuthenticated: true });
+
+          // Instead of a brittle setTimeout, we'll try to fetch the profile several times
+          // with exponential backoff if it's missing.
+          const fetchProfileWithRetry = async (retryCount = 0) => {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', data.user!.id)
+              .single();
+
+            if (profile) {
+              set(state => ({
+                user: state.user ? {
+                  ...state.user,
+                  name: profile.full_name || state.user.name,
+                  isPro: profile.is_pro || false,
+                  streak: profile.streak || 0,
+                } : null
+              }));
+            } else if (retryCount < 3) {
+              // Retry after 1s, 2s, 4s
+              setTimeout(() => fetchProfileWithRetry(retryCount + 1), Math.pow(2, retryCount) * 1000);
+            }
+          };
+
+          fetchProfileWithRetry();
         }
       },
 
@@ -88,7 +115,14 @@ export const useAuthStore = create<AuthState>()(
 
       checkSession: async () => {
         set({ isLoading: true });
-        const { data } = await supabase.auth.getSession();
+        const { data, error } = await supabase.auth.getSession();
+
+        if (error && error.message.includes('invalid_grant')) {
+          // Token refresh failed, force logout
+          await get().logout();
+          return;
+        }
+
         if (data.session?.user) {
           // Fetch full profile
           const { data: profile } = await supabase

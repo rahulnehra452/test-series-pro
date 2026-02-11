@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text, ScrollView, Dimensions, TouchableOpacity, FlatList } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, Dimensions, TouchableOpacity, FlatList, ActivityIndicator } from 'react-native';
 import { LineChart } from "react-native-chart-kit";
 import { useTestStore } from '../stores/testStore';
 import { useTheme } from '../contexts/ThemeContext';
@@ -27,7 +27,7 @@ const StatCard = ({ label, value, icon, color }: { label: string, value: string,
 export default function StatsScreen() {
   const { colors, isDark } = useTheme();
   const navigation = useNavigation<any>();
-  const { history } = useTestStore();
+  const { history, isLoadingMoreHistory, hasMoreHistory, fetchHistory, historyPage } = useTestStore();
   const [showAllHistory, setShowAllHistory] = React.useState(false);
 
   const displayedHistory = showAllHistory ? history : history.slice(0, 5);
@@ -165,7 +165,26 @@ export default function StatsScreen() {
             No tests taken yet. Start a test to see history!
           </Text>
         }
-        ListFooterComponent={<View style={{ height: 100 }} />}
+        ListFooterComponent={
+          <View style={{ paddingBottom: 100 }}>
+            {showAllHistory && hasMoreHistory && (
+              <TouchableOpacity
+                style={styles.loadMoreButton}
+                onPress={() => fetchHistory(historyPage + 1)}
+                disabled={isLoadingMoreHistory}
+              >
+                {isLoadingMoreHistory ? (
+                  <ActivityIndicator color={colors.primary} />
+                ) : (
+                  <Text style={[styles.loadMoreText, { color: colors.primary }]}>Load More</Text>
+                )}
+              </TouchableOpacity>
+            )}
+            {!hasMoreHistory && showAllHistory && history.length > 0 && (
+              <Text style={[styles.noHistoryText, { color: colors.textSecondary, marginTop: 20 }]}>No more history</Text>
+            )}
+          </View>
+        }
       />
     </SafeAreaView>
   );
@@ -284,6 +303,16 @@ const styles = StyleSheet.create({
   },
   viewAllText: {
     ...typography.subhead,
+    fontWeight: '600',
+  },
+  loadMoreButton: {
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.md,
+  },
+  loadMoreText: {
+    ...typography.body,
     fontWeight: '600',
   },
 });

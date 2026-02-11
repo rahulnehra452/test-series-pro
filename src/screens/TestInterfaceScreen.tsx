@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, SafeAreaView, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, SafeAreaView, Alert, ActivityIndicator, AppState } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { useTestStore } from '../stores/testStore';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { safeHaptics as Haptics } from '../utils/haptics';
 import { useToastStore } from '../stores/toastStore';
+import { StackActions } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/AppNavigator';
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 import { audio } from '../utils/audio';
 
@@ -21,7 +26,7 @@ import { getQuestionsForTest } from '../data/mockQuestions';
 
 export default function TestInterfaceScreen() {
   const { colors } = useTheme();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
   const { testId, testTitle } = (route.params as { testId: string; testTitle?: string }) || {};
 
@@ -138,6 +143,22 @@ export default function TestInterfaceScreen() {
 
     return unsubscribe;
   }, [navigation]);
+
+  // Handle AppState Change - Instant Timer Sync
+  React.useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState === 'active') {
+        const { isPlaying } = useTestStore.getState();
+        if (isPlaying) {
+          tickTimer(); // Sync immediately on foreground
+        }
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [tickTimer]);
 
   const currentQuestion = questions[currentIndex];
 
@@ -287,7 +308,7 @@ export default function TestInterfaceScreen() {
                     const result = finishTest();
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                     showToast('Test submitted successfully!', 'success');
-                    (navigation as any).replace('Results', { result });
+                    navigation.dispatch(StackActions.replace('Results', { result }));
                   }
                 }
               ]

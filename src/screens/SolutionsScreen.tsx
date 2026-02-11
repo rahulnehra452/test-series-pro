@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Platform, FlatList } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../contexts/ThemeContext';
@@ -95,42 +95,47 @@ export default function SolutionsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={28} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.text }]}>Solutions</Text>
-        <View style={{ width: 44 }} />
-      </View>
-
-      {/* Filter Chips */}
-      <View style={[styles.filterContainer, { borderBottomColor: colors.border }]}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterRow}
-        >
-          <FilterChip mode="all" label="All" count={allQuestions.length} />
-          <FilterChip mode="correct" label="Correct" count={correctCount} />
-          <FilterChip mode="incorrect" label="Incorrect" count={incorrectCount} />
-          <FilterChip mode="marked" label="Marked" count={markedCount} />
-        </ScrollView>
-      </View>
-
-      {/* Questions List */}
-      <ScrollView
-        contentContainerStyle={styles.content}
+      <FlatList
+        data={filteredQuestions}
+        keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
-      >
-        {filteredQuestions.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="filter-outline" size={48} color={colors.textTertiary} />
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              No questions match this filter.
-            </Text>
-          </View>
-        ) : filteredQuestions.map((q) => {
+        contentContainerStyle={styles.content}
+        ListHeaderComponent={
+          <>
+            {/* Header */}
+            <View style={styles.header}>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <Ionicons name="chevron-back" size={28} color={colors.text} />
+              </TouchableOpacity>
+              <Text style={[styles.title, { color: colors.text }]}>Solutions</Text>
+              <View style={{ width: 44 }} />
+            </View>
+
+            {/* Filter Chips */}
+            <View style={[styles.filterContainer, { borderBottomColor: colors.border }]}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.filterRow}
+              >
+                <FilterChip mode="all" label="All" count={allQuestions.length} />
+                <FilterChip mode="correct" label="Correct" count={correctCount} />
+                <FilterChip mode="incorrect" label="Incorrect" count={incorrectCount} />
+                <FilterChip mode="marked" label="Marked" count={markedCount} />
+              </ScrollView>
+            </View>
+
+            {filteredQuestions.length === 0 && (
+              <View style={styles.emptyState}>
+                <Ionicons name="filter-outline" size={48} color={colors.textTertiary} />
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                  No questions match this filter.
+                </Text>
+              </View>
+            )}
+          </>
+        }
+        renderItem={({ item: q }) => {
           const originalIndex = allQuestions.findIndex(oq => oq.id === q.id);
           const userAnswerIdx = attempt.answers[q.id];
           const isCorrect = userAnswerIdx === q.correctAnswer;
@@ -215,11 +220,9 @@ export default function SolutionsScreen() {
               )}
             </Card>
           );
-        })}
-
-        {/* Bottom Padding */}
-        <View style={{ height: insets.bottom + 20 }} />
-      </ScrollView>
+        }}
+        ListFooterComponent={<View style={{ height: insets.bottom + 20 }} />}
+      />
     </View>
   );
 }

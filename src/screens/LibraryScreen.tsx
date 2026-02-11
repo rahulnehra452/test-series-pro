@@ -58,7 +58,16 @@ const getExamCategory = (examStr: string | undefined): string => {
   return 'Other';
 };
 
-const SummaryCard = ({ title, count, icon, colors, gradient, onPress, isActive }: any) => {
+interface SummaryCardProps {
+  title: string;
+  count: number;
+  icon: keyof typeof Ionicons.glyphMap;
+  gradient: readonly [string, string, ...string[]];
+  onPress: () => void;
+  isActive: boolean;
+}
+
+const SummaryCard = ({ title, count, icon, gradient, onPress, isActive }: SummaryCardProps) => {
   const { isDark } = useTheme();
   return (
     <TouchableOpacity

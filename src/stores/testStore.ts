@@ -3,6 +3,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Question, TestAttempt, LibraryItem, LibraryItemType } from '../types';
 import { supabase } from '../lib/supabase';
+import * as Crypto from 'expo-crypto';
 
 interface TestState {
   currentTestId: string | null;
@@ -37,22 +38,31 @@ interface TestState {
   updateLibraryItemType: (itemId: string, newType: LibraryItemType) => void;
   removeFromLibrary: (questionId: string, type?: LibraryItemType) => void;
   isQuestionInLibrary: (questionId: string, type?: LibraryItemType) => boolean;
-  reset: () => void;
+  resetActiveTest: () => void;
+  clearAllData: () => void;
   saveProgress: () => void;
 
   // Sync Actions
-  fetchHistory: () => Promise<void>;
+  pendingUploads: TestAttempt[]; // Queue for failed uploads
+
+  // Pagination
+  isLoadingMoreHistory: boolean;
+  hasMoreHistory: boolean;
+  historyPage: number;
+  fetchHistory: (page?: number) => Promise<void>;
+
   uploadAttempt: (attempt: TestAttempt) => Promise<void>;
+  syncPendingUploads: () => Promise<void>;
 }
 
 // Helper to calculate score
-const calculateScore = (questions: Question[], answers: Record<string, number>) => {
+const calculateScore = (questions: Question[], answers: Record<string, number>, negativeMarking = 0.66) => {
   let score = 0;
   questions.forEach(q => {
     if (answers[q.id] === q.correctAnswer) {
       score += 2; // +2 for correct
     } else if (answers[q.id] !== undefined && answers[q.id] !== null) {
-      score -= 0.66; // -0.66 for UPSC (Standard 1/3rd penalty approximation)
+      score -= negativeMarking; // Dynamic penalty
     }
   });
   // Use Math.round to avoid floating point drift before toFixed
@@ -77,6 +87,7 @@ export const useTestStore = create<TestState>()(
       sessionStartTime: null,
       isPlaying: false,
       history: [],
+      pendingUploads: [],
       library: [],
       hasSeenSwipeHint: false,
       markSwipeHintSeen: () => set({ hasSeenSwipeHint: true }),
@@ -309,7 +320,7 @@ export const useTestStore = create<TestState>()(
             const alreadyExists = state.library.some(item => item.questionId === q.id && item.type === 'wrong');
             if (!alreadyExists) {
               newLibraryItems.push({
-                id: Math.random().toString(36).substr(2, 9),
+                id: Crypto.randomUUID(),
                 questionId: q.id,
                 question: q.text,
                 subject: q.subject,
@@ -322,7 +333,7 @@ export const useTestStore = create<TestState>()(
         });
 
         const attempt: TestAttempt = {
-          id: Math.random().toString(36).substr(2, 9),
+          id: Crypto.randomUUID(),
           testId: state.currentTestId!,
           testTitle: state.currentTestTitle || 'Unknown Test',
           userId: 'current-user',
@@ -363,51 +374,79 @@ export const useTestStore = create<TestState>()(
         return attempt;
       },
 
-      fetchHistory: async () => {
+
+      // ... (inside create) ...
+
+      isLoadingMoreHistory: false,
+      hasMoreHistory: true,
+      historyPage: 0,
+
+      fetchHistory: async (page = 0) => {
         const { data: session } = await supabase.auth.getSession();
         if (!session.session?.user) return;
+
+        const pageSize = 20;
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
+
+        if (page > 0) {
+          set({ isLoadingMoreHistory: true });
+        }
 
         const { data, error } = await supabase
           .from('attempts')
           .select('*')
           .eq('status', 'Completed')
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .range(from, to);
 
         if (!error && data) {
-          // Map Supabase attempts to local TestAttempt
           const mappedHistory: TestAttempt[] = data.map(d => ({
             id: d.id,
             testId: d.test_id,
-            testTitle: 'Test Result', // Title might be missing if joined, need joinQuery?
+            testTitle: 'Test Result',
             userId: d.user_id,
             startTime: new Date(d.started_at).getTime(),
             endTime: d.completed_at ? new Date(d.completed_at).getTime() : undefined,
             score: Number(d.score),
             totalMarks: Number(d.total_marks),
-            questions: [], // Don't load questions to save memory!
+            questions: d.questions || [],
             answers: d.answers || {},
             markedForReview: {},
             timeSpent: {},
-            status: d.status as any,
+            status: d.status as TestAttempt['status'],
           }));
 
-          set({ history: mappedHistory });
+          set(state => ({
+            history: page === 0 ? mappedHistory : [...state.history, ...mappedHistory],
+            hasMoreHistory: data.length === pageSize,
+            historyPage: page,
+            isLoadingMoreHistory: false
+          }));
+        } else {
+          set({ isLoadingMoreHistory: false });
         }
       },
 
       uploadAttempt: async (attempt) => {
         const { data: session } = await supabase.auth.getSession();
-        if (!session.session?.user) return;
-
-        const user = session.session.user;
 
         // generated UUID validation regex
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-        if (!uuidRegex.test(attempt.testId)) {
-          console.log('Skipping upload for local test attempt:', attempt.testId);
+        // Allow any string ID (UUID or simple string)
+        if (!attempt.testId) {
+          console.log('Skipping upload: No Test ID');
           return;
         }
+
+        if (!session.session?.user) {
+          // Queue if no user (offline or logged out? if logged out, maybe don't queue)
+          // If just offline, queue.
+          // For now, let's queue it.
+          set(state => ({ pendingUploads: [...state.pendingUploads, attempt] }));
+          return;
+        }
+
+        const user = session.session.user;
 
         const { error } = await supabase.from('attempts').insert({
           user_id: user.id,
@@ -418,9 +457,50 @@ export const useTestStore = create<TestState>()(
           started_at: new Date(attempt.startTime).toISOString(),
           completed_at: attempt.endTime ? new Date(attempt.endTime).toISOString() : null,
           answers: attempt.answers,
+          questions: attempt.questions,
         });
 
-        if (error) console.error('Upload failed:', error);
+        if (error) {
+          console.error('Upload failed, queuing:', error);
+          set(state => ({
+            // Avoid duplicates in queue
+            pendingUploads: state.pendingUploads.some(a => a.id === attempt.id)
+              ? state.pendingUploads
+              : [...state.pendingUploads, attempt]
+          }));
+        }
+      },
+
+      syncPendingUploads: async () => {
+        const state = get();
+        if (state.pendingUploads.length === 0) return;
+
+        const { data: session } = await supabase.auth.getSession();
+        if (!session.session?.user) return;
+        const user = session.session.user;
+
+        const remainingUploads: TestAttempt[] = [];
+
+        for (const attempt of state.pendingUploads) {
+          // Retry Upload with upsert to avoid duplicate key errors
+          const { error } = await supabase.from('attempts').upsert({
+            user_id: user.id,
+            test_id: attempt.testId,
+            score: attempt.score,
+            total_marks: attempt.totalMarks,
+            status: attempt.status,
+            started_at: new Date(attempt.startTime).toISOString(),
+            completed_at: attempt.endTime ? new Date(attempt.endTime).toISOString() : null,
+            answers: attempt.answers,
+          }, { onConflict: 'id' });
+
+          if (error) {
+            console.error('Retry failed for:', attempt.id, error);
+            remainingUploads.push(attempt); // Keep in queue
+          }
+        }
+
+        set({ pendingUploads: remainingUploads });
       },
 
       addToLibrary: (item) => set((state) => {
@@ -430,7 +510,7 @@ export const useTestStore = create<TestState>()(
         }
         const newItem: LibraryItem = {
           ...item,
-          id: Math.random().toString(36).substr(2, 9),
+          id: Crypto.randomUUID(),
           saveTimestamp: Date.now(),
         };
         return { library: [newItem, ...state.library] };
@@ -460,7 +540,21 @@ export const useTestStore = create<TestState>()(
         });
       },
 
-      reset: () => set({
+      resetActiveTest: () => set({
+        currentTestId: null,
+        currentTestTitle: null,
+        questions: [],
+        currentIndex: 0,
+        answers: {},
+        markedForReview: {},
+        timeRemaining: 0,
+        totalTime: 0,
+        endTime: null,
+        isPlaying: false,
+        // Do NOT clear history or library
+      }),
+
+      clearAllData: () => set({
         currentTestId: null,
         currentTestTitle: null,
         questions: [],
@@ -479,7 +573,8 @@ export const useTestStore = create<TestState>()(
       name: 'test-storage',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
-        history: state.history,
+        // Prune history to only keep the last 20 attempts locally to prevent AsyncStorage overflow
+        history: state.history.slice(0, 20),
         library: state.library,
         // Active test state persistence
         currentTestId: state.currentTestId,

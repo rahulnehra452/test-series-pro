@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Modal, ScrollView, Dimensions } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Modal, FlatList, Dimensions } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { spacing, typography, borderRadius } from '../../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -67,33 +67,40 @@ export const QuestionPalette = ({
             </View>
           </View>
 
-          <ScrollView contentContainerStyle={styles.grid}>
-            {questions.map((q, index) => {
-              const status = getStatusColor(index, q.id);
-              return (
-                <TouchableOpacity
-                  key={index}
-                  onPress={() => {
-                    onJumpToQuestion(index);
-                    onClose();
-                  }}
-                  style={[
-                    styles.gridItem,
-                    {
-                      backgroundColor: status.bg,
-                      borderColor: status.border,
-                      borderWidth: 1.5
-                    }
-                  ]}
-                >
-                  <Text style={[styles.gridText, { color: status.text }]}>{index + 1}</Text>
-                  {marked[q.id] && (
-                    <View style={[styles.badge, { backgroundColor: colors.warning }]} />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+          <View style={{ flex: 1, paddingHorizontal: spacing.lg }}>
+            <FlatList
+              data={questions}
+              keyExtractor={(item, index) => item.id || index.toString()}
+              numColumns={6}
+              contentContainerStyle={{ gap: 12, paddingBottom: 20 }}
+              columnWrapperStyle={{ gap: 12, justifyContent: 'center' }}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item, index }) => {
+                const status = getStatusColor(index, item.id);
+                return (
+                  <TouchableOpacity
+                    onPress={() => {
+                      onJumpToQuestion(index);
+                      onClose();
+                    }}
+                    style={[
+                      styles.gridItem,
+                      {
+                        backgroundColor: status.bg,
+                        borderColor: status.border,
+                        borderWidth: 1.5
+                      }
+                    ]}
+                  >
+                    <Text style={[styles.gridText, { color: status.text }]}>{index + 1}</Text>
+                    {marked[item.id] && (
+                      <View style={[styles.badge, { backgroundColor: colors.warning }]} />
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
         </View>
       </View>
     </Modal>

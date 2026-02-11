@@ -39,7 +39,7 @@ export default function LoginScreen() {
       const redirectUrl = makeRedirectUri({
         scheme: 'testseriespro',
       });
-      console.log('generated redirectUrl:', redirectUrl);
+      // console.log('generated redirectUrl:', redirectUrl);
 
       setLoading(true);
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -52,12 +52,12 @@ export default function LoginScreen() {
           },
         },
       });
-      console.log('Supabase Response Data:', data);
+      // console.log('Supabase OAuth initiated');
 
       if (error) Alert.alert('Google Sign-In Error', error.message);
       if (data.url) {
         const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
-        console.log('WebBrowser Result:', JSON.stringify(result));
+        // console.log('WebBrowser Result Type:', result.type);
 
         if (result.type === 'success' && result.url) {
           const url = new URL(result.url);
@@ -67,7 +67,7 @@ export default function LoginScreen() {
           // 1. Try PKCE Flow (Code Exchange)
           if (code) {
             console.log('Found OAuth Code, exchanging...');
-            const { data: sessionData, error: sessionError } = await supabase.auth.exchangeCodeForSession(code);
+            const { error: sessionError } = await supabase.auth.exchangeCodeForSession(code);
             if (sessionError) {
               Alert.alert('Session Error (Code)', sessionError.message);
               return;
@@ -96,7 +96,7 @@ export default function LoginScreen() {
             }
             await useAuthStore.getState().checkSession();
           } else {
-            console.log('No code or tokens found in URL:', result.url);
+            console.log('No code or tokens found in URL');
             Alert.alert('Login Failed', 'Could not parse login info from validation.');
           }
         }

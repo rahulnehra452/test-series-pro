@@ -4,6 +4,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import * as Haptics from 'expo-haptics';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/AppNavigator';
 
 import { useTheme } from '../contexts/ThemeContext';
 import { borderRadius, spacing, typography } from '../constants/theme';
@@ -17,7 +19,7 @@ import { CircularProgress } from '../components/common/CircularProgress';
 
 export default function ResultsScreen() {
   const { colors, isDark } = useTheme();
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
   const route = useRoute();
   const { result, attemptId } = (route.params as { result?: TestAttempt; attemptId?: string }) || {};
@@ -72,7 +74,7 @@ export default function ResultsScreen() {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }]}>
         <Text style={{ color: colors.text }}>Result not found</Text>
-        <Button title="Go Home" onPress={() => navigation.navigate('Main', { screen: 'Home' } as any)} />
+        <Button title="Go Home" onPress={() => navigation.navigate('Main', { screen: 'Home' })} />
       </View>
     );
   }
@@ -112,7 +114,7 @@ export default function ResultsScreen() {
       "Are you sure? Your current results for this attempt will be discarded.",
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Retry", style: "destructive", onPress: () => navigation.replace('TestInterface', { testId: attempt.testId, title: attempt.testTitle }) }
+        { text: "Retry", style: "destructive", onPress: () => navigation.replace('TestInterface', { testId: attempt.testId, testTitle: attempt.testTitle }) }
       ]
     );
   };
@@ -249,7 +251,7 @@ export default function ResultsScreen() {
 
           <Button
             title="Back to Home"
-            onPress={() => navigation.navigate('Main', { screen: 'Home' } as any)}
+            onPress={() => navigation.navigate('Main', { screen: 'Home' })}
             variant="outline"
             style={{
               marginTop: 16,
