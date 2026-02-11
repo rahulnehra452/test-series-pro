@@ -482,21 +482,27 @@ export const useTestStore = create<TestState>()(
         const remainingUploads: TestAttempt[] = [];
 
         for (const attempt of state.pendingUploads) {
-          // Retry Upload with upsert to avoid duplicate key errors
-          const { error } = await supabase.from('attempts').upsert({
-            user_id: user.id,
-            test_id: attempt.testId,
-            score: attempt.score,
-            total_marks: attempt.totalMarks,
-            status: attempt.status,
-            started_at: new Date(attempt.startTime).toISOString(),
-            completed_at: attempt.endTime ? new Date(attempt.endTime).toISOString() : null,
-            answers: attempt.answers,
-          }, { onConflict: 'id' });
+          try {
+            // Retry Upload with upsert to avoid duplicate key errors
+            const { error } = await supabase.from('attempts').upsert({
+              user_id: user.id,
+              test_id: attempt.testId,
+              score: attempt.score,
+              total_marks: attempt.totalMarks,
+              status: attempt.status,
+              started_at: new Date(attempt.startTime).toISOString(),
+              completed_at: attempt.endTime ? new Date(attempt.endTime).toISOString() : null,
+              answers: attempt.answers,
+              questions: attempt.questions, // Fix: Include questions in sync
+            }, { onConflict: 'id' });
 
-          if (error) {
-            console.error('Retry failed for:', attempt.id, error);
-            remainingUploads.push(attempt); // Keep in queue
+            if (error) {
+              console.error('Sync failed for attempt:', attempt.id, error);
+              remainingUploads.push(attempt); // Keep in queue
+            }
+          } catch (e) {
+            console.error('Critical sync failure:', e);
+            remainingUploads.push(attempt);
           }
         }
 
@@ -570,12 +576,13 @@ export const useTestStore = create<TestState>()(
       }),
     }),
     {
-      name: 'test-storage',
+      name: 'test-series-data',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         // Prune history to only keep the last 20 attempts locally to prevent AsyncStorage overflow
         history: state.history.slice(0, 20),
         library: state.library,
+        pendingUploads: state.pendingUploads, // Fix: Persist offline queue
         // Active test state persistence
         currentTestId: state.currentTestId,
         currentTestTitle: state.currentTestTitle,

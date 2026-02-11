@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../contexts/ThemeContext';
 import { spacing, typography, borderRadius } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { useTestStore } from '../stores/testStore';
 import { Card } from '../components/common/Card';
 import { ExpandableText } from '../components/common/ExpandableText';
@@ -101,7 +102,12 @@ export default function SolutionsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
         ListHeaderComponent={
-          <>
+          <View style={styles.stickyHeaderContainer}>
+            <BlurView
+              intensity={80}
+              tint={isDark ? 'dark' : 'light'}
+              style={StyleSheet.absoluteFill}
+            />
             {/* Header */}
             <View style={styles.header}>
               <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -112,7 +118,7 @@ export default function SolutionsScreen() {
             </View>
 
             {/* Filter Chips */}
-            <View style={[styles.filterContainer, { borderBottomColor: colors.border }]}>
+            <View style={styles.filterContainer}>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -124,17 +130,19 @@ export default function SolutionsScreen() {
                 <FilterChip mode="marked" label="Marked" count={markedCount} />
               </ScrollView>
             </View>
-
-            {filteredQuestions.length === 0 && (
-              <View style={styles.emptyState}>
-                <Ionicons name="filter-outline" size={48} color={colors.textTertiary} />
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                  No questions match this filter.
-                </Text>
-              </View>
-            )}
-          </>
+          </View>
         }
+        ListEmptyComponent={
+          filteredQuestions.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="filter-outline" size={48} color={colors.textTertiary} />
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                No questions match this filter.
+              </Text>
+            </View>
+          ) : null
+        }
+        stickyHeaderIndices={[0]}
         renderItem={({ item: q }) => {
           const originalIndex = allQuestions.findIndex(oq => oq.id === q.id);
           const userAnswerIdx = attempt.answers[q.id];
@@ -257,6 +265,11 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.md,
     gap: spacing.md,
+    paddingBottom: spacing.xl,
+  },
+  stickyHeaderContainer: {
+    paddingBottom: spacing.xs,
+    overflow: 'hidden',
   },
   questionCard: {
     // Card handles background and border

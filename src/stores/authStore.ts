@@ -215,7 +215,7 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: 'auth-storage-supabase',
+      name: 'test-series-auth',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )

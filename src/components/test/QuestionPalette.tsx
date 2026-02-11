@@ -4,6 +4,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { spacing, typography, borderRadius } from '../../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 
 interface QuestionPaletteProps {
   isVisible: boolean;
@@ -42,6 +43,11 @@ export const QuestionPalette = ({
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
+        <BlurView
+          intensity={80}
+          tint={isDark ? 'dark' : 'light'}
+          style={StyleSheet.absoluteFill}
+        />
         <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
 
         <View style={[styles.container, { backgroundColor: colors.card, paddingBottom: insets.bottom + spacing.md }]}>
@@ -111,7 +117,6 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   backdrop: {
     flex: 1,
