@@ -25,7 +25,10 @@ export const CircularProgress = ({
   const { colors, isDark } = useTheme();
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (score / total) * circumference;
+
+  // Clamp progress between 0 and 1 for visual ring
+  const progress = Math.max(0, Math.min(1, score / total));
+  const strokeDashoffset = circumference - progress * circumference;
 
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>

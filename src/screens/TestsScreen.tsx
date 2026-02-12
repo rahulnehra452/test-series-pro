@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, View, Text, FlatList, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
@@ -64,30 +65,26 @@ export const MOCK_TEST_SERIES = [
 ];
 
 export default function TestsScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
-  const { history } = useTestStore();
-  const [tests, setTests] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  const {
+    history,
+    tests,
+    isLoadingTests,
+    fetchTests
+  } = useTestStore();
 
   useEffect(() => {
     fetchTests();
-  }, []);
+  }, [fetchTests]);
 
-  const fetchTests = async () => {
-    try {
-      const { data, error } = await supabase.from('tests').select('*').order('created_at', { ascending: false });
-      if (data && data.length > 0) setTests(data);
-      else setTests(MOCK_TEST_SERIES);
-    } catch (e) {
-      setTests(MOCK_TEST_SERIES);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const onRefresh = React.useCallback(() => {
+    fetchTests(true);
+  }, [fetchTests]);
 
   const displayTests = tests.length > 0 ? tests : MOCK_TEST_SERIES;
 
@@ -98,7 +95,6 @@ export default function TestsScreen() {
   });
 
   const handleTestPress = (id: string, title: string) => {
-    // Navigate to TestInterface directly for now as per mock flow
     navigation.navigate('TestInterface', { testId: id, testTitle: title });
   };
 
@@ -133,6 +129,24 @@ export default function TestsScreen() {
       <FlatList
         data={filteredTests}
         keyExtractor={(item) => item.id}
+        refreshing={isLoadingTests}
+        onRefresh={onRefresh}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons name="search-outline" size={48} color={colors.textTertiary} />
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+              {searchQuery ? 'No tests match your search' : 'No tests available right now'}
+            </Text>
+            {!searchQuery && (
+              <TouchableOpacity
+                style={[styles.retryButton, { backgroundColor: colors.primary }]}
+                onPress={onRefresh}
+              >
+                <Text style={styles.retryText}>Retry Fetch</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        }
         renderItem={({ item }) => (
           <TestSeriesCard
             title={item.title}
@@ -177,5 +191,27 @@ const styles = StyleSheet.create({
   listContent: {
     padding: spacing.lg,
     paddingTop: 0,
+  },
+  emptyContainer: {
+    flex: 1,
+    paddingVertical: spacing.xl * 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    ...typography.body,
+    marginTop: spacing.md,
+    textAlign: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  retryButton: {
+    marginTop: spacing.xl,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius.md,
+  },
+  retryText: {
+    ...typography.headline,
+    color: '#FFFFFF',
   },
 });

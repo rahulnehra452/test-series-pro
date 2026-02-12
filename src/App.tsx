@@ -12,7 +12,7 @@ import { useAuthStore } from './stores/authStore';
 import { useTestStore } from './stores/testStore';
 
 const linking: LinkingOptions<RootStackParamList> = {
-  prefixes: [Linking.createURL('/'), 'testseriespro://', 'https://testseriespro.com'],
+  prefixes: [Linking.createURL('/'), 'testkra://', 'https://testkra.com'],
   config: {
     screens: {
       Main: {
@@ -50,6 +50,7 @@ function NavigationWrapper() {
         fonts: DefaultTheme.fonts,
       }}
     >
+      <StatusBar style={isDark ? 'light' : 'dark'} translucent />
       <AppNavigator />
       <Toast />
     </NavigationContainer>

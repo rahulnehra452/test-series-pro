@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "mobile test app new",
-    "slug": "mobile-test-app-new",
+    "name": "TestKra.",
+    "slug": "testkra",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/testkra_icon.png",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/testkra_splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -16,19 +16,19 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.rahulnehra.testseriespro"
+      "bundleIdentifier": "com.rahulnehra.testkra"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/testkra_adaptive_foreground.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.rahulnehra.testseriespro"
+      "package": "com.rahulnehra.testkra"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [],
-    "scheme": "testseriespro"
+    "scheme": "testkra"
   }
 }

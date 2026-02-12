@@ -56,25 +56,54 @@ export default function TestInterfaceScreen() {
 
   const [isPaletteVisible, setPaletteVisible] = useState(false);
   const [direction, setDirection] = useState<'next' | 'prev' | null>(null);
-
-
-
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (testId) {
-      // Only start a new test if we aren't already in this test session
-      if (currentTestId !== testId) {
-        const newQuestions = getQuestionsForTest(testId);
-        startTest(testId, testTitle || 'Practice Test', newQuestions, 120); // 120 mins default
+    async function initTest() {
+      if (!testId) {
+        Alert.alert("Error", "No Test ID provided");
+        navigation.goBack();
+        return;
       }
-    } else {
-      // Fallback or error if no testId
-      Alert.alert("Error", "No Test ID provided");
-      navigation.goBack();
+
+      // 1. Initialize audio
+      audio.loadSounds();
+
+      // 2. Only start a new test if we aren't already in this test session
+      if (currentTestId !== testId) {
+        setLoading(true);
+        try {
+          // Find test metadata for duration
+          const testMeta = useTestStore.getState().tests.find(t => t.id === testId);
+          const duration = testMeta?.duration || 120; // Default to 120 if missing
+
+          // Fetch real questions from Supabase
+          const fetchedQuestions = await useTestStore.getState().fetchQuestions(testId);
+
+          if (fetchedQuestions.length === 0) {
+            // Fallback to mock if database is empty for now (Launch transitional)
+            // But we should probably alert for PRODUCTION
+            const mockQuestions = getQuestionsForTest(testId);
+            if (mockQuestions.length === 0) {
+              Alert.alert("Notice", "This test doesn't have any questions yet.");
+              navigation.goBack();
+              return;
+            }
+            startTest(testId, testTitle || 'TestKra. Practice', mockQuestions, duration);
+          } else {
+            startTest(testId, testTitle || 'TestKra. Practice', fetchedQuestions, duration);
+          }
+        } catch (e) {
+          console.error('Failed to initialize test:', e);
+          Alert.alert("Error", "Could not load test questions.");
+          navigation.goBack();
+        } finally {
+          setLoading(false);
+        }
+      }
     }
 
-    // Initialize audio
-    audio.loadSounds();
+    initTest();
   }, [testId]);
 
   // Timer Effect

@@ -91,6 +91,7 @@ import LoginScreen from '../screens/LoginScreen';
 import SignupScreen from '../screens/SignupScreen';
 import { useAuthStore } from '../stores/authStore';
 import { useEffect } from 'react';
+import { LoadingScreen } from '../components/common/LoadingScreen';
 
 // ... (Keep existing imports)
 
@@ -131,8 +132,7 @@ export default function AppNavigator() {
   const { isAuthenticated, isLoading, hasHydrated } = useAuthStore();
 
   if (isLoading || !hasHydrated) {
-    // Return null or a Splash Screen
-    return null;
+    return <LoadingScreen />;
   }
 
   return (

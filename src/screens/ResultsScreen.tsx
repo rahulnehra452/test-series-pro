@@ -30,6 +30,7 @@ export default function ResultsScreen() {
   // Re-fetch calculations
   const questions = useMemo(() => {
     if (!attempt) return [];
+    if (attempt.questions && attempt.questions.length > 0) return attempt.questions;
     return getQuestionsForTest(attempt.testId);
   }, [attempt]);
 
@@ -54,7 +55,6 @@ export default function ResultsScreen() {
     });
 
     // Fallback if skipped calc is missed (e.g. if answer map is smaller than question list)
-    // Actually, skipped should be total - attempted
     skipped = questions.length - attempted;
 
     return { correct, incorrect, skipped, attempted, total: questions.length };
@@ -62,7 +62,7 @@ export default function ResultsScreen() {
 
   // Haptics
   useEffect(() => {
-    if (attempt) {
+    if (attempt && attempt.totalMarks > 0) {
       const percentage = Math.round((attempt.score / attempt.totalMarks) * 100);
       Haptics.notificationAsync(
         percentage >= 70 ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning
@@ -89,7 +89,9 @@ export default function ResultsScreen() {
   // But wait, score might differ from correct count due to negative marking.
   // Visual fill is usually Score %. But user emphasized "with 0 correct... should show 0%".
   // Let's use Score / Total Marks, but clamped to 0.
-  const scorePercentage = Math.max(0, (attempt.score / attempt.totalMarks) * 100);
+  const scorePercentage = attempt.totalMarks > 0
+    ? Math.max(0, (attempt.score / attempt.totalMarks) * 100)
+    : 0;
 
   // Time String
   const durationMs = (attempt.endTime || Date.now()) - attempt.startTime;
@@ -147,7 +149,7 @@ export default function ResultsScreen() {
         {/* Hero Section */}
         <View style={styles.heroSection}>
           <CircularProgress
-            score={Math.max(0, attempt.score)}
+            score={attempt.score}
             total={attempt.totalMarks}
             size={220}
             strokeWidth={20}
@@ -167,6 +169,27 @@ export default function ResultsScreen() {
 
         {/* Stats Grid - Reordered */}
         <View style={styles.gridContainer}>
+          {/* Marks Breakdown Card */}
+          <Card style={styles.breakdownCard} padding={spacing.md}>
+            <Text style={[styles.breakdownTitle, { color: colors.textSecondary }]}>Score Breakdown</Text>
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownItem}>
+                <Text style={[styles.breakdownLabel, { color: colors.textTertiary }]}>Potential</Text>
+                <Text style={[styles.breakdownValue, { color: colors.success }]}>+{stats.correct * 2}</Text>
+              </View>
+              <View style={styles.breakdownItem}>
+                <Text style={[styles.breakdownLabel, { color: colors.textTertiary }]}>Penalty</Text>
+                <Text style={[styles.breakdownValue, { color: colors.error }]}>-{(stats.incorrect * 0.66).toFixed(2)}</Text>
+              </View>
+              <View style={styles.breakdownItem}>
+                <Text style={[styles.breakdownLabel, { color: colors.textTertiary }]}>Net Score</Text>
+                <Text style={[styles.breakdownValue, { color: attempt.score >= 0 ? colors.primary : colors.error }]}>
+                  {attempt.score}
+                </Text>
+              </View>
+            </View>
+          </Card>
+
           {/* Row 1: Correct, Wrong, Skipped */}
           <View style={styles.row}>
             <BentoCard
@@ -336,6 +359,32 @@ const styles = StyleSheet.create({
   gridContainer: {
     gap: spacing.md,
     marginBottom: spacing.xl,
+  },
+  breakdownCard: {
+    marginBottom: 8,
+  },
+  breakdownTitle: {
+    ...typography.caption1,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 12,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  breakdownItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  breakdownLabel: {
+    ...typography.caption2,
+    marginBottom: 4,
+  },
+  breakdownValue: {
+    ...typography.title3,
+    fontWeight: '800',
   },
   row: {
     flexDirection: 'row',

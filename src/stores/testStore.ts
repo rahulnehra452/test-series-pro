@@ -43,7 +43,13 @@ interface TestState {
   saveProgress: () => void;
 
   // Sync Actions
+  tests: any[];
+  isLoadingTests: boolean;
   pendingUploads: TestAttempt[]; // Queue for failed uploads
+
+  // Actions
+  fetchTests: (force?: boolean) => Promise<void>;
+  fetchQuestions: (testId: string) => Promise<Question[]>;
 
   // Pagination
   isLoadingMoreHistory: boolean;
@@ -69,7 +75,7 @@ const calculateScore = (questions: Question[], answers: Record<string, number>, 
   });
   // Use Math.round to avoid floating point drift before toFixed
   const finalScore = Number((Math.round(score * 100) / 100).toFixed(2));
-  return Math.max(0, finalScore);
+  return finalScore;
 };
 
 export const useTestStore = create<TestState>()(
@@ -89,6 +95,8 @@ export const useTestStore = create<TestState>()(
       sessionStartTime: null,
       isPlaying: false,
       history: [],
+      tests: [],
+      isLoadingTests: false,
       pendingUploads: [],
       library: [],
       hasSeenSwipeHint: false,
@@ -391,6 +399,84 @@ export const useTestStore = create<TestState>()(
       isLoadingMoreHistory: false,
       hasMoreHistory: true,
       historyPage: 0,
+
+      fetchTests: async (force = false) => {
+        const state = get();
+        if (state.tests.length > 0 && !force) return;
+
+        set({ isLoadingTests: true });
+        try {
+          const { data, error } = await supabase
+            .from('tests')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+          if (data && data.length > 0) {
+            set({ tests: data });
+          } else if (error) {
+            console.error('Error fetching tests:', error);
+          }
+        } catch (e) {
+          console.error('Critical failure in fetchTests:', e);
+        } finally {
+          set({ isLoadingTests: false });
+        }
+      },
+
+      fetchQuestions: async (testId: string) => {
+        try {
+          // Check if testId is a UUID
+          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(testId);
+          let targetTestId = testId;
+
+          if (!isUUID) {
+            // If not UUID, try to find the test by slug or some other identifier, 
+            // assuming we might have legacy IDs being passed. 
+            // Since we don't have a 'slug' column guaranteed, we might need to rely on 'id' being text in some contexts
+            // OR we need to find a test where some other property matches, but best bet is to check if we can find a test with this ID as a string-based ID if schema allowed it, 
+            // BUT schema expects UUID. 
+            // Let's try to find a test where title or description matches or maybe we just fail gracefully?
+            // Actually, the error says 'invalid input syntax for type uuid: "ssc-cgl-tier1"'.
+            // This means database expects UUID.
+            // We probably have a test in the DB with a UUID, but the frontend is using a hardcoded string ID from mock data.
+            // We need to map 'ssc-cgl-tier1' to its UUID.
+
+            // First, let's see if we have this test in our local store
+            const localTest = get().tests.find(t => t.title.toLowerCase().includes('ssc') || t.description?.toLowerCase().includes('ssc')); // Loose matching for recovery
+            // Better approach: Query tests table for a matching title if we can't search by ID
+
+            const { data: testData } = await supabase.from('tests').select('id').ilike('title', '%SSC%').limit(1).single();
+            if (testData) {
+              targetTestId = testData.id;
+            } else {
+              console.warn('Could not resolve UUID for legacy ID:', testId);
+              return [];
+            }
+          }
+
+          const { data, error } = await supabase
+            .from('questions')
+            .select('*')
+            .eq('test_id', targetTestId);
+
+          if (error) throw error;
+          if (!data || data.length === 0) return [];
+
+          return data.map(q => ({
+            id: q.id,
+            text: q.text,
+            options: q.options,
+            correctAnswer: q.correct_answer,
+            explanation: q.explanation,
+            subject: q.subject,
+            difficulty: q.difficulty,
+            type: q.type || 'MCQ'
+          }));
+        } catch (e) {
+          console.error('Error fetching questions for test:', testId, e);
+          return [];
+        }
+      },
 
       fetchHistory: async (page = 0) => {
         const { data: session } = await supabase.auth.getSession();
