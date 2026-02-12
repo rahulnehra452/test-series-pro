@@ -86,10 +86,8 @@ export const TestSeriesCard: React.FC<TestSeriesCardProps> = ({
                 <Ionicons name="play" size={16} color="#FFF" />
               </View>
             </View>
-          ) : isPurchased ? (
-            <Text style={[styles.statusText, { color: colors.success }]}>Start Test</Text>
           ) : (
-            <Text style={[styles.priceText, { color: colors.primary }]}>{price}</Text>
+            <Text style={[styles.statusText, { color: colors.success }]}>Start Test</Text>
           )}
         </View>
       </TouchableOpacity>

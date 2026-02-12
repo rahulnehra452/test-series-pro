@@ -16,6 +16,7 @@ import TestInterfaceScreen from '../screens/TestInterfaceScreen';
 import ResultsScreen from '../screens/ResultsScreen';
 import SolutionsScreen from '../screens/SolutionsScreen';
 import SeedDataScreen from '../screens/SeedDataScreen'; // Hidden
+import PricingScreen from '../screens/PricingScreen';
 
 // Types
 import { TestAttempt } from '../types';
@@ -102,6 +103,7 @@ export type RootStackParamList = {
   Results: { attemptId?: string; result?: TestAttempt };
   Solutions: { attemptId?: string; result?: TestAttempt };
   SeedData: undefined;
+  Pricing: undefined;
 };
 
 export type AuthStackParamList = {
@@ -173,6 +175,14 @@ export default function AppNavigator() {
             }}
           />
           <Stack.Screen name="SeedData" component={SeedDataScreen} />
+          <Stack.Screen
+            name="Pricing"
+            component={PricingScreen}
+            options={{
+              presentation: 'modal',
+              animation: 'slide_from_bottom'
+            }}
+          />
         </>
       )}
     </Stack.Navigator>

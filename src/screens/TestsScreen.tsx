@@ -10,6 +10,7 @@ import { TestSeriesCard } from '../components/tests/TestSeriesCard';
 import { CategoryPill } from '../components/common/CategoryPill';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useTestStore } from '../stores/testStore';
+import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../lib/supabase';
 import { useEffect } from 'react';
 
@@ -78,6 +79,9 @@ export default function TestsScreen() {
     fetchTests
   } = useTestStore();
 
+  const { user } = useAuthStore();
+  const isPro = user?.isPro || false;
+
   useEffect(() => {
     fetchTests();
   }, [fetchTests]);
@@ -95,6 +99,10 @@ export default function TestsScreen() {
   });
 
   const handleTestPress = (id: string, title: string) => {
+    if (!isPro) {
+      navigation.navigate('Pricing');
+      return;
+    }
     navigation.navigate('TestInterface', { testId: id, testTitle: title });
   };
 

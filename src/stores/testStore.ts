@@ -59,6 +59,8 @@ interface TestState {
 
   uploadAttempt: (attempt: TestAttempt) => Promise<void>;
   syncPendingUploads: () => Promise<void>;
+  syncLibrary: () => Promise<void>;
+  syncProgress: () => Promise<void>;
   hasHydrated: boolean;
   setHasHydrated: (state: boolean) => void;
 }
@@ -102,48 +104,6 @@ export const useTestStore = create<TestState>()(
       hasSeenSwipeHint: false,
       markSwipeHintSeen: () => set({ hasSeenSwipeHint: true }),
 
-      saveProgress: () => set((state) => {
-        if (!state.currentTestId) return {};
-
-        const now = Date.now();
-
-        // Calculate pending time
-        let finalTimeSpent = { ...state.timeSpent };
-        const currentQ = state.questions[state.currentIndex];
-        if (currentQ && state.questionVisitedAt) {
-          // If playing, add elapsed time. If paused, questionVisitedAt is null so this skips.
-          // Check isPlaying too? If questionVisitedAt is set, it implies we were tracking.
-          const elapsed = Math.floor((now - state.questionVisitedAt) / 1000);
-          finalTimeSpent[currentQ.id] = (finalTimeSpent[currentQ.id] || 0) + elapsed;
-        }
-
-        const currentAttempt: TestAttempt = {
-          id: state.currentTestId + '-progress', // ID for in-progress attempt
-          testId: state.currentTestId,
-          testTitle: state.currentTestTitle || 'Unknown',
-          userId: 'current-user',
-          startTime: state.sessionStartTime || now,
-          score: calculateScore(state.questions, state.answers),
-          totalMarks: state.questions.length * 2,
-          questions: state.questions,
-          answers: state.answers,
-          markedForReview: state.markedForReview,
-          timeSpent: finalTimeSpent,
-          status: 'In Progress',
-          currentIndex: state.currentIndex,
-          timeRemaining: state.timeRemaining,
-        };
-
-        // Remove existing in-progress for this test and add updated one
-        const newHistory = state.history.filter(h =>
-          !(h.testId === state.currentTestId && h.status === 'In Progress')
-        );
-
-        // Update history but keep current state (user might stay on screen)
-        return {
-          history: [...newHistory, currentAttempt]
-        };
-      }),
 
       startTest: (testId, title, questions, duration) => {
         // 1. Auto-save previous active test if switching
@@ -606,32 +566,138 @@ export const useTestStore = create<TestState>()(
         set({ pendingUploads: remainingUploads });
       },
 
-      addToLibrary: (item) => set((state) => {
-        // Prevent duplicates for same question and type
-        if (state.library.some(i => i.questionId === item.questionId && i.type === item.type)) {
-          return {};
+      // Sync Actions
+      syncLibrary: async () => {
+        const { data: session } = await supabase.auth.getSession();
+        if (!session.session?.user) return;
+
+        try {
+          // 1. Fetch cloud bookmarks
+          const { data: cloudLibrary, error } = await supabase
+            .from('bookmarks')
+            .select('*');
+
+          if (error) throw error;
+
+          if (cloudLibrary) {
+            const mappedLibrary: LibraryItem[] = cloudLibrary.map(item => ({
+              id: item.id,
+              questionId: item.question_id,
+              type: item.type as LibraryItemType,
+              question: item.question_data?.text || 'Question',
+              subject: item.question_data?.subject,
+              difficulty: item.question_data?.difficulty,
+              saveTimestamp: new Date(item.created_at).getTime(),
+              exam: item.question_data?.exam,
+            }));
+
+            // Merge with local (prefer cloud, or simple overwrite?)
+            // Overwrite local with cloud is safer for "restore" scenario
+            set({ library: mappedLibrary });
+          }
+        } catch (e) {
+          console.error('Error syncing library:', e);
         }
-        const newItem: LibraryItem = {
-          ...item,
-          id: Crypto.randomUUID(),
-          saveTimestamp: Date.now(),
-        };
-        return { library: [newItem, ...state.library] };
-      }),
+      },
+
+      syncProgress: async () => {
+        const { data: session } = await supabase.auth.getSession();
+        if (!session.session?.user) return;
+
+        try {
+          const { data: cloudProgress, error } = await supabase
+            .from('test_progress')
+            .select('*');
+
+          if (error) throw error;
+
+          if (cloudProgress) {
+            // We only support one active test in UI really, but DB can hold multiple.
+            // Let's restore the most recently updated one if no current test is active.
+            // Or update history with "In Progress" items.
+
+            // For now, let's just ensure if we have an active test in DB, we restore it to 'history' as In Progress
+            // so the user can resume it from the list.
+
+            const restoredAttempts: TestAttempt[] = cloudProgress.map(p => ({
+              id: p.test_id + '-progress',
+              testId: p.test_id,
+              testTitle: 'Resumed Test', // We might lose title if not stored in progress table, acceptable for now
+              userId: p.user_id,
+              startTime: new Date(p.last_updated_at).getTime(), // Approximation
+              score: 0,
+              totalMarks: 0,
+              questions: [], // We'll need to re-fetch questions when resuming
+              answers: p.answers || {},
+              markedForReview: p.marked_for_review || {},
+              timeSpent: p.time_spent || {},
+              timeRemaining: p.time_remaining,
+              status: 'In Progress'
+            }));
+
+            set(state => {
+              // Merge with existing history, avoiding duplicates
+              const existingIds = new Set(state.history.map(h => h.id));
+              const newAttempts = restoredAttempts.filter(a => !existingIds.has(a.id));
+              return { history: [...newAttempts, ...state.history] };
+            });
+          }
+        } catch (e) {
+          console.error('Error syncing progress:', e);
+        }
+      },
+
+      addToLibrary: async (item) => {
+        const state = get();
+        // Optimistic update
+        if (state.library.some(i => i.questionId === item.questionId && i.type === item.type)) return;
+
+        const newItem: LibraryItem = { ...item, id: Crypto.randomUUID(), saveTimestamp: Date.now() };
+        set({ library: [newItem, ...state.library] });
+
+        // Cloud Sync
+        const { data: session } = await supabase.auth.getSession();
+        if (session.session?.user) {
+          const { error } = await supabase.from('bookmarks').insert({
+            user_id: session.session.user.id,
+            question_id: item.questionId,
+            type: item.type,
+            question_data: {
+              text: item.question,
+              subject: item.subject,
+              difficulty: item.difficulty,
+              exam: item.exam
+            }
+          });
+          if (error) console.error('Failed to save bookmark to cloud:', error);
+        }
+      },
+
+      removeFromLibrary: async (questionId, type) => {
+        const state = get();
+        // Optimistic update
+        set({
+          library: state.library.filter(i => {
+            if (type) return !(i.questionId === questionId && i.type === type);
+            return i.questionId !== questionId;
+          })
+        });
+
+        // Cloud Sync
+        const { data: session } = await supabase.auth.getSession();
+        if (session.session?.user) {
+          let query = supabase.from('bookmarks').delete().eq('user_id', session.session.user.id).eq('question_id', questionId);
+          if (type) query = query.eq('type', type);
+
+          const { error } = await query;
+          if (error) console.error('Failed to delete bookmark from cloud:', error);
+        }
+      },
 
       updateLibraryItemType: (itemId, newType) => set((state) => ({
         library: state.library.map(item =>
           item.id === itemId ? { ...item, type: newType } : item
         )
-      })),
-
-      removeFromLibrary: (questionId, type) => set((state) => ({
-        library: state.library.filter(i => {
-          if (type) {
-            return !(i.questionId === questionId && i.type === type);
-          }
-          return i.questionId !== questionId;
-        })
       })),
 
       isQuestionInLibrary: (questionId, type) => {
@@ -642,6 +708,62 @@ export const useTestStore = create<TestState>()(
           return i.questionId === questionId;
         });
       },
+
+      saveProgress: async () => {
+        // Local save logic
+        set((state) => {
+          if (!state.currentTestId) return {};
+          const now = Date.now();
+          let finalTimeSpent = { ...state.timeSpent };
+          const currentQ = state.questions[state.currentIndex];
+          if (currentQ && state.questionVisitedAt) {
+            const elapsed = Math.floor((now - state.questionVisitedAt) / 1000);
+            finalTimeSpent[currentQ.id] = (finalTimeSpent[currentQ.id] || 0) + elapsed;
+          }
+
+          const currentAttempt: TestAttempt = {
+            id: state.currentTestId + '-progress',
+            testId: state.currentTestId,
+            testTitle: state.currentTestTitle || 'Unknown',
+            userId: 'current-user',
+            startTime: state.sessionStartTime || now,
+            score: calculateScore(state.questions, state.answers),
+            totalMarks: state.questions.length * 2,
+            questions: state.questions,
+            answers: state.answers,
+            markedForReview: state.markedForReview,
+            timeSpent: finalTimeSpent,
+            status: 'In Progress',
+            currentIndex: state.currentIndex,
+            timeRemaining: state.timeRemaining,
+          };
+
+          const newHistory = state.history.filter(h => !(h.testId === state.currentTestId && h.status === 'In Progress'));
+          return { history: [...newHistory, currentAttempt] };
+        });
+
+        // Cloud sync logic (Debounce this in production, but direct call for now)
+        const state = get();
+        if (!state.currentTestId) return;
+
+        const { data: session } = await supabase.auth.getSession();
+        if (session.session?.user) {
+          const { error } = await supabase.from('test_progress').upsert({
+            user_id: session.session.user.id,
+            test_id: state.currentTestId,
+            current_index: state.currentIndex,
+            answers: state.answers,
+            marked_for_review: state.markedForReview,
+            time_spent: state.timeSpent,
+            time_remaining: state.timeRemaining,
+            last_updated_at: new Date().toISOString()
+          }, { onConflict: 'user_id,test_id' }); // Ensure composite PK matches
+
+          if (error) console.error('Failed to save progress to cloud:', error);
+        }
+      },
+
+      // ... other methods ...
 
       resetActiveTest: () => set({
         currentTestId: null,
@@ -654,7 +776,6 @@ export const useTestStore = create<TestState>()(
         totalTime: 0,
         endTime: null,
         isPlaying: false,
-        // Do NOT clear history or library
       }),
 
       clearAllData: () => set({
@@ -672,7 +793,14 @@ export const useTestStore = create<TestState>()(
       }),
 
       hasHydrated: false,
-      setHasHydrated: (state) => set({ hasHydrated: state }),
+      setHasHydrated: (state) => {
+        set({ hasHydrated: state });
+        if (state) {
+          // Trigger initial syncs
+          get().syncLibrary();
+          get().syncProgress();
+        }
+      },
     }),
     {
       name: 'test-series-data',
@@ -681,11 +809,9 @@ export const useTestStore = create<TestState>()(
         return () => state?.setHasHydrated(true);
       },
       partialize: (state) => ({
-        // Prune history to only keep the last 20 attempts locally to prevent AsyncStorage overflow
         history: state.history.slice(0, 20),
         library: state.library,
-        pendingUploads: state.pendingUploads, // Fix: Persist offline queue
-        // Active test state persistence
+        pendingUploads: state.pendingUploads,
         currentTestId: state.currentTestId,
         currentTestTitle: state.currentTestTitle,
         questions: state.questions,
