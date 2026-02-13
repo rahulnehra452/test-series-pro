@@ -1,9 +1,22 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Question, TestAttempt, LibraryItem, LibraryItemType } from '../types';
+import { Question, TestAttempt, LibraryItem, LibraryItemType, Difficulty } from '../types';
 import { supabase } from '../lib/supabase';
 import * as Crypto from 'expo-crypto';
+
+interface StoreTestSeries {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  difficulty: Difficulty;
+  totalTests: number;
+  totalQuestions: number;
+  duration: number;
+  price?: string;
+  isPurchased: boolean;
+}
 
 interface TestState {
   currentTestId: string | null;
@@ -43,7 +56,7 @@ interface TestState {
   saveProgress: () => void;
 
   // Sync Actions
-  tests: any[];
+  tests: StoreTestSeries[];
   isLoadingTests: boolean;
   pendingUploads: TestAttempt[]; // Queue for failed uploads
 
@@ -94,6 +107,47 @@ const toAppLibraryType = (type: string): LibraryItemType => {
 
 const getLibraryKey = (item: Pick<LibraryItem, 'questionId' | 'type'>) => {
   return `${item.questionId}::${item.type}`;
+};
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const isUuid = (value: string) => UUID_PATTERN.test(value);
+
+const toDifficulty = (value?: string): Difficulty => {
+  if (value === 'Easy' || value === 'Medium' || value === 'Hard') return value;
+  return 'Medium';
+};
+
+const prettifyTestId = (testId: string) => {
+  if (isUuid(testId)) return 'Practice Test';
+  return testId
+    .replace(/[-_]+/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+};
+
+const mapRemoteTestToStore = (test: any): StoreTestSeries => {
+  const totalTests = Number(test.total_tests ?? 1);
+  const totalQuestions = Number(test.total_questions ?? 0);
+  const duration = Number(test.duration_minutes ?? test.duration ?? 60);
+  const numericPrice = Number(test.price ?? 0);
+  const hasPaidPrice = Number.isFinite(numericPrice) && numericPrice > 0;
+
+  return {
+    id: String(test.id),
+    title: test.title || 'Practice Test',
+    description: test.description || '',
+    category: test.category || 'General',
+    difficulty: toDifficulty(test.difficulty),
+    totalTests: Number.isFinite(totalTests) && totalTests > 0 ? totalTests : 1,
+    totalQuestions: Number.isFinite(totalQuestions) && totalQuestions >= 0 ? totalQuestions : 0,
+    duration: Number.isFinite(duration) && duration > 0 ? duration : 60,
+    price: hasPaidPrice ? `₹${numericPrice}` : undefined,
+    isPurchased: !hasPaidPrice,
+  };
+};
+
+const getAnsweredCount = (answers: Record<string, number> = {}) => {
+  return Object.values(answers).filter(value => value !== undefined && value !== null).length;
 };
 
 export const useTestStore = create<TestState>()(
@@ -414,10 +468,14 @@ export const useTestStore = create<TestState>()(
             .select('*')
             .order('created_at', { ascending: false });
 
-          if (data && data.length > 0) {
-            set({ tests: data });
-          } else if (error) {
+          if (error) {
             console.error('Error fetching tests:', error);
+            return;
+          }
+
+          if (data && data.length > 0) {
+            const mappedTests = data.map(mapRemoteTestToStore);
+            set({ tests: mappedTests });
           }
         } catch (e) {
           console.error('Critical failure in fetchTests:', e);
@@ -429,30 +487,15 @@ export const useTestStore = create<TestState>()(
       fetchQuestions: async (testId: string) => {
         try {
           // Check if testId is a UUID
-          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(testId);
+          const isUUID = isUuid(testId);
           let targetTestId = testId;
 
           if (!isUUID) {
-            // If not UUID, try to find the test by slug or some other identifier, 
-            // assuming we might have legacy IDs being passed. 
-            // Since we don't have a 'slug' column guaranteed, we might need to rely on 'id' being text in some contexts
-            // OR we need to find a test where some other property matches, but best bet is to check if we can find a test with this ID as a string-based ID if schema allowed it, 
-            // BUT schema expects UUID. 
-            // Let's try to find a test where title or description matches or maybe we just fail gracefully?
-            // Actually, the error says 'invalid input syntax for type uuid: "ssc-cgl-tier1"'.
-            // This means database expects UUID.
-            // We probably have a test in the DB with a UUID, but the frontend is using a hardcoded string ID from mock data.
-            // We need to map 'ssc-cgl-tier1' to its UUID.
-
-            // First, let's see if we have this test in our local store
-            const localTest = get().tests.find(t => t.title.toLowerCase().includes('ssc') || t.description?.toLowerCase().includes('ssc')); // Loose matching for recovery
-            // Better approach: Query tests table for a matching title if we can't search by ID
-
-            const { data: testData } = await supabase.from('tests').select('id').ilike('title', '%SSC%').limit(1).single();
-            if (testData) {
-              targetTestId = testData.id;
+            // Non-UUID ids are likely local/mock ids; return [] so caller can use mock fallback.
+            const mapped = get().tests.find(t => t.id === testId);
+            if (mapped && isUuid(mapped.id)) {
+              targetTestId = mapped.id;
             } else {
-              console.warn('Could not resolve UUID for legacy ID:', testId);
               return [];
             }
           }
@@ -501,10 +544,43 @@ export const useTestStore = create<TestState>()(
           .range(from, to);
 
         if (!error && data) {
+          const knownTitles = new Map<string, string>();
+          get().tests.forEach(test => {
+            knownTitles.set(test.id, test.title);
+          });
+          get().history.forEach(attempt => {
+            if (attempt.testTitle) {
+              knownTitles.set(attempt.testId, attempt.testTitle);
+            }
+          });
+
+          const uuidTestIds = Array.from(
+            new Set(
+              data
+                .map(d => String(d.test_id))
+                .filter(id => isUuid(id))
+            )
+          );
+
+          if (uuidTestIds.length > 0) {
+            const { data: testsData, error: testsError } = await supabase
+              .from('tests')
+              .select('id,title')
+              .in('id', uuidTestIds);
+
+            if (!testsError && testsData) {
+              testsData.forEach(test => {
+                if (test.id && test.title) {
+                  knownTitles.set(String(test.id), test.title);
+                }
+              });
+            }
+          }
+
           const mappedHistory: TestAttempt[] = data.map(d => ({
             id: d.id,
             testId: d.test_id,
-            testTitle: 'Test Result',
+            testTitle: d.test_title || knownTitles.get(String(d.test_id)) || prettifyTestId(String(d.test_id)),
             userId: d.user_id,
             startTime: new Date(d.started_at).getTime(),
             endTime: d.completed_at ? new Date(d.completed_at).getTime() : undefined,
@@ -517,12 +593,25 @@ export const useTestStore = create<TestState>()(
             status: d.status as TestAttempt['status'],
           }));
 
-          set(state => ({
-            history: page === 0 ? mappedHistory : [...state.history, ...mappedHistory],
-            hasMoreHistory: data.length === pageSize,
-            historyPage: page,
-            isLoadingMoreHistory: false
-          }));
+          set(state => {
+            const nonCompletedHistory = state.history.filter(attempt => attempt.status !== 'Completed');
+            const existingCompleted = state.history.filter(attempt => attempt.status === 'Completed');
+            const combinedCompleted = page === 0 ? mappedHistory : [...existingCompleted, ...mappedHistory];
+
+            const dedupedCompletedMap = new Map<string, TestAttempt>();
+            combinedCompleted.forEach(attempt => {
+              dedupedCompletedMap.set(attempt.id, attempt);
+            });
+
+            const dedupedCompleted = Array.from(dedupedCompletedMap.values()).sort((a, b) => b.startTime - a.startTime);
+
+            return {
+              history: [...nonCompletedHistory, ...dedupedCompleted],
+              hasMoreHistory: data.length === pageSize,
+              historyPage: page,
+              isLoadingMoreHistory: false,
+            };
+          });
         } else {
           set({ isLoadingMoreHistory: false });
         }
@@ -672,35 +761,129 @@ export const useTestStore = create<TestState>()(
 
           if (error) throw error;
 
-          if (cloudProgress) {
-            // We only support one active test in UI really, but DB can hold multiple.
-            // Let's restore the most recently updated one if no current test is active.
-            // Or update history with "In Progress" items.
+          if (cloudProgress && cloudProgress.length > 0) {
+            const stateSnapshot = get();
+            const knownTitles = new Map<string, string>();
 
-            // For now, let's just ensure if we have an active test in DB, we restore it to 'history' as In Progress
-            // so the user can resume it from the list.
+            stateSnapshot.tests.forEach(test => {
+              knownTitles.set(test.id, test.title);
+            });
+            stateSnapshot.history.forEach(attempt => {
+              if (attempt.testTitle) {
+                knownTitles.set(attempt.testId, attempt.testTitle);
+              }
+            });
 
-            const restoredAttempts: TestAttempt[] = cloudProgress.map(p => ({
-              id: p.test_id + '-progress',
-              testId: p.test_id,
-              testTitle: 'Resumed Test', // We might lose title if not stored in progress table, acceptable for now
-              userId: p.user_id,
-              startTime: new Date(p.last_updated_at).getTime(), // Approximation
-              score: 0,
-              totalMarks: 0,
-              questions: [], // We'll need to re-fetch questions when resuming
-              answers: p.answers || {},
-              markedForReview: p.marked_for_review || {},
-              timeSpent: p.time_spent || {},
-              timeRemaining: p.time_remaining,
-              status: 'In Progress'
-            }));
+            const unknownUuidTestIds = Array.from(
+              new Set(
+                cloudProgress
+                  .map(p => String(p.test_id))
+                  .filter(testId => isUuid(testId) && !knownTitles.has(testId))
+              )
+            );
+
+            if (unknownUuidTestIds.length > 0) {
+              const { data: testsData, error: testsError } = await supabase
+                .from('tests')
+                .select('id,title')
+                .in('id', unknownUuidTestIds);
+
+              if (!testsError && testsData) {
+                testsData.forEach(test => {
+                  if (test.id && test.title) {
+                    knownTitles.set(String(test.id), test.title);
+                  }
+                });
+              }
+            }
+
+            const restoredAttempts: TestAttempt[] = cloudProgress.map(p => {
+              const testId = String(p.test_id);
+              const parsedCurrentIndex = Number(p.current_index ?? 0);
+              const parsedTimeRemaining = p.time_remaining == null ? null : Number(p.time_remaining);
+              const fallbackStart = new Date(p.last_updated_at).getTime();
+
+              return {
+                id: `${testId}-progress`,
+                testId,
+                testTitle: knownTitles.get(testId) || prettifyTestId(testId),
+                userId: p.user_id,
+                startTime: Number.isFinite(fallbackStart) ? fallbackStart : Date.now(),
+                score: 0,
+                totalMarks: 0,
+                questions: [],
+                answers: p.answers || {},
+                markedForReview: p.marked_for_review || {},
+                timeSpent: p.time_spent || {},
+                currentIndex: Number.isFinite(parsedCurrentIndex) ? Math.max(0, parsedCurrentIndex) : 0,
+                timeRemaining:
+                  parsedTimeRemaining !== null && Number.isFinite(parsedTimeRemaining)
+                    ? Math.max(0, parsedTimeRemaining)
+                    : undefined,
+                status: 'In Progress',
+              };
+            });
 
             set(state => {
-              // Merge with existing history, avoiding duplicates
-              const existingIds = new Set(state.history.map(h => h.id));
-              const newAttempts = restoredAttempts.filter(a => !existingIds.has(a.id));
-              return { history: [...newAttempts, ...state.history] };
+              const completedHistory = state.history.filter(attempt => attempt.status !== 'In Progress');
+              const existingInProgressByTestId = new Map<string, TestAttempt>();
+
+              state.history
+                .filter(attempt => attempt.status === 'In Progress')
+                .forEach(attempt => {
+                  existingInProgressByTestId.set(attempt.testId, attempt);
+                });
+
+              const mergedTestIds = new Set<string>();
+              const mergedInProgress: TestAttempt[] = restoredAttempts.map(cloudAttempt => {
+                const localAttempt = existingInProgressByTestId.get(cloudAttempt.testId);
+                if (!localAttempt) {
+                  mergedTestIds.add(cloudAttempt.testId);
+                  return cloudAttempt;
+                }
+
+                const localStrength = (localAttempt.currentIndex ?? 0) + (getAnsweredCount(localAttempt.answers) * 1000);
+                const cloudStrength = (cloudAttempt.currentIndex ?? 0) + (getAnsweredCount(cloudAttempt.answers) * 1000);
+                const preferred = localStrength >= cloudStrength ? localAttempt : cloudAttempt;
+                const fallback = preferred === localAttempt ? cloudAttempt : localAttempt;
+
+                mergedTestIds.add(cloudAttempt.testId);
+
+                return {
+                  ...fallback,
+                  ...preferred,
+                  id: `${cloudAttempt.testId}-progress`,
+                  testId: cloudAttempt.testId,
+                  testTitle:
+                    preferred.testTitle ||
+                    fallback.testTitle ||
+                    knownTitles.get(cloudAttempt.testId) ||
+                    prettifyTestId(cloudAttempt.testId),
+                  startTime: localAttempt.startTime || cloudAttempt.startTime || Date.now(),
+                  questions: preferred.questions?.length ? preferred.questions : (fallback.questions || []),
+                  answers: preferred.answers || fallback.answers || {},
+                  markedForReview: preferred.markedForReview || fallback.markedForReview || {},
+                  timeSpent: preferred.timeSpent || fallback.timeSpent || {},
+                  currentIndex: preferred.currentIndex ?? fallback.currentIndex ?? 0,
+                  timeRemaining: preferred.timeRemaining ?? fallback.timeRemaining,
+                  score: preferred.score ?? fallback.score ?? 0,
+                  totalMarks:
+                    preferred.totalMarks ??
+                    fallback.totalMarks ??
+                    ((preferred.questions?.length || fallback.questions?.length || 0) * 2),
+                  status: 'In Progress',
+                };
+              });
+
+              existingInProgressByTestId.forEach((attempt, testId) => {
+                if (!mergedTestIds.has(testId)) {
+                  mergedInProgress.push(attempt);
+                }
+              });
+
+              mergedInProgress.sort((a, b) => b.startTime - a.startTime);
+
+              return { history: [...mergedInProgress, ...completedHistory] };
             });
           }
         } catch (e) {

@@ -20,6 +20,7 @@ create table public.tests (
   description text,
   category text, -- 'UPSC', 'Banking'
   difficulty text, -- 'Easy', 'Medium', 'Hard'
+  total_tests integer default 1,
   duration_minutes integer,
   total_questions integer,
   price numeric default 0, -- 0 for free
@@ -45,7 +46,7 @@ create table public.questions (
 create table public.attempts (
   id uuid default uuid_generate_v4() primary key,
   user_id uuid references public.profiles(id) not null,
-  test_id uuid references public.tests(id) not null,
+  test_id text not null,
   score numeric,
   total_marks numeric,
   status text check (status in ('In Progress', 'Completed', 'Abandoned')),
@@ -53,7 +54,7 @@ create table public.attempts (
   completed_at timestamptz,
   time_spent_seconds integer default 0,
   answers jsonb, -- Record<questionId, optionIndex>
-  questions_snapshot jsonb -- Optional: Store snapshot if questions change
+  questions jsonb -- Snapshot of question data used in this attempt
 );
 
 -- 5. LIBRARY (Saved/Wrong Questions)

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, ScrollView, Image, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -17,23 +17,12 @@ import { RootStackParamList } from '../navigation/AppNavigator';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-// Mock Data
-const MOCK_USER = {
-  name: 'Student',
-  streak: 0,
-};
-
 const MOCK_PROGESS = {
   title: 'UPSC Prelims 2024',
   progress: 0,
   totalTests: 30,
   completedTests: 0,
 };
-
-const MOCK_RECENT_ACTIVITY = [
-  { id: '1', title: 'Ancient History Test 1', score: '60%', date: '2 days ago' },
-  { id: '2', title: 'Polity Mock 3', score: 'Incomplete', date: '3 days ago' },
-];
 
 // ... types and previous imports
 import { useAuthStore } from '../stores/authStore';
@@ -49,7 +38,21 @@ export default function HomeScreen() {
   const { history, fetchHistory } = useTestStore();
   const { user } = useAuthStore();
 
-  const recentActivity = history.slice(0, 5); // Get last 5 attempts
+  useEffect(() => {
+    fetchHistory(0);
+  }, [fetchHistory]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setGreeting(getTimeBasedGreeting());
+    }, 60_000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const recentActivity = [...history]
+    .sort((a, b) => b.startTime - a.startTime)
+    .slice(0, 5);
 
   function getTimeBasedGreeting() {
     const hour = new Date().getHours();
@@ -73,6 +76,18 @@ export default function HomeScreen() {
       // Navigate to Tests screen
       navigation.navigate('Main', { screen: 'Tests' });
     }
+  };
+
+  const handleActivityPress = (attempt: (typeof recentActivity)[number]) => {
+    if (attempt.status === 'In Progress') {
+      navigation.navigate('TestInterface', {
+        testId: attempt.testId,
+        testTitle: attempt.testTitle,
+      });
+      return;
+    }
+
+    navigation.navigate('Results', { attemptId: attempt.id });
   };
 
   return (
@@ -138,9 +153,7 @@ export default function HomeScreen() {
             <TouchableOpacity
               key={item.id}
               style={[styles.activityItem, { backgroundColor: colors.secondaryBackground }]}
-              onPress={() => {
-                navigation.navigate('Results', { attemptId: item.id });
-              }}
+              onPress={() => handleActivityPress(item)}
             >
               <View>
                 <Text style={[styles.activityTitle, { color: colors.text }]}>{item.testTitle}</Text>
@@ -151,13 +164,18 @@ export default function HomeScreen() {
               <Text style={[
                 styles.activityScore,
                 {
-                  color: item.status !== 'Completed' ? colors.textTertiary :
-                    (item.score / item.totalMarks) >= 0.6 ? colors.success :
-                      (item.score / item.totalMarks) >= 0.2 ? colors.warning :
-                        colors.error
+                  // Guard totalMarks=0 rows to avoid NaN/Infinity color decisions.
+                  color:
+                    item.status !== 'Completed'
+                      ? colors.textTertiary
+                      : item.totalMarks > 0 && (item.score / item.totalMarks) >= 0.6
+                        ? colors.success
+                        : item.totalMarks > 0 && (item.score / item.totalMarks) >= 0.2
+                          ? colors.warning
+                          : colors.error
                 }
               ]}>
-                {item.score}/{item.totalMarks}
+                {item.status === 'Completed' ? `${item.score}/${item.totalMarks}` : 'In Progress'}
               </Text>
             </TouchableOpacity>
           ))

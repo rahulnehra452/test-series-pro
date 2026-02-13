@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { MOCK_TEST_SERIES } from './TestsScreen';
 import { useTheme } from '../contexts/ThemeContext';
@@ -18,11 +18,16 @@ export default function SeedDataScreen() {
       addLog(`Uploading: ${test.title}`);
 
       // Check if exists
-      const { data: existing } = await supabase
+      const { data: existing, error: existingError } = await supabase
         .from('tests')
         .select('id')
         .eq('title', test.title)
-        .single();
+        .maybeSingle();
+
+      if (existingError) {
+        addLog(`Lookup error for "${test.title}": ${existingError.message}`);
+        continue;
+      }
 
       if (existing) {
         addLog(`Skipped (Exists): ${test.title}`);

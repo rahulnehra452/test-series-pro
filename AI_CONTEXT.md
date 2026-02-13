@@ -109,6 +109,80 @@ Keep entries newest-first under `## Recent Changes`.
 
 ## Recent Changes
 
+### 2026-02-13 — Codex (Pack 6: Progress Resume + Access Reliability)
+- **Fixed non-Pro access gating**
+  - `TestsScreen` now allows opening tests when any of these are true:
+    - user is Pro
+    - test is already unlocked/free (`isPurchased`)
+    - there is an active in-progress attempt to resume
+  - Prevents accidental redirect to Pricing for free/unlocked tests.
+- **Cloud progress restore is now resume-safe**
+  - `syncProgress()` in `src/stores/testStore.ts` now restores:
+    - `currentIndex` from `test_progress.current_index`
+    - `timeRemaining`, answers, marked-for-review, and time-spent maps
+  - Progress entries now resolve better `testTitle` values using:
+    - local `tests` state
+    - existing history cache
+    - Supabase `tests(id,title)` lookup for UUID ids
+  - Reconciliation now replaces stale local in-progress rows with the richer version (cloud or local), instead of keeping outdated duplicates.
+  - `fetchHistory()` now preserves existing non-completed attempts while refreshing completed history pages, so in-progress resume rows are not dropped on `fetchHistory(0)`.
+- **Home recent activity behavior fixed**
+  - `HomeScreen` now fetches history on mount (`fetchHistory(0)`), so cloud attempts show without needing to open Stats first.
+  - Tapping an **In Progress** activity now resumes `TestInterface` (instead of incorrectly opening `Results`).
+  - Score color/text now guards `totalMarks=0` rows to avoid NaN/Infinity edge cases.
+- **Files touched**
+  - `src/screens/TestsScreen.tsx`
+  - `src/stores/testStore.ts`
+  - `src/screens/HomeScreen.tsx`
+- **Validation**
+  - `npx tsc --noEmit` passed.
+  - `npx expo start --clear --port 8084` started Metro successfully.
+
+### 2026-02-13 — Codex (Pack 5: Expo/Config Hygiene)
+- **Expo doctor fully green**
+  - `npx expo-doctor` now reports `17/17 checks passed`.
+- **Fixed asset format mismatches**
+  - Converted app icon/splash/adaptive foreground files to true PNG content:
+    - `assets/testkra_icon.png`
+    - `assets/testkra_splash.png`
+    - `assets/testkra_adaptive_foreground.png`
+  - Added `assets/favicon.png` for web config parity.
+- **Dependency compatibility alignment**
+  - Installed/updated:
+    - `@expo/metro-runtime@~4.0.1`
+    - `@shopify/flash-list@1.7.3`
+    - `react-native@0.76.9`
+- **Expo doctor/install config**
+  - Added `expo.doctor.reactNativeDirectoryCheck.exclude` and `expo.install.exclude` in `package.json` for:
+    - `expo-av`
+    - `react-native-chart-kit`
+- **Validation**
+  - `npx expo-doctor` passed (`17/17`).
+  - `npx tsc --noEmit` passed.
+  - `npx expo start --clear --port 8083` started Metro successfully.
+
+### 2026-02-13 — Codex (Pack 4: Test/Data Consistency)
+- **Normalized remote tests into app-safe shape**
+  - Added deterministic mapping in `src/stores/testStore.ts` so fetched tests always provide:
+    - `id`, `title`, `description`, `category`, `difficulty`
+    - `totalTests`, `totalQuestions`, `duration`, `price`, `isPurchased`
+  - Prevents UI regressions caused by mixed snake_case DB fields.
+- **Removed brittle legacy question-fetch fallback**
+  - `fetchQuestions()` now avoids arbitrary title heuristics for non-UUID ids and cleanly returns `[]` so `TestInterfaceScreen` can use mock fallback.
+- **Preserved real test titles in cloud history**
+  - `fetchHistory()` now resolves titles from:
+    - cached store tests
+    - existing local history
+    - direct Supabase `tests(id,title)` lookup for UUID ids
+    - final fallback: prettified test id
+- **Aligned seed flow with schema expectations**
+  - `src/screens/SeedDataScreen.tsx` now uses `.maybeSingle()` for safe existence checks.
+  - Updated `supabase_schema.sql` to include `tests.total_tests` and reflect current `attempts` shape (`test_id text`, `questions jsonb`).
+  - Added migration helper `fix_tests_total_tests.sql` for existing DBs.
+- **Validation**
+  - `npx tsc --noEmit` passed.
+  - `npx expo start --clear --port 8083` started Metro successfully.
+
 ### 2026-02-13 — Codex (Pack 3: Data Sync Integrity)
 - **Attempt upload dedupe + id consistency**
   - Added `id` to `attempts` insert/upsert payloads in `src/stores/testStore.ts`.
@@ -156,6 +230,13 @@ Keep entries newest-first under `## Recent Changes`.
 ## Pending Manual QA
 
 - Verify Google OAuth full round-trip on device/emulator (`testkra://` callback).
+- Verify non-Pro behavior in Tests tab:
+  - Free/unlocked test opens directly.
+  - Locked paid test routes to Pricing.
+  - Existing in-progress test can always be resumed.
 - Verify purchase path end-to-end:
   - Non-Pro user -> Pricing -> Buy -> `isPro` updates in Profile and Tests access is unlocked.
+- Run DB migration `fix_tests_total_tests.sql` in Supabase SQL editor for older projects before using `SeedDataScreen`.
+- Verify cloud history rows display real test titles (not generic fallback labels) in `StatsScreen` and `ResultsScreen`.
 - Verify library type changes persist after app restart and across devices.
+- Confirm icons/splash render correctly on device builds after PNG conversion.

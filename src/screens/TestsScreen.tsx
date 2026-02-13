@@ -11,7 +11,6 @@ import { CategoryPill } from '../components/common/CategoryPill';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useTestStore } from '../stores/testStore';
 import { useAuthStore } from '../stores/authStore';
-import { supabase } from '../lib/supabase';
 import { useEffect } from 'react';
 
 // Mock Data
@@ -66,7 +65,7 @@ export const MOCK_TEST_SERIES = [
 ];
 
 export default function TestsScreen() {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -98,8 +97,8 @@ export default function TestsScreen() {
     return matchesCategory && matchesSearch;
   });
 
-  const handleTestPress = (id: string, title: string) => {
-    if (!isPro) {
+  const handleTestPress = (id: string, title: string, canAccess: boolean) => {
+    if (!canAccess) {
       navigation.navigate('Pricing');
       return;
     }
@@ -155,21 +154,26 @@ export default function TestsScreen() {
             )}
           </View>
         }
-        renderItem={({ item }) => (
-          <TestSeriesCard
-            title={item.title}
-            description={item.description}
-            category={item.category}
-            difficulty={item.difficulty}
-            totalTests={item.totalTests}
-            totalQuestions={item.totalQuestions}
-            duration={item.duration}
-            isPurchased={item.isPurchased}
-            price={item.price}
-            onPress={() => handleTestPress(item.id, item.title)}
-            activeAttempt={history.find(h => h.testId === item.id && h.status === 'In Progress')}
-          />
-        )}
+        renderItem={({ item }) => {
+          const activeAttempt = history.find(h => h.testId === item.id && h.status === 'In Progress');
+          const canAccess = isPro || item.isPurchased || Boolean(activeAttempt);
+
+          return (
+            <TestSeriesCard
+              title={item.title}
+              description={item.description}
+              category={item.category}
+              difficulty={item.difficulty}
+              totalTests={item.totalTests}
+              totalQuestions={item.totalQuestions}
+              duration={item.duration}
+              isPurchased={isPro || item.isPurchased}
+              price={item.price}
+              onPress={() => handleTestPress(item.id, item.title, canAccess)}
+              activeAttempt={activeAttempt}
+            />
+          );
+        }}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />

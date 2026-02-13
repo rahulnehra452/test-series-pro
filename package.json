@@ -9,11 +9,12 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@expo/metro-runtime": "~4.0.1",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.14",
     "@react-navigation/native-stack": "^7.2.0",
-    "@shopify/flash-list": "1.7.1",
+    "@shopify/flash-list": "1.7.3",
     "@supabase/supabase-js": "^2.39.7",
     "expo": "~52.0.28",
     "expo-auth-session": "~6.0.3",
@@ -33,7 +34,7 @@
     "expo-web-browser": "~14.0.2",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "react-native": "0.76.6",
+    "react-native": "0.76.9",
     "react-native-chart-kit": "^6.12.0",
     "react-native-gesture-handler": "~2.20.2",
     "react-native-pager-view": "6.5.1",
@@ -51,5 +52,21 @@
     "babel-preset-expo": "~12.0.2",
     "typescript": "^5.3.3"
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": [
+          "expo-av",
+          "react-native-chart-kit"
+        ]
+      }
+    },
+    "install": {
+      "exclude": [
+        "expo-av",
+        "react-native-chart-kit"
+      ]
+    }
+  }
 }
