@@ -118,11 +118,40 @@ const toDifficulty = (value?: string): Difficulty => {
   return 'Medium';
 };
 
+// Known acronyms that should be uppercased
+const UPPER_ACRONYMS = new Set(['ssc', 'cgl', 'upsc', 'rrb', 'ntpc', 'sbi', 'po', 'ias', 'nda', 'ibps', 'lic', 'cat', 'mba', 'gre', 'gmat', 'jee', 'neet', 'pre', 'mains', 'mpsc', 'bpsc', 'tnpsc', 'wbcs', 'ras', 'uppsc']);
+
 const prettifyTestId = (testId: string) => {
   if (isUuid(testId)) return 'Practice Test';
   return testId
     .replace(/[-_]+/g, ' ')
-    .replace(/\b\w/g, c => c.toUpperCase());
+    // separate trailing numbers from words: 'tier1' → 'tier 1'
+    .replace(/([a-zA-Z])(\d)/g, '$1 $2')
+    .split(' ')
+    .map(word => {
+      const lower = word.toLowerCase();
+      if (UPPER_ACRONYMS.has(lower)) return word.toUpperCase();
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(' ');
+};
+
+// Extract exam name from slug: 'ssc-cgl-tier1' → 'SSC CGL'
+const getExamFromTestId = (testId: string): string | null => {
+  if (isUuid(testId)) return null;
+  const parts = testId.split('-');
+  // Take the first 1-2 parts that are known acronyms as the exam name
+  const examParts: string[] = [];
+  for (const part of parts) {
+    if (UPPER_ACRONYMS.has(part.toLowerCase())) {
+      examParts.push(part.toUpperCase());
+    } else {
+      // Stop at first non-acronym part (that's the test/tier detail)
+      if (examParts.length > 0) break;
+      examParts.push(part.charAt(0).toUpperCase() + part.slice(1).toLowerCase());
+    }
+  }
+  return examParts.length > 0 ? examParts.join(' ') : null;
 };
 
 const mapRemoteTestToStore = (test: any): StoreTestSeries => {
@@ -568,29 +597,31 @@ export const useTestStore = create<TestState>()(
           .range(from, to);
 
         if (!error && data) {
+          const GENERIC_TITLES = ['Test Result', 'Practice Test', 'Unknown Test'];
           const knownTitles = new Map<string, string>();
+          // 1. Seed from fetch'd tests catalog (best source)
           get().tests.forEach(test => {
             knownTitles.set(test.id, test.title);
           });
+          // 2. Only fill gaps from existing history — skip generic titles
           get().history.forEach(attempt => {
-            if (attempt.testTitle) {
+            if (attempt.testTitle && !GENERIC_TITLES.includes(attempt.testTitle) && !knownTitles.has(attempt.testId)) {
               knownTitles.set(attempt.testId, attempt.testTitle);
             }
           });
 
-          const uuidTestIds = Array.from(
+          const uniqueTestIds = Array.from(
             new Set(
-              data
-                .map(d => String(d.test_id))
-                .filter(id => isUuid(id))
+              data.map(d => String(d.test_id))
             )
           );
 
-          if (uuidTestIds.length > 0) {
+          // 3. Query tests table — these always take priority
+          if (uniqueTestIds.length > 0) {
             const { data: testsData, error: testsError } = await supabase
               .from('tests')
-              .select('id,title')
-              .in('id', uuidTestIds);
+              .select('id,title,category')
+              .in('id', uniqueTestIds);
 
             if (!testsError && testsData) {
               testsData.forEach(test => {
@@ -604,7 +635,7 @@ export const useTestStore = create<TestState>()(
           const mappedHistory: TestAttempt[] = data.map(d => ({
             id: d.id,
             testId: d.test_id,
-            testTitle: d.test_title || knownTitles.get(String(d.test_id)) || prettifyTestId(String(d.test_id)),
+            testTitle: knownTitles.get(String(d.test_id)) || prettifyTestId(String(d.test_id)),
             userId: d.user_id,
             startTime: new Date(d.started_at).getTime(),
             endTime: d.completed_at ? new Date(d.completed_at).getTime() : undefined,

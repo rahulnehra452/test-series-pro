@@ -6,7 +6,11 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "postinstall": "mkdir -p node_modules/react-native/node_modules/@react-native && ln -sf ../../../@react-native/normalize-colors node_modules/react-native/node_modules/@react-native/normalize-colors && mkdir -p node_modules/@supabase/functions-js/node_modules && ln -sf ../../../tslib node_modules/@supabase/functions-js/node_modules/tslib"
+  },
+  "overrides": {
+    "@react-native/normalize-colors": "0.76.9"
   },
   "dependencies": {
     "@expo/metro-runtime": "~4.0.1",

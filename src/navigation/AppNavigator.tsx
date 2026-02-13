@@ -163,7 +163,7 @@ export default function AppNavigator() {
             options={{
               animation: 'slide_from_bottom',
               headerShown: false,
-              gestureEnabled: false,
+              gestureEnabled: true,
             }}
           />
           <Stack.Screen

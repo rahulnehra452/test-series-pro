@@ -121,7 +121,7 @@ export default function ResultsScreen() {
     );
   };
 
-  const handleSeries = () => navigation.navigate('Main', { screen: 'Tests' });
+  const handleSeries = () => navigation.goBack();
 
   // Timestamp
   const timeAgo = new Date(attempt.endTime || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -273,8 +273,8 @@ export default function ResultsScreen() {
           </View>
 
           <Button
-            title="Back to Home"
-            onPress={() => navigation.navigate('Main', { screen: 'Home' })}
+            title="Go Back"
+            onPress={() => navigation.goBack()}
             variant="outline"
             style={{
               marginTop: 16,
