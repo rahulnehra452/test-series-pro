@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { User } from '../types';
 import { supabase } from '../lib/supabase';
+import { User } from '../types';
+import { useTestStore } from './testStore';
 
 interface AuthState {
   user: User | null;
@@ -14,9 +15,17 @@ interface AuthState {
   checkSession: () => Promise<void>;
   checkStreak: () => Promise<void>;
   updateProfile: (updates: { name?: string; email?: string }) => Promise<void>;
+  activatePro: () => Promise<void>;
   hasHydrated: boolean;
   setHasHydrated: (state: boolean) => void;
 }
+
+// Helper to trigger sync
+const triggerSync = () => {
+  const { syncLibrary, syncProgress } = useTestStore.getState();
+  syncLibrary();
+  syncProgress();
+};
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -24,6 +33,9 @@ export const useAuthStore = create<AuthState>()(
       user: null, // Start logged out
       isAuthenticated: false,
       isLoading: true,
+      hasHydrated: false,
+
+      setHasHydrated: (state) => set({ hasHydrated: state }),
 
       login: async (email, password) => {
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -52,6 +64,7 @@ export const useAuthStore = create<AuthState>()(
           };
 
           set({ user, isAuthenticated: true });
+          triggerSync();
         }
       },
 
@@ -66,10 +79,6 @@ export const useAuthStore = create<AuthState>()(
 
         if (error) throw error;
 
-        // Profile creation is handled by Supabase Trigger usually, 
-        // but for safety we can create here if trigger fails or doesn't exist? 
-        // Better to rely on Trigger. Assuming trigger acts on NEW.raw_user_meta_data
-
         if (data.user) {
           // Setup initial user state from metadata immediately
           const user: User = {
@@ -81,6 +90,7 @@ export const useAuthStore = create<AuthState>()(
             avatar: data.user.user_metadata?.avatar_url || data.user.user_metadata?.picture,
           };
           set({ user, isAuthenticated: true });
+          triggerSync();
 
           // Instead of a brittle setTimeout, we'll try to fetch the profile several times
           // with exponential backoff if it's missing.
@@ -111,40 +121,56 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: async () => {
-        await supabase.auth.signOut();
-        set({ user: null, isAuthenticated: false });
+        try {
+          await supabase.auth.signOut();
+        } finally {
+          set({ user: null, isAuthenticated: false, isLoading: false });
+        }
       },
 
       checkSession: async () => {
         set({ isLoading: true });
-        const { data, error } = await supabase.auth.getSession();
+        try {
+          const { data, error } = await supabase.auth.getSession();
 
-        if (error && error.message.includes('invalid_grant')) {
-          // Token refresh failed, force logout
-          await get().logout();
-          return;
-        }
+          if (error && error.message.includes('invalid_grant')) {
+            // Token refresh failed, force logout
+            await get().logout();
+            return;
+          }
 
-        if (data.session?.user) {
-          // Fetch full profile
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', data.session.user.id)
-            .single();
+          if (error) {
+            throw error;
+          }
 
-          const user: User = {
-            id: data.session.user.id,
-            email: data.session.user.email!,
-            name: profile?.full_name || 'Student',
-            isPro: profile?.is_pro || false,
-            streak: profile?.streak || 0,
-            lastActiveDate: profile?.last_active_at,
-            avatar: data.session.user.user_metadata?.avatar_url || data.session.user.user_metadata?.picture,
-          };
-          set({ user, isAuthenticated: true, isLoading: false });
-        } else {
-          set({ user: null, isAuthenticated: false, isLoading: false });
+          if (data.session?.user) {
+            // Fetch full profile
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', data.session.user.id)
+              .single();
+
+            const user: User = {
+              id: data.session.user.id,
+              email: data.session.user.email!,
+              name: profile?.full_name || 'Student',
+              isPro: profile?.is_pro || false,
+              streak: profile?.streak || 0,
+              lastActiveDate: profile?.last_active_at,
+              avatar: data.session.user.user_metadata?.avatar_url || data.session.user.user_metadata?.picture,
+            };
+            set({ user, isAuthenticated: true });
+            triggerSync();
+            return;
+          }
+
+          set({ user: null, isAuthenticated: false });
+        } catch (error) {
+          console.error('Error checking session:', error);
+          set({ user: null, isAuthenticated: false });
+        } finally {
+          set({ isLoading: false });
         }
       },
 
@@ -152,11 +178,10 @@ export const useAuthStore = create<AuthState>()(
         const state = get();
         if (!state.user || !state.isAuthenticated) return;
 
-        // Use UTC-based date for consistency if possible, or simple ISO format
         const today = new Date().toISOString().split('T')[0];
         const lastActiveDateStr = state.user.lastActiveDate ? new Date(state.user.lastActiveDate).toISOString().split('T')[0] : null;
 
-        if (lastActiveDateStr === today) return; // Already checked today
+        if (lastActiveDateStr === today) return;
 
         const now = new Date();
         const yesterday = new Date();
@@ -166,11 +191,6 @@ export const useAuthStore = create<AuthState>()(
         let newStreak = 1;
         if (lastActiveDateStr === yesterdayStr) {
           newStreak = (state.user.streak || 0) + 1;
-        } else if (lastActiveDateStr && lastActiveDateStr < yesterdayStr) {
-          // Streak broken
-          newStreak = 1;
-        } else if (!lastActiveDateStr) {
-          newStreak = 1;
         }
 
         // Update Supabase
@@ -183,7 +203,6 @@ export const useAuthStore = create<AuthState>()(
           .eq('id', state.user.id);
 
         if (!error) {
-          // Update Local State
           set({
             user: {
               ...state.user,
@@ -194,11 +213,10 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      updateProfile: async (updates: { name?: string; email?: string }) => {
+      updateProfile: async (updates) => {
         const state = get();
         if (!state.user) return;
 
-        // 1. Update Supabase Profile
         if (updates.name) {
           const { error } = await supabase
             .from('profiles')
@@ -207,13 +225,11 @@ export const useAuthStore = create<AuthState>()(
 
           if (error) throw error;
 
-          // 2. Update Auth Metadata
           await supabase.auth.updateUser({
             data: { full_name: updates.name }
           });
         }
 
-        // 3. Update Local State
         set({
           user: {
             ...state.user,
@@ -223,8 +239,31 @@ export const useAuthStore = create<AuthState>()(
         });
       },
 
-      hasHydrated: false,
-      setHasHydrated: (state) => set({ hasHydrated: state }),
+      activatePro: async () => {
+        const state = get();
+        if (!state.user) {
+          throw new Error('Please log in to activate Pro.');
+        }
+        if (state.user.isPro) {
+          return;
+        }
+
+        const { error } = await supabase
+          .from('profiles')
+          .update({ is_pro: true })
+          .eq('id', state.user.id);
+
+        if (error) {
+          throw error;
+        }
+
+        set({
+          user: {
+            ...state.user,
+            isPro: true,
+          }
+        });
+      },
     }),
     {
       name: 'test-series-auth',

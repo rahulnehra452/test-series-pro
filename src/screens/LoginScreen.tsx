@@ -37,7 +37,7 @@ export default function LoginScreen() {
   const performOAuth = async () => {
     try {
       const redirectUrl = makeRedirectUri({
-        scheme: 'testseriespro',
+        scheme: 'testkra',
       });
       // console.log('generated redirectUrl:', redirectUrl);
 

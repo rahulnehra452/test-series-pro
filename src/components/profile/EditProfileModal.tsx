@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Platform, KeyboardAvoidingView } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuthStore } from '../../stores/authStore';
-import { useTestStore } from '../../stores/testStore';
 import { Input } from '../common/Input';
 import { Button } from '../common/Button';
 import { spacing, typography, borderRadius } from '../../constants/theme';
@@ -44,17 +43,6 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
       setIsLoading(false);
       onClose();
     }, 1000);
-  };
-
-  const handleReset = () => {
-    // Show confirmation dialog logic here
-    const { reset: resetTestStore } = useTestStore.getState();
-    const { reset: resetAuthStore } = useAuthStore.getState();
-
-    // Clear data
-    resetTestStore();
-    resetAuthStore();
-    onClose();
   };
 
   return (

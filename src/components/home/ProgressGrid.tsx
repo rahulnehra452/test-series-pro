@@ -42,16 +42,17 @@ export const ProgressGrid: React.FC = () => {
   const { history } = useTestStore();
 
   // Calculate metrics
-  const completedTests = history.filter(h => h.status === 'Completed').length;
+  const completedAttempts = history.filter(h => h.status === 'Completed');
+  const completedTestsCount = completedAttempts.length;
 
-  const totalQuestions = history.reduce((acc, curr) => {
+  const totalQuestions = completedAttempts.reduce((acc, curr) => {
     // Count questions actually answered (non-null/undefined)
     const answeredCount = Object.values(curr.answers).filter(a => a !== undefined && a !== null).length;
     return acc + answeredCount;
   }, 0);
 
-  const averageScore = history.length > 0
-    ? Math.round(history.reduce((acc, curr) => acc + (curr.score || 0), 0) / history.length)
+  const averageScore = completedAttempts.length > 0
+    ? Math.round(completedAttempts.reduce((acc, curr) => acc + (curr.score || 0), 0) / completedAttempts.length)
     : 0;
 
   return (
@@ -64,7 +65,7 @@ export const ProgressGrid: React.FC = () => {
       <View style={styles.grid}>
         <StatItem
           label="Tests"
-          value={completedTests.toString()}
+          value={completedTestsCount.toString()}
           subValue="Completed"
           index={0}
         />

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView, SafeAreaView, Dimensions, Pressable } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, SafeAreaView, Dimensions, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { borderRadius, spacing, typography } from '../constants/theme';
 import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming, interpolateColor } from 'react-native-reanimated';
+import { useAuthStore } from '../stores/authStore';
 
 const { width } = Dimensions.get('window');
 
@@ -59,14 +60,32 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 export default function PricingScreen() {
   const { colors, isDark } = useTheme();
   const navigation = useNavigation();
+  const { user, activatePro } = useAuthStore();
   const [selectedTier, setSelectedTier] = useState<string | null>('1year');
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const isAlreadyPro = user?.isPro || false;
 
-  const handlePurchase = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    if (!selectedTier) return;
+  const handlePurchase = async () => {
+    if (!selectedTier || isPurchasing || isAlreadyPro) return;
     const tier = TIERS.find(t => t.id === selectedTier);
-    console.log('Purchasing tier:', tier?.title);
-    navigation.goBack();
+    setIsPurchasing(true);
+    try {
+      await activatePro();
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        'Purchase Successful',
+        `Pro access has been activated for the ${tier?.title || 'selected'} plan.`,
+        [{ text: 'Continue', onPress: () => navigation.goBack() }]
+      );
+    } catch (error: any) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        'Purchase Failed',
+        error?.message || 'We could not activate Pro right now. Please try again.'
+      );
+    } finally {
+      setIsPurchasing(false);
+    }
   };
 
   const handleSelectTier = (id: string) => {
@@ -128,18 +147,24 @@ export default function PricingScreen() {
               styles.buyButton,
               {
                 backgroundColor: selectedTier ? (TIERS.find(t => t.id === selectedTier)?.color || colors.primary) : colors.border,
-                opacity: selectedTier ? 1 : 0.6
+                opacity: selectedTier && !isPurchasing && !isAlreadyPro ? 1 : 0.6
               }
             ]}
             onPress={handlePurchase}
-            disabled={!selectedTier}
+            disabled={!selectedTier || isPurchasing || isAlreadyPro}
             activeOpacity={0.8}
           >
-            <Text style={styles.buyButtonText}>Buy Now</Text>
-            {selectedTier && (
-              <Text style={styles.buyButtonPrice}>
-                ₹{TIERS.find(t => t.id === selectedTier)?.price}
-              </Text>
+            {isPurchasing ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Text style={styles.buyButtonText}>{isAlreadyPro ? 'Pro Active' : 'Buy Now'}</Text>
+                {selectedTier && !isAlreadyPro && (
+                  <Text style={styles.buyButtonPrice}>
+                    ₹{TIERS.find(t => t.id === selectedTier)?.price}
+                  </Text>
+                )}
+              </>
             )}
           </TouchableOpacity>
 

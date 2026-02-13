@@ -134,7 +134,12 @@ export default function ProfileScreen() {
             label="Sync Data (Admin)"
             onPress={() => navigation.navigate('SeedData')}
           />
-          <MenuItem icon="card-outline" label="Subscription" value={user.isPro ? "Active" : "Inactive"} onPress={() => { }} />
+          <MenuItem
+            icon="card-outline"
+            label="Subscription"
+            value={user.isPro ? "Active" : "Inactive"}
+            onPress={() => navigation.navigate('Pricing')}
+          />
           <MenuItem icon="help-circle-outline" label="Help & Support" onPress={() => { }} />
         </Card>
       </View>

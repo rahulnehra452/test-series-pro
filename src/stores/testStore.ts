@@ -35,7 +35,7 @@ interface TestState {
   toggleTimer: () => void;
   finishTest: () => TestAttempt;
   addToLibrary: (item: Omit<LibraryItem, 'id' | 'saveTimestamp'>) => void;
-  updateLibraryItemType: (itemId: string, newType: LibraryItemType) => void;
+  updateLibraryItemType: (itemId: string, newType: LibraryItemType) => Promise<void>;
   removeFromLibrary: (questionId: string, type?: LibraryItemType) => void;
   isQuestionInLibrary: (questionId: string, type?: LibraryItemType) => boolean;
   resetActiveTest: () => void;
@@ -78,6 +78,22 @@ const calculateScore = (questions: Question[], answers: Record<string, number>, 
   // Use Math.round to avoid floating point drift before toFixed
   const finalScore = Number((Math.round(score * 100) / 100).toFixed(2));
   return finalScore;
+};
+
+const toDbBookmarkType = (type: LibraryItemType): 'bookmark' | 'wrong' | 'note' => {
+  if (type === 'wrong') return 'wrong';
+  if (type === 'learn') return 'note';
+  return 'bookmark';
+};
+
+const toAppLibraryType = (type: string): LibraryItemType => {
+  if (type === 'wrong') return 'wrong';
+  if (type === 'note') return 'learn';
+  return 'saved';
+};
+
+const getLibraryKey = (item: Pick<LibraryItem, 'questionId' | 'type'>) => {
+  return `${item.questionId}::${item.type}`;
 };
 
 export const useTestStore = create<TestState>()(
@@ -283,6 +299,7 @@ export const useTestStore = create<TestState>()(
 
         // Sync Library items (Wrong answers)
         const updatedLibrary = [...state.library];
+        const newWrongItems: LibraryItem[] = [];
         state.questions.forEach(q => {
           const userAnswer = state.answers[q.id];
           if (userAnswer !== undefined) {
@@ -290,7 +307,7 @@ export const useTestStore = create<TestState>()(
               // Add to 'wrong' if not already there
               const alreadyExists = updatedLibrary.some(item => item.questionId === q.id && item.type === 'wrong');
               if (!alreadyExists) {
-                updatedLibrary.unshift({
+                const wrongItem: LibraryItem = {
                   id: Crypto.randomUUID(),
                   questionId: q.id,
                   question: q.text,
@@ -299,7 +316,9 @@ export const useTestStore = create<TestState>()(
                   type: 'wrong',
                   saveTimestamp: Date.now(),
                   exam: state.currentTestId || undefined,
-                });
+                };
+                updatedLibrary.unshift(wrongItem);
+                newWrongItems.push(wrongItem);
               }
             } else {
               // Remove from 'wrong' if solved correctly now
@@ -349,12 +368,36 @@ export const useTestStore = create<TestState>()(
 
         // Trigger Sync
         get().uploadAttempt(attempt);
+        if (newWrongItems.length > 0) {
+          void (async () => {
+            const { data: session } = await supabase.auth.getSession();
+            if (!session.session?.user) return;
+
+            const userId = session.session.user.id;
+            for (const item of newWrongItems) {
+              const { error } = await supabase.from('bookmarks').upsert({
+                user_id: userId,
+                question_id: item.questionId,
+                type: toDbBookmarkType(item.type),
+                question_data: {
+                  text: item.question,
+                  subject: item.subject,
+                  difficulty: item.difficulty,
+                  exam: item.exam,
+                }
+              }, { onConflict: 'user_id,question_id,type' });
+
+              if (error) {
+                console.error('Failed to sync wrong answer to cloud:', error);
+              }
+            }
+          })();
+        }
 
         return attempt;
       },
 
 
-      // ... (inside create) ...
 
       isLoadingMoreHistory: false,
       hasMoreHistory: true,
@@ -454,7 +497,7 @@ export const useTestStore = create<TestState>()(
           .from('attempts')
           .select('*')
           .eq('status', 'Completed')
-          .order('created_at', { ascending: false })
+          .order('started_at', { ascending: false })
           .range(from, to);
 
         if (!error && data) {
@@ -499,13 +542,18 @@ export const useTestStore = create<TestState>()(
           // Queue if no user (offline or logged out? if logged out, maybe don't queue)
           // If just offline, queue.
           // For now, let's queue it.
-          set(state => ({ pendingUploads: [...state.pendingUploads, attempt] }));
+          set(state => ({
+            pendingUploads: state.pendingUploads.some(a => a.id === attempt.id)
+              ? state.pendingUploads
+              : [...state.pendingUploads, attempt]
+          }));
           return;
         }
 
         const user = session.session.user;
 
         const { error } = await supabase.from('attempts').insert({
+          id: attempt.id,
           user_id: user.id,
           test_id: attempt.testId,
           score: attempt.score,
@@ -542,6 +590,7 @@ export const useTestStore = create<TestState>()(
           try {
             // Retry Upload with upsert to avoid duplicate key errors
             const { error } = await supabase.from('attempts').upsert({
+              id: attempt.id,
               user_id: user.id,
               test_id: attempt.testId,
               score: attempt.score,
@@ -572,6 +621,7 @@ export const useTestStore = create<TestState>()(
         if (!session.session?.user) return;
 
         try {
+          const localLibrary = get().library;
           // 1. Fetch cloud bookmarks
           const { data: cloudLibrary, error } = await supabase
             .from('bookmarks')
@@ -580,20 +630,31 @@ export const useTestStore = create<TestState>()(
           if (error) throw error;
 
           if (cloudLibrary) {
-            const mappedLibrary: LibraryItem[] = cloudLibrary.map(item => ({
-              id: item.id,
-              questionId: item.question_id,
-              type: item.type as LibraryItemType,
-              question: item.question_data?.text || 'Question',
-              subject: item.question_data?.subject,
-              difficulty: item.question_data?.difficulty,
-              saveTimestamp: new Date(item.created_at).getTime(),
-              exam: item.question_data?.exam,
-            }));
+            const mappedLibrary: LibraryItem[] = cloudLibrary.map(item => {
+              return {
+                id: item.id,
+                questionId: item.question_id,
+                type: toAppLibraryType(item.type),
+                question: item.question_data?.text || 'Question',
+                subject: item.question_data?.subject,
+                difficulty: item.question_data?.difficulty,
+                saveTimestamp: new Date(item.created_at).getTime(),
+                exam: item.question_data?.exam,
+              };
+            });
 
-            // Merge with local (prefer cloud, or simple overwrite?)
-            // Overwrite local with cloud is safer for "restore" scenario
-            set({ library: mappedLibrary });
+            // Merge cloud + local by question/type and keep the newest record.
+            const merged = new Map<string, LibraryItem>();
+            [...mappedLibrary, ...localLibrary].forEach(item => {
+              const key = getLibraryKey(item);
+              const existing = merged.get(key);
+              if (!existing || item.saveTimestamp > existing.saveTimestamp) {
+                merged.set(key, item);
+              }
+            });
+
+            const mergedLibrary = Array.from(merged.values()).sort((a, b) => b.saveTimestamp - a.saveTimestamp);
+            set({ library: mergedLibrary });
           }
         } catch (e) {
           console.error('Error syncing library:', e);
@@ -658,17 +719,19 @@ export const useTestStore = create<TestState>()(
         // Cloud Sync
         const { data: session } = await supabase.auth.getSession();
         if (session.session?.user) {
-          const { error } = await supabase.from('bookmarks').insert({
+          const dbType = toDbBookmarkType(item.type);
+
+          const { error } = await supabase.from('bookmarks').upsert({
             user_id: session.session.user.id,
             question_id: item.questionId,
-            type: item.type,
+            type: dbType,
             question_data: {
               text: item.question,
               subject: item.subject,
               difficulty: item.difficulty,
               exam: item.exam
             }
-          });
+          }, { onConflict: 'user_id,question_id,type' });
           if (error) console.error('Failed to save bookmark to cloud:', error);
         }
       },
@@ -686,19 +749,72 @@ export const useTestStore = create<TestState>()(
         // Cloud Sync
         const { data: session } = await supabase.auth.getSession();
         if (session.session?.user) {
+          const dbType = type ? toDbBookmarkType(type) : undefined;
+
           let query = supabase.from('bookmarks').delete().eq('user_id', session.session.user.id).eq('question_id', questionId);
-          if (type) query = query.eq('type', type);
+          if (dbType) query = query.eq('type', dbType);
 
           const { error } = await query;
           if (error) console.error('Failed to delete bookmark from cloud:', error);
         }
       },
 
-      updateLibraryItemType: (itemId, newType) => set((state) => ({
-        library: state.library.map(item =>
-          item.id === itemId ? { ...item, type: newType } : item
-        )
-      })),
+      updateLibraryItemType: async (itemId, newType) => {
+        const currentItem = get().library.find(item => item.id === itemId);
+        if (!currentItem || currentItem.type === newType) return;
+
+        const previousType = currentItem.type;
+        const updatedAt = Date.now();
+
+        // Optimistic update and dedupe to avoid two rows with same question/type.
+        set(state => ({
+          library: state.library
+            .filter(item => !(item.id !== itemId && item.questionId === currentItem.questionId && item.type === newType))
+            .map(item => item.id === itemId ? { ...item, type: newType, saveTimestamp: updatedAt } : item)
+        }));
+
+        const { data: session } = await supabase.auth.getSession();
+        if (!session.session?.user) return;
+
+        const userId = session.session.user.id;
+        const oldDbType = toDbBookmarkType(previousType);
+        const newDbType = toDbBookmarkType(newType);
+
+        try {
+          const { error: deleteError } = await supabase
+            .from('bookmarks')
+            .delete()
+            .eq('user_id', userId)
+            .eq('question_id', currentItem.questionId)
+            .eq('type', oldDbType);
+
+          if (deleteError) throw deleteError;
+
+          const { error: upsertError } = await supabase
+            .from('bookmarks')
+            .upsert({
+              user_id: userId,
+              question_id: currentItem.questionId,
+              type: newDbType,
+              question_data: {
+                text: currentItem.question,
+                subject: currentItem.subject,
+                difficulty: currentItem.difficulty,
+                exam: currentItem.exam,
+              }
+            }, { onConflict: 'user_id,question_id,type' });
+
+          if (upsertError) throw upsertError;
+        } catch (error) {
+          console.error('Failed to update bookmark type in cloud:', error);
+          // Roll back optimistic update if cloud sync fails.
+          set(state => ({
+            library: state.library.map(item =>
+              item.id === itemId ? { ...item, type: previousType } : item
+            )
+          }));
+        }
+      },
 
       isQuestionInLibrary: (questionId, type) => {
         return get().library.some(i => {
@@ -763,7 +879,6 @@ export const useTestStore = create<TestState>()(
         }
       },
 
-      // ... other methods ...
 
       resetActiveTest: () => set({
         currentTestId: null,

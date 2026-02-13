@@ -29,17 +29,41 @@ export default function StatsScreen() {
   const navigation = useNavigation<any>();
   const { history, isLoadingMoreHistory, hasMoreHistory, fetchHistory, historyPage } = useTestStore();
   const [showAllHistory, setShowAllHistory] = React.useState(false);
+  const [selectedMonth, setSelectedMonth] = React.useState<number | null>(null); // null = All
+  const [selectedYear, setSelectedYear] = React.useState<number>(new Date().getFullYear());
 
-  const displayedHistory = showAllHistory ? history : history.slice(0, 5);
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  React.useEffect(() => {
+    fetchHistory(0);
+  }, [fetchHistory]);
+
+  const availableYears = React.useMemo(() => {
+    const years = new Set(history.map(h => new Date(h.startTime).getFullYear()));
+    years.add(new Date().getFullYear());
+    return Array.from(years).sort((a, b) => b - a);
+  }, [history]);
+
+  const filteredHistory = React.useMemo(() => {
+    return history.filter(h => {
+      if (h.status !== 'Completed') return false;
+      const date = new Date(h.startTime);
+      const matchesYear = date.getFullYear() === selectedYear;
+      const matchesMonth = selectedMonth === null || date.getMonth() === selectedMonth;
+      return matchesYear && matchesMonth;
+    });
+  }, [history, selectedMonth, selectedYear]);
+
+  const displayedHistory = showAllHistory ? filteredHistory : filteredHistory.slice(0, 5);
 
   const stats = React.useMemo(() => {
-    const totalTests = history.length;
+    const totalTests = filteredHistory.length;
     const avgScore = totalTests > 0
-      ? (history.reduce((acc, curr) => acc + curr.score, 0) / totalTests).toFixed(1)
+      ? (filteredHistory.reduce((acc, curr) => acc + curr.score, 0) / totalTests).toFixed(1)
       : '0';
 
-    const uniqueDays = new Set(history.map(h => new Date(h.startTime).toDateString())).size;
-    const totalTimeMs = history.reduce((acc, curr) => acc + (curr.endTime || 0) - curr.startTime, 0);
+    const uniqueDays = new Set(filteredHistory.map(h => new Date(h.startTime).toDateString())).size;
+    const totalTimeMs = filteredHistory.reduce((acc, curr) => acc + (curr.endTime || 0) - curr.startTime, 0);
     const totalHours = (totalTimeMs / (1000 * 60 * 60)).toFixed(1);
 
     return [
@@ -48,22 +72,46 @@ export default function StatsScreen() {
       { label: 'Time Spent', value: `${totalHours}h`, icon: 'time-outline', color: '#FF9500' },
       { label: 'Streak', value: `${uniqueDays} Days`, icon: 'flame-outline', color: '#FF3B30' },
     ];
-  }, [history]);
+  }, [filteredHistory]);
 
   const chartData = React.useMemo(() => {
-    const recentHistory = history.slice(0, 6).reverse();
-    if (recentHistory.length === 0) return null;
+    const sortedFiltered = [...filteredHistory].sort((a, b) => a.startTime - b.startTime);
+
+    if (sortedFiltered.length === 0) return null;
+
+    // 1. Group contributions by day
+    const dailyTotals = new Map<string, number>();
+    sortedFiltered.forEach(h => {
+      const date = new Date(h.startTime);
+      const dayKey = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+      const answeredCount = Object.values(h.answers).filter(a => a !== undefined && a !== null).length;
+      dailyTotals.set(dayKey, (dailyTotals.get(dayKey) || 0) + answeredCount);
+    });
+
+    // 2. Map back to sorted array and calculate running total
+    const sortedDayKeys = Array.from(dailyTotals.keys()).sort((a, b) => {
+      const [y1, m1, d1] = a.split('-').map(Number);
+      const [y2, m2, d2] = b.split('-').map(Number);
+      return new Date(y1, m1 - 1, d1).getTime() - new Date(y2, m2 - 1, d2).getTime();
+    });
+
+    let runningTotal = 0;
+    const cumulativeData = sortedDayKeys.map(key => {
+      runningTotal += dailyTotals.get(key)!;
+      const [y, m, d] = key.split('-').map(Number);
+      return { total: runningTotal, label: `${d}/${m}` };
+    });
+
+    // 3. Show last 7 data points
+    const recentData = cumulativeData.slice(-7);
 
     return {
-      labels: recentHistory.map(h => {
-        const date = new Date(h.startTime);
-        return `${date.getDate()}/${date.getMonth() + 1}`;
-      }),
+      labels: recentData.map(d => d.label),
       datasets: [{
-        data: recentHistory.map(h => h.score)
+        data: recentData.map(d => d.total)
       }]
     };
-  }, [history]);
+  }, [filteredHistory]);
 
   const renderHistoryItem = ({ item }: { item: any }) => (
     <TouchableOpacity
@@ -109,6 +157,38 @@ export default function StatsScreen() {
               <Text style={[styles.headerTitle, { color: colors.text }]}>Statistics</Text>
             </View>
 
+            <View style={styles.filterSection}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.monthScroll} contentContainerStyle={styles.monthScrollContent}>
+                <TouchableOpacity
+                  style={[styles.monthChip, selectedMonth === null && { backgroundColor: colors.primary }]}
+                  onPress={() => setSelectedMonth(null)}
+                >
+                  <Text style={[styles.monthText, { color: selectedMonth === null ? '#fff' : colors.textSecondary }]}>All</Text>
+                </TouchableOpacity>
+                {MONTHS.map((month, index) => (
+                  <TouchableOpacity
+                    key={month}
+                    style={[styles.monthChip, selectedMonth === index && { backgroundColor: colors.primary }]}
+                    onPress={() => setSelectedMonth(index)}
+                  >
+                    <Text style={[styles.monthText, { color: selectedMonth === index ? '#fff' : colors.textSecondary }]}>{month}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.yearScroll} contentContainerStyle={styles.yearScrollContent}>
+                {availableYears.map(year => (
+                  <TouchableOpacity
+                    key={year}
+                    style={[styles.yearChip, { borderColor: colors.border }, selectedYear === year && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+                    onPress={() => setSelectedYear(year)}
+                  >
+                    <Text style={[styles.yearText, { color: selectedYear === year ? '#fff' : colors.text }]}>{year}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
             <View style={styles.gridContainer}>
               {stats.map((stat, index) => (
                 <View key={index} style={styles.gridItem}>
@@ -118,7 +198,7 @@ export default function StatsScreen() {
             </View>
 
             <View style={styles.chartSection}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Performance Trend</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Total Questions Solved</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chartScroll}>
                 {chartData ? (
                   <LineChart
@@ -131,7 +211,7 @@ export default function StatsScreen() {
                       backgroundColor: colors.card,
                       backgroundGradientFrom: colors.card,
                       backgroundGradientTo: colors.card,
-                      decimalPlaces: 1,
+                      decimalPlaces: 0,
                       color: (opacity = 1) => colors.primary,
                       labelColor: (opacity = 1) => colors.textSecondary,
                       style: { borderRadius: borderRadius.lg },
@@ -304,6 +384,42 @@ const styles = StyleSheet.create({
   viewAllText: {
     ...typography.subhead,
     fontWeight: '600',
+  },
+  filterSection: {
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
+  },
+  monthScroll: {
+    marginBottom: spacing.xs,
+  },
+  monthScrollContent: {
+    paddingRight: spacing.lg,
+    gap: 8,
+  },
+  monthChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: borderRadius.full,
+    backgroundColor: 'rgba(120, 120, 128, 0.12)',
+  },
+  monthText: {
+    ...typography.caption1,
+    fontWeight: '600',
+  },
+  yearScroll: {},
+  yearScrollContent: {
+    paddingRight: spacing.lg,
+    gap: 8,
+  },
+  yearChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+  },
+  yearText: {
+    ...typography.caption1,
+    fontWeight: '700',
   },
   loadMoreButton: {
     paddingVertical: spacing.md,
