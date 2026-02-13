@@ -342,6 +342,7 @@ export const useTestStore = create<TestState>()(
         const state = get();
         const now = Date.now();
         const score = calculateScore(state.questions, state.answers);
+        const completedTestId = state.currentTestId;
 
         // Capture time spent on the last question
         let finalTimeSpent = { ...state.timeSpent };
@@ -412,6 +413,11 @@ export const useTestStore = create<TestState>()(
             currentTestId: null,
             currentTestTitle: null,
             questions: [],
+            currentIndex: 0,
+            timeRemaining: 0,
+            totalTime: 0,
+            endTime: null,
+            sessionStartTime: null,
             isPlaying: false,
             answers: {},
             markedForReview: {},
@@ -444,6 +450,24 @@ export const useTestStore = create<TestState>()(
               if (error) {
                 console.error('Failed to sync wrong answer to cloud:', error);
               }
+            }
+          })();
+        }
+
+        // Once a test is completed, remove its cloud resume snapshot to prevent stale restores.
+        if (completedTestId) {
+          void (async () => {
+            const { data: session } = await supabase.auth.getSession();
+            if (!session.session?.user) return;
+
+            const { error } = await supabase
+              .from('test_progress')
+              .delete()
+              .eq('user_id', session.session.user.id)
+              .eq('test_id', completedTestId);
+
+            if (error) {
+              console.error('Failed to clear completed test progress from cloud:', error);
             }
           })();
         }
@@ -1009,41 +1033,46 @@ export const useTestStore = create<TestState>()(
       },
 
       saveProgress: async () => {
-        // Local save logic
-        set((state) => {
-          if (!state.currentTestId) return {};
-          const now = Date.now();
-          let finalTimeSpent = { ...state.timeSpent };
-          const currentQ = state.questions[state.currentIndex];
-          if (currentQ && state.questionVisitedAt) {
-            const elapsed = Math.floor((now - state.questionVisitedAt) / 1000);
-            finalTimeSpent[currentQ.id] = (finalTimeSpent[currentQ.id] || 0) + elapsed;
-          }
-
-          const currentAttempt: TestAttempt = {
-            id: state.currentTestId + '-progress',
-            testId: state.currentTestId,
-            testTitle: state.currentTestTitle || 'Unknown',
-            userId: 'current-user',
-            startTime: state.sessionStartTime || now,
-            score: calculateScore(state.questions, state.answers),
-            totalMarks: state.questions.length * 2,
-            questions: state.questions,
-            answers: state.answers,
-            markedForReview: state.markedForReview,
-            timeSpent: finalTimeSpent,
-            status: 'In Progress',
-            currentIndex: state.currentIndex,
-            timeRemaining: state.timeRemaining,
-          };
-
-          const newHistory = state.history.filter(h => !(h.testId === state.currentTestId && h.status === 'In Progress'));
-          return { history: [...newHistory, currentAttempt] };
-        });
-
-        // Cloud sync logic (Debounce this in production, but direct call for now)
         const state = get();
         if (!state.currentTestId) return;
+
+        const now = Date.now();
+        let finalTimeSpent = { ...state.timeSpent };
+        const currentQ = state.questions[state.currentIndex];
+        if (currentQ && state.questionVisitedAt) {
+          const elapsed = Math.floor((now - state.questionVisitedAt) / 1000);
+          finalTimeSpent[currentQ.id] = (finalTimeSpent[currentQ.id] || 0) + elapsed;
+        }
+
+        const currentAttempt: TestAttempt = {
+          id: state.currentTestId + '-progress',
+          testId: state.currentTestId,
+          testTitle: state.currentTestTitle || 'Unknown',
+          userId: 'current-user',
+          startTime: state.sessionStartTime || now,
+          score: calculateScore(state.questions, state.answers),
+          totalMarks: state.questions.length * 2,
+          questions: state.questions,
+          answers: state.answers,
+          markedForReview: state.markedForReview,
+          timeSpent: finalTimeSpent,
+          status: 'In Progress',
+          currentIndex: state.currentIndex,
+          timeRemaining: state.timeRemaining,
+        };
+
+        // Local save logic
+        set((existingState) => {
+          const newHistory = existingState.history.filter(
+            h => !(h.testId === state.currentTestId && h.status === 'In Progress')
+          );
+
+          return {
+            history: [...newHistory, currentAttempt],
+            timeSpent: finalTimeSpent,
+            questionVisitedAt: existingState.isPlaying ? now : null,
+          };
+        });
 
         const { data: session } = await supabase.auth.getSession();
         if (session.session?.user) {
@@ -1053,9 +1082,9 @@ export const useTestStore = create<TestState>()(
             current_index: state.currentIndex,
             answers: state.answers,
             marked_for_review: state.markedForReview,
-            time_spent: state.timeSpent,
+            time_spent: finalTimeSpent,
             time_remaining: state.timeRemaining,
-            last_updated_at: new Date().toISOString()
+            last_updated_at: new Date(now).toISOString()
           }, { onConflict: 'user_id,test_id' }); // Ensure composite PK matches
 
           if (error) console.error('Failed to save progress to cloud:', error);
@@ -1070,9 +1099,12 @@ export const useTestStore = create<TestState>()(
         currentIndex: 0,
         answers: {},
         markedForReview: {},
+        timeSpent: {},
+        questionVisitedAt: null,
         timeRemaining: 0,
         totalTime: 0,
         endTime: null,
+        sessionStartTime: null,
         isPlaying: false,
       }),
 
@@ -1083,9 +1115,13 @@ export const useTestStore = create<TestState>()(
         currentIndex: 0,
         answers: {},
         markedForReview: {},
+        timeSpent: {},
+        questionVisitedAt: null,
         timeRemaining: 0,
         totalTime: 0,
         endTime: null,
+        sessionStartTime: null,
+        isPlaying: false,
         history: [],
         library: [],
       }),

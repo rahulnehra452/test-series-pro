@@ -109,6 +109,23 @@ Keep entries newest-first under `## Recent Changes`.
 
 ## Recent Changes
 
+### 2026-02-13 — Codex (Pack 7: Progress Lifecycle Cleanup)
+- **Completed tests now clear cloud resume rows**
+  - `finishTest()` in `src/stores/testStore.ts` now deletes the matching `test_progress` row (`user_id + test_id`) after successful completion flow.
+  - Prevents stale “resume” records from reappearing after app restart or re-login.
+- **`saveProgress()` cloud payload now uses latest elapsed time**
+  - Refactored `saveProgress()` to compute a single snapshot (`finalTimeSpent`) and use it consistently for:
+    - local in-progress history row
+    - Supabase `test_progress.time_spent`
+  - Also refreshes `questionVisitedAt` to `now` when still playing, avoiding double-counted elapsed time on repeated saves.
+- **Safer active-session resets**
+  - `finishTest()`, `resetActiveTest()`, and `clearAllData()` now clear all active-session fields (`currentIndex`, `timeRemaining`, `totalTime`, `endTime`, `sessionStartTime`, `timeSpent`, `questionVisitedAt`, `isPlaying`) to avoid stale state bleed.
+- **Files touched**
+  - `src/stores/testStore.ts`
+- **Validation**
+  - `npx tsc --noEmit` passed.
+  - `npx expo start --clear --port 8085` started Metro successfully.
+
 ### 2026-02-13 — Codex (Pack 6: Progress Resume + Access Reliability)
 - **Fixed non-Pro access gating**
   - `TestsScreen` now allows opening tests when any of these are true:
