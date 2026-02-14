@@ -27,35 +27,35 @@ export const borderRadius = {
 
 export const colors = {
   light: {
-    background: '#FFFFFF',
-    secondaryBackground: '#F2F2F7', // iOS grouped background
+    background: '#FFFFFF', // SystemBackground
+    secondaryBackground: '#F2F2F7', // SystemGroupedBackground (Gray6)
     card: '#FFFFFF',
-    text: '#000000',
-    textSecondary: '#3C3C43',
-    textTertiary: '#8E8E93',
-    primary: '#007AFF',
-    primaryLight: '#5B7BF5',
-    success: '#34C759',
-    warning: '#FF9500',
-    error: '#FF3B30',
-    border: '#E5E5EA',
-    separator: '#C6C6C8',
+    text: '#000000', // Label
+    textSecondary: '#3C3C4399', // SecondaryLabel (60% opacity)
+    textTertiary: '#3C3C434D', // TertiaryLabel (30% opacity)
+    primary: '#007AFF', // SystemBlue
+    primaryLight: '#5856D6', // SystemIndigo (as accent)
+    success: '#34C759', // SystemGreen
+    warning: '#FF9500', // SystemOrange
+    error: '#FF3B30', // SystemRed
+    border: '#C6C6C8', // Opaque Separator (Gray3)
+    separator: '#3C3C434D', // Non-Opaque Separator
     selected: '#E5EFFF',
   },
   dark: {
-    background: '#000000',
-    secondaryBackground: '#1C1C1E',
-    card: '#2C2C2E',
-    text: '#FFFFFF',
-    textSecondary: '#EBEBF5',
-    textTertiary: '#8E8E93',
-    primary: '#0A84FF',
-    primaryLight: '#6B8AFF',
-    success: '#30D158',
-    warning: '#FF9F0A',
-    error: '#FF453A',
-    border: '#38383A',
-    separator: '#545458',
+    background: '#000000', // SystemBackground
+    secondaryBackground: '#1C1C1E', // SystemGroupedBackground (Gray6)
+    card: '#1C1C1E', // Matching secondary for grouped look
+    text: '#FFFFFF', // Label
+    textSecondary: '#EBEBF599', // SecondaryLabel (60%)
+    textTertiary: '#EBEBF54D', // TertiaryLabel (30%)
+    primary: '#0A84FF', // SystemBlue Dark
+    primaryLight: '#5E5CE6', // SystemIndigo Dark
+    success: '#30D158', // SystemGreen Dark
+    warning: '#FF9F0A', // SystemOrange Dark
+    error: '#FF453A', // SystemRed Dark
+    border: '#38383A', // Opaque Separator (Gray4)
+    separator: '#54545899', // Non-Opaque Separator
     selected: '#1A3A5C',
   },
 };

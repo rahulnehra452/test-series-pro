@@ -1,8 +1,8 @@
-import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { spacing, typography, borderRadius } from '../../constants/theme';
+import { ScaleButton } from '../common/ScaleButton';
 
 interface ActionBarProps {
   onClear: () => void;
@@ -50,7 +50,7 @@ export const ActionBar: React.FC<ActionBarProps> = ({
       </View>
 
       <View style={styles.navActions}>
-        <TouchableOpacity
+        <ScaleButton
           onPress={onPrev}
           disabled={isFirst}
           style={[
@@ -63,23 +63,23 @@ export const ActionBar: React.FC<ActionBarProps> = ({
           ]}
         >
           <Ionicons name="chevron-back" size={24} color={colors.text} />
-        </TouchableOpacity>
+        </ScaleButton>
 
         {showSubmit ? (
-          <TouchableOpacity
+          <ScaleButton
             onPress={onSubmit}
             style={[styles.submitButton, { backgroundColor: colors.success }]}
           >
             <Text style={[styles.submitText, { color: '#FFFFFF' }]}>Submit Test</Text>
-          </TouchableOpacity>
+          </ScaleButton>
         ) : (
-          <TouchableOpacity
+          <ScaleButton
             onPress={onNext}
             style={[styles.navButton, styles.nextButton, { backgroundColor: colors.primary }]}
           >
             <Text style={[styles.nextText, { color: '#FFFFFF' }]}>Next</Text>
             <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+          </ScaleButton>
         )}
       </View>
     </View>

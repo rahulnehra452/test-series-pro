@@ -66,8 +66,10 @@ interface TestState {
 
   // Pagination
   isLoadingMoreHistory: boolean;
+  isFetchingHistory: boolean;
   hasMoreHistory: boolean;
   historyPage: number;
+  historyError: string | null;
   fetchHistory: (page?: number) => Promise<void>;
 
   uploadAttempt: (attempt: TestAttempt) => Promise<void>;
@@ -199,6 +201,11 @@ export const useTestStore = create<TestState>()(
       tests: [],
       isLoadingTests: false,
       pendingUploads: [],
+      isLoadingMoreHistory: false,
+      isFetchingHistory: false,
+      hasMoreHistory: true,
+      historyPage: 0,
+      historyError: null,
       library: [],
       hasSeenSwipeHint: false,
       markSwipeHintSeen: () => set({ hasSeenSwipeHint: true }),
@@ -505,11 +512,6 @@ export const useTestStore = create<TestState>()(
       },
 
 
-
-      isLoadingMoreHistory: false,
-      hasMoreHistory: true,
-      historyPage: 0,
-
       fetchTests: async (force = false) => {
         const state = get();
         if (state.tests.length > 0 && !force) return;
@@ -578,97 +580,110 @@ export const useTestStore = create<TestState>()(
       },
 
       fetchHistory: async (page = 0) => {
-        const { data: session } = await supabase.auth.getSession();
-        if (!session.session?.user) return;
+        // Guard against duplicate concurrent calls
+        if (get().isFetchingHistory) return;
+        set({ isFetchingHistory: true, historyError: null });
 
-        const pageSize = 20;
-        const from = page * pageSize;
-        const to = from + pageSize - 1;
+        try {
+          const { data: session } = await supabase.auth.getSession();
+          if (!session.session?.user) { set({ isFetchingHistory: false }); return; }
 
-        if (page > 0) {
-          set({ isLoadingMoreHistory: true });
-        }
+          const pageSize = 20;
+          const from = page * pageSize;
+          const to = from + pageSize - 1;
 
-        const { data, error } = await supabase
-          .from('attempts')
-          .select('*')
-          .eq('status', 'Completed')
-          .order('started_at', { ascending: false })
-          .range(from, to);
-
-        if (!error && data) {
-          const GENERIC_TITLES = ['Test Result', 'Practice Test', 'Unknown Test'];
-          const knownTitles = new Map<string, string>();
-          // 1. Seed from fetch'd tests catalog (best source)
-          get().tests.forEach(test => {
-            knownTitles.set(test.id, test.title);
-          });
-          // 2. Only fill gaps from existing history — skip generic titles
-          get().history.forEach(attempt => {
-            if (attempt.testTitle && !GENERIC_TITLES.includes(attempt.testTitle) && !knownTitles.has(attempt.testId)) {
-              knownTitles.set(attempt.testId, attempt.testTitle);
-            }
-          });
-
-          const uniqueTestIds = Array.from(
-            new Set(
-              data.map(d => String(d.test_id))
-            )
-          );
-
-          // 3. Query tests table — these always take priority
-          if (uniqueTestIds.length > 0) {
-            const { data: testsData, error: testsError } = await supabase
-              .from('tests')
-              .select('id,title,category')
-              .in('id', uniqueTestIds);
-
-            if (!testsError && testsData) {
-              testsData.forEach(test => {
-                if (test.id && test.title) {
-                  knownTitles.set(String(test.id), test.title);
-                }
-              });
-            }
+          if (page > 0) {
+            set({ isLoadingMoreHistory: true });
           }
 
-          const mappedHistory: TestAttempt[] = data.map(d => ({
-            id: d.id,
-            testId: d.test_id,
-            testTitle: knownTitles.get(String(d.test_id)) || prettifyTestId(String(d.test_id)),
-            userId: d.user_id,
-            startTime: new Date(d.started_at).getTime(),
-            endTime: d.completed_at ? new Date(d.completed_at).getTime() : undefined,
-            score: Number(d.score),
-            totalMarks: Number(d.total_marks),
-            questions: d.questions || [],
-            answers: d.answers || {},
-            markedForReview: {},
-            timeSpent: {},
-            status: d.status as TestAttempt['status'],
-          }));
+          const { data, error } = await supabase
+            .from('attempts')
+            .select('*')
+            .eq('status', 'Completed')
+            .order('started_at', { ascending: false })
+            .range(from, to);
 
-          set(state => {
-            const nonCompletedHistory = state.history.filter(attempt => attempt.status !== 'Completed');
-            const existingCompleted = state.history.filter(attempt => attempt.status === 'Completed');
-            const combinedCompleted = page === 0 ? mappedHistory : [...existingCompleted, ...mappedHistory];
+          if (error) throw error;
 
-            const dedupedCompletedMap = new Map<string, TestAttempt>();
-            combinedCompleted.forEach(attempt => {
-              dedupedCompletedMap.set(attempt.id, attempt);
+          if (data) {
+            const GENERIC_TITLES = ['Test Result', 'Practice Test', 'Unknown Test'];
+            const knownTitles = new Map<string, string>();
+            // 1. Seed from fetch'd tests catalog (best source)
+            get().tests.forEach(test => {
+              knownTitles.set(test.id, test.title);
+            });
+            // 2. Only fill gaps from existing history — skip generic titles
+            get().history.forEach(attempt => {
+              if (attempt.testTitle && !GENERIC_TITLES.includes(attempt.testTitle) && !knownTitles.has(attempt.testId)) {
+                knownTitles.set(attempt.testId, attempt.testTitle);
+              }
             });
 
-            const dedupedCompleted = Array.from(dedupedCompletedMap.values()).sort((a, b) => b.startTime - a.startTime);
+            const uniqueTestIds = Array.from(
+              new Set(
+                data.map(d => String(d.test_id))
+              )
+            );
 
-            return {
-              history: [...nonCompletedHistory, ...dedupedCompleted],
-              hasMoreHistory: data.length === pageSize,
-              historyPage: page,
-              isLoadingMoreHistory: false,
-            };
-          });
-        } else {
-          set({ isLoadingMoreHistory: false });
+            // 3. Query tests table — these always take priority
+            if (uniqueTestIds.length > 0) {
+              const { data: testsData, error: testsError } = await supabase
+                .from('tests')
+                .select('id,title,category')
+                .in('id', uniqueTestIds);
+
+              if (!testsError && testsData) {
+                testsData.forEach(test => {
+                  if (test.id && test.title) {
+                    knownTitles.set(String(test.id), test.title);
+                  }
+                });
+              }
+            }
+
+            const mappedHistory: TestAttempt[] = data.map(d => ({
+              id: d.id,
+              testId: d.test_id,
+              testTitle: knownTitles.get(String(d.test_id)) || prettifyTestId(String(d.test_id)),
+              userId: d.user_id,
+              startTime: new Date(d.started_at).getTime(),
+              endTime: d.completed_at ? new Date(d.completed_at).getTime() : undefined,
+              score: Number(d.score),
+              totalMarks: Number(d.total_marks),
+              questions: d.questions || [],
+              answers: d.answers || {},
+              markedForReview: {},
+              timeSpent: {},
+              status: d.status as TestAttempt['status'],
+            }));
+
+            set(state => {
+              const nonCompletedHistory = state.history.filter(attempt => attempt.status !== 'Completed');
+              const existingCompleted = state.history.filter(attempt => attempt.status === 'Completed');
+              const combinedCompleted = page === 0 ? mappedHistory : [...existingCompleted, ...mappedHistory];
+
+              const dedupedCompletedMap = new Map<string, TestAttempt>();
+              combinedCompleted.forEach(attempt => {
+                dedupedCompletedMap.set(attempt.id, attempt);
+              });
+
+              const dedupedCompleted = Array.from(dedupedCompletedMap.values()).sort((a, b) => b.startTime - a.startTime);
+
+              return {
+                history: [...nonCompletedHistory, ...dedupedCompleted],
+                hasMoreHistory: data.length === pageSize,
+                historyPage: page,
+                isLoadingMoreHistory: false,
+              };
+            });
+          } else {
+            set({ isLoadingMoreHistory: false });
+          }
+        } catch (e) {
+          console.error('Error fetching history:', e);
+          set({ historyError: 'Failed to load history' });
+        } finally {
+          set({ isFetchingHistory: false });
         }
       },
 

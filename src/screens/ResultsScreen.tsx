@@ -16,6 +16,8 @@ import { useTestStore } from '../stores/testStore';
 import { TestAttempt } from '../types';
 import { getQuestionsForTest } from '../data/mockQuestions';
 import { CircularProgress } from '../components/common/CircularProgress';
+import { AnimatedCounter } from '../components/common/AnimatedCounter';
+import { ScaleButton } from '../components/common/ScaleButton';
 
 export default function ResultsScreen() {
   const { colors, isDark } = useTheme();
@@ -175,17 +177,31 @@ export default function ResultsScreen() {
             <View style={styles.breakdownRow}>
               <View style={styles.breakdownItem}>
                 <Text style={[styles.breakdownLabel, { color: colors.textTertiary }]}>Potential</Text>
-                <Text style={[styles.breakdownValue, { color: colors.success }]}>+{stats.correct * 2}</Text>
+                <View style={{ flexDirection: 'row' }}>
+                  <Text style={[styles.breakdownValue, { color: colors.success }]}>+</Text>
+                  <AnimatedCounter
+                    value={stats.correct * 2}
+                    style={[styles.breakdownValue, { color: colors.success }]}
+                  />
+                </View>
               </View>
               <View style={styles.breakdownItem}>
                 <Text style={[styles.breakdownLabel, { color: colors.textTertiary }]}>Penalty</Text>
-                <Text style={[styles.breakdownValue, { color: colors.error }]}>-{(stats.incorrect * 0.66).toFixed(2)}</Text>
+                <View style={{ flexDirection: 'row' }}>
+                  <Text style={[styles.breakdownValue, { color: colors.error }]}>-</Text>
+                  <AnimatedCounter
+                    value={stats.incorrect * 0.66}
+                    precision={2}
+                    style={[styles.breakdownValue, { color: colors.error }]}
+                  />
+                </View>
               </View>
               <View style={styles.breakdownItem}>
                 <Text style={[styles.breakdownLabel, { color: colors.textTertiary }]}>Net Score</Text>
-                <Text style={[styles.breakdownValue, { color: attempt.score >= 0 ? colors.primary : colors.error }]}>
-                  {attempt.score}
-                </Text>
+                <AnimatedCounter
+                  value={attempt.score}
+                  style={[styles.breakdownValue, { color: attempt.score >= 0 ? colors.primary : colors.error }]}
+                />
               </View>
             </View>
           </Card>
@@ -234,7 +250,13 @@ export default function ResultsScreen() {
               <View style={styles.statItem}>
                 <Ionicons name="stats-chart" size={20} color={colors.warning} />
                 <View style={{ marginLeft: 8 }}>
-                  <Text style={[styles.statValue, { color: colors.text }]}>{accuracy}%</Text>
+                  <View style={{ flexDirection: 'row' }}>
+                    <AnimatedCounter
+                      value={accuracy}
+                      style={[styles.statValue, { color: colors.text }]}
+                    />
+                    <Text style={[styles.statValue, { color: colors.text }]}>%</Text>
+                  </View>
                   <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Accuracy</Text>
                 </View>
               </View>
@@ -300,7 +322,11 @@ const BentoCard = ({ label, value, icon, color, delay, flex }: any) => {
     <View style={{ flex }}>
       <Card style={styles.bentoCardContent} padding={spacing.sm}>
         <Ionicons name={icon} size={24} color={color} style={{ marginBottom: 4 }} />
-        <Text style={[styles.cardValue, { color: colors.text }]}>{value}</Text>
+        <AnimatedCounter
+          value={value}
+          delay={delay}
+          style={[styles.cardValue, { color: colors.text }]}
+        />
         <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>{label}</Text>
       </Card>
     </View>

@@ -12,6 +12,9 @@ import { RootStackParamList } from '../navigation/AppNavigator';
 import { useTestStore } from '../stores/testStore';
 import { useAuthStore } from '../stores/authStore';
 import { useEffect } from 'react';
+import { SkeletonTestCard } from '../components/tests/SkeletonTestCard';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { ScaleButton } from '../components/common/ScaleButton';
 
 // Mock Data
 export const CATEGORIES = ['All', 'UPSC', 'SSC', 'Banking', 'Railways', 'State PCS'];
@@ -85,15 +88,26 @@ export default function TestsScreen() {
     fetchTests();
   }, [fetchTests]);
 
+  /* Search Debounce */
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const onRefresh = React.useCallback(() => {
     fetchTests(true);
   }, [fetchTests]);
 
   const displayTests = tests.length > 0 ? tests : MOCK_TEST_SERIES;
+  const isInitialLoading = isLoadingTests && tests.length === 0;
 
   const filteredTests = displayTests.filter((test) => {
     const matchesCategory = selectedCategory === 'All' || test.category === selectedCategory;
-    const matchesSearch = test.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = test.title.toLowerCase().includes(debouncedSearch.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
@@ -136,42 +150,53 @@ export default function TestsScreen() {
       <FlatList
         data={filteredTests}
         keyExtractor={(item) => item.id}
-        refreshing={isLoadingTests}
+        refreshing={!!isLoadingTests}
         onRefresh={onRefresh}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="search-outline" size={48} color={colors.textTertiary} />
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              {searchQuery ? 'No tests match your search' : 'No tests available right now'}
-            </Text>
-            {!searchQuery && (
-              <TouchableOpacity
-                style={[styles.retryButton, { backgroundColor: colors.primary }]}
-                onPress={onRefresh}
-              >
-                <Text style={styles.retryText}>Retry Fetch</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+        ListHeaderComponent={
+          isInitialLoading ? (
+            <View>
+              {[1, 2, 3].map(i => <SkeletonTestCard key={i} />)}
+            </View>
+          ) : null
         }
-        renderItem={({ item }) => {
+        ListEmptyComponent={
+          !isInitialLoading ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="search-outline" size={48} color={colors.textTertiary} />
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                {searchQuery ? 'No tests match your search' : 'No tests available right now'}
+              </Text>
+              {!searchQuery && (
+                <ScaleButton
+                  style={[styles.retryButton, { backgroundColor: colors.primary }]}
+                  onPress={onRefresh}
+                >
+                  <Text style={styles.retryText}>Retry Fetch</Text>
+                </ScaleButton>
+              )}
+            </View>
+          ) : null
+        }
+        renderItem={({ item, index }) => {
           const activeAttempt = history.find(h => h.testId === item.id && h.status === 'In Progress');
           const canAccess = isPro || item.isPurchased || Boolean(activeAttempt);
 
           return (
-            <TestSeriesCard
-              title={item.title}
-              description={item.description}
-              category={item.category}
-              difficulty={item.difficulty}
-              totalTests={item.totalTests}
-              totalQuestions={item.totalQuestions}
-              duration={item.duration}
-              isPurchased={isPro || item.isPurchased}
-              price={item.price}
-              onPress={() => handleTestPress(item.id, item.title, canAccess)}
-              activeAttempt={activeAttempt}
-            />
+            <Animated.View entering={FadeInDown.delay(index * 100).springify()}>
+              <TestSeriesCard
+                title={item.title}
+                description={item.description}
+                category={item.category}
+                difficulty={item.difficulty}
+                totalTests={item.totalTests}
+                totalQuestions={item.totalQuestions}
+                duration={item.duration}
+                isPurchased={isPro || item.isPurchased}
+                price={item.price}
+                onPress={() => handleTestPress(item.id, item.title, canAccess)}
+                activeAttempt={activeAttempt}
+              />
+            </Animated.View>
           );
         }}
         contentContainerStyle={styles.listContent}

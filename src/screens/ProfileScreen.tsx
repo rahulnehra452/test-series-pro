@@ -8,15 +8,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../components/common/Card';
 import { useAuthStore } from '../stores/authStore';
 import { EditProfileModal } from '../components/profile/EditProfileModal';
+import { ScaleButton } from '../components/common/ScaleButton';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 const MenuItem = ({ icon, label, value, onPress, isSwitch, onSwitchChange }: any) => {
   const { colors } = useTheme();
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={isSwitch ? 1 : 0.7}
-      style={[styles.menuItem, { borderBottomColor: colors.border }]}
-    >
+
+  const content = (
+    <View style={[styles.menuItem, { borderBottomColor: colors.border }]}>
       <View style={styles.menuLeft}>
         <View style={[styles.iconBox, { backgroundColor: colors.secondaryBackground }]}>
           <Ionicons name={icon} size={20} color={colors.text} />
@@ -36,7 +35,21 @@ const MenuItem = ({ icon, label, value, onPress, isSwitch, onSwitchChange }: any
           <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
         </View>
       )}
-    </TouchableOpacity>
+    </View>
+  );
+
+  if (isSwitch) {
+    return (
+      <View style={{ backgroundColor: colors.card }}>
+        {content}
+      </View>
+    );
+  }
+
+  return (
+    <ScaleButton onPress={onPress} style={{ backgroundColor: colors.card }}>
+      {content}
+    </ScaleButton>
   );
 };
 
@@ -84,7 +97,10 @@ export default function ProfileScreen() {
         <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
       </View>
 
-      <View style={styles.profileHeader}>
+      <Animated.View
+        entering={FadeInDown.delay(100).springify()}
+        style={styles.profileHeader}
+      >
         <View style={[styles.avatar, { backgroundColor: colors.primaryLight, overflow: 'hidden' }]}>
           {user.avatar ? (
             <Image
@@ -103,9 +119,9 @@ export default function ProfileScreen() {
             <Text style={styles.planText}>PRO MEMBER</Text>
           </View>
         )}
-      </View>
+      </Animated.View>
 
-      <View style={styles.section}>
+      <Animated.View style={styles.section} entering={FadeInDown.delay(200).springify()}>
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>PREFERENCES</Text>
         <Card style={styles.card}>
           <MenuItem
@@ -122,9 +138,9 @@ export default function ProfileScreen() {
             value={true}
           />
         </Card>
-      </View>
+      </Animated.View>
 
-      <View style={styles.section}>
+      <Animated.View style={styles.section} entering={FadeInDown.delay(300).springify()}>
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>ACCOUNT</Text>
         <Card style={styles.card}>
           <MenuItem icon="person-outline" label="Edit Profile" onPress={() => setModalVisible(true)} />
@@ -142,11 +158,11 @@ export default function ProfileScreen() {
           />
           <MenuItem icon="help-circle-outline" label="Help & Support" onPress={() => { }} />
         </Card>
-      </View>
+      </Animated.View>
 
-      <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+      <ScaleButton onPress={handleLogout} style={styles.logoutButton}>
         <Text style={styles.logoutText}>Log Out</Text>
-      </TouchableOpacity>
+      </ScaleButton>
 
       <Text style={[styles.versionText, { color: colors.textTertiary }]}>Version 1.0.0</Text>
       <View style={{ height: 100 }} />

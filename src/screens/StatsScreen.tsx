@@ -20,8 +20,10 @@ import { spacing, typography, borderRadius, shadows } from '../constants/theme';
 import { Card } from '../components/common/Card';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TestAttempt } from '../types';
+import * as Haptics from 'expo-haptics';
+import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence } from 'react-native-reanimated';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -36,10 +38,12 @@ const SORT_OPTIONS: { key: SortOption; label: string; icon: string }[] = [
 
 const getScoreColor = (score: number, total: number): string => {
   if (total <= 0) return '#8E8E93';
-  const pct = (score / total) * 100;
-  if (pct >= 70) return '#48A87C';  // muted green
-  if (pct >= 40) return '#C4913E';  // muted amber
-  return '#B85C5C';                 // muted red
+  const pct = Math.max(0, Math.min(100, (score / total) * 100));
+  // Smooth HSL gradient: red(0) → amber(35) → green(145)
+  const hue = (pct / 100) * 145;
+  const sat = 50 + (pct / 100) * 15; // 50% → 65%
+  const light = 42 + Math.abs(pct - 50) * 0.12; // slightly lighter at extremes
+  return `hsl(${hue}, ${sat}%, ${light}%)`;
 };
 
 const getScorePercent = (score: number, total: number): number => {
@@ -108,7 +112,7 @@ const StatCard = ({ label, value, icon, color }: { label: string; value: string;
       {
         backgroundColor: isDark ? colors.card : colors.background,
         ...(isDark ? shadows.dark.sm : shadows.light.sm),
-        borderColor: isDark ? colors.border : '#F0F0F5',
+        borderColor: colors.border,
         borderWidth: 1,
       },
     ]}>
@@ -121,21 +125,79 @@ const StatCard = ({ label, value, icon, color }: { label: string; value: string;
   );
 };
 
+const SkeletonCard = () => {
+  const opacity = useSharedValue(0.3);
+
+  React.useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(withTiming(0.7, { duration: 800 }), withTiming(0.3, { duration: 800 })),
+      -1,
+      true
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  return (
+    <Animated.View style={[styles.historyCard, styles.skeletonBase, animatedStyle]}>
+      <View style={{ gap: 12 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <View style={{ gap: 8 }}>
+            <View style={styles.skeletonText} />
+            <View style={[styles.skeletonText, { width: 100 }]} />
+          </View>
+          <View style={styles.skeletonScore} />
+        </View>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={[styles.skeletonText, { width: 60 }]} />
+          <View style={[styles.skeletonText, { width: 60 }]} />
+        </View>
+      </View>
+    </Animated.View>
+  );
+};
+
+const ErrorState = ({ message, onRetry }: { message: string; onRetry: () => void }) => {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.emptyState}>
+      <Ionicons name="alert-circle-outline" size={56} color={colors.error} />
+      <Text style={[styles.emptyTitle, { color: colors.text }]}>Something went wrong</Text>
+      <Text style={[styles.emptySubtitle, { color: colors.textTertiary }]}>{message}</Text>
+      <TouchableOpacity
+        style={[styles.ctaButton, { backgroundColor: colors.primary }]}
+        onPress={onRetry}
+      >
+        <Text style={styles.ctaText}>Try Again</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
 // ─── Main Screen ───────────────────────────────────────────────────────────────
 
 export default function StatsScreen() {
   const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const { history, tests, isLoadingMoreHistory, hasMoreHistory, fetchHistory, fetchTests, historyPage } = useTestStore();
+  const { history, tests, isLoadingMoreHistory, hasMoreHistory, fetchHistory, fetchTests, historyPage, isFetchingHistory, historyError } = useTestStore();
 
-  const [selectedMonth, setSelectedMonth] = React.useState<number | null>(null);
-  const [selectedYear, setSelectedYear] = React.useState<number>(new Date().getFullYear());
+  const isInitialLoading = history.length === 0 && isFetchingHistory;
+  const isInitialError = history.length === 0 && historyError;
+
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [debouncedSearch, setDebouncedSearch] = React.useState('');
   const [sortBy, setSortBy] = React.useState<SortOption>('recent');
   const [showSortOptions, setShowSortOptions] = React.useState(false);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
 
-  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  // Debounce search input by 300ms
+  React.useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+
 
   React.useEffect(() => {
     fetchTests(false);
@@ -148,24 +210,12 @@ export default function StatsScreen() {
     setIsRefreshing(false);
   }, [fetchHistory]);
 
-  const availableYears = React.useMemo(() => {
-    const years = new Set(history.map(h => new Date(h.startTime).getFullYear()));
-    years.add(new Date().getFullYear());
-    return Array.from(years).sort((a, b) => b - a);
-  }, [history]);
-
   // ── Filtering & Sorting ──────────────────────────────────────────────────
   const filteredHistory = React.useMemo(() => {
-    let filtered = history.filter(h => {
-      if (h.status !== 'Completed') return false;
-      const date = new Date(h.startTime);
-      const matchesYear = date.getFullYear() === selectedYear;
-      const matchesMonth = selectedMonth === null || date.getMonth() === selectedMonth;
-      return matchesYear && matchesMonth;
-    });
+    let filtered = history.filter(h => h.status === 'Completed');
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase();
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.trim().toLowerCase();
       filtered = filtered.filter(h => {
         const title = (h.testTitle || '').toLowerCase();
         const matched = tests.find(t => t.id === h.testId);
@@ -204,7 +254,7 @@ export default function StatsScreen() {
     }
 
     return filtered;
-  }, [history, selectedMonth, selectedYear, searchQuery, sortBy]);
+  }, [history, debouncedSearch, sortBy]);
 
   const sections = React.useMemo(() => groupHistoryByDate(filteredHistory), [filteredHistory]);
 
@@ -224,10 +274,10 @@ export default function StatsScreen() {
     const totalHours = (totalTimeMs / (1000 * 60 * 60)).toFixed(1);
 
     return [
-      { label: 'Tests Taken', value: String(total), icon: 'clipboard-outline', color: '#007AFF' },
-      { label: 'Avg Score', value: `${avgScore}%`, icon: 'ribbon-outline', color: '#34C759' },
-      { label: 'Study Time', value: `${totalHours}h`, icon: 'time-outline', color: '#FF9500' },
-      { label: 'Active Days', value: `${uniqueDays}`, icon: 'flame-outline', color: '#FF3B30' },
+      { label: 'Tests Taken', value: String(total), icon: 'clipboard-outline', color: colors.primary },
+      { label: 'Avg Score', value: `${avgScore}%`, icon: 'ribbon-outline', color: colors.success },
+      { label: 'Study Time', value: `${totalHours}h`, icon: 'time-outline', color: colors.warning },
+      { label: 'Active Days', value: `${uniqueDays}`, icon: 'flame-outline', color: colors.error },
     ];
   }, [filteredHistory]);
 
@@ -265,7 +315,7 @@ export default function StatsScreen() {
   }, [filteredHistory]);
 
   // ── Render History Card ──────────────────────────────────────────────────
-  const renderHistoryItem = ({ item }: { item: TestAttempt }) => {
+  const renderHistoryItem = ({ item, index }: { item: TestAttempt; index: number }) => {
     const pct = getScorePercent(item.score, item.totalMarks);
     const scoreColor = getScoreColor(item.score, item.totalMarks);
     // Extract exam name from slug-based testId
@@ -290,85 +340,87 @@ export default function StatsScreen() {
     const timeStr = new Date(item.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     return (
-      <TouchableOpacity
-        onPress={() => navigation.navigate('Results', { attemptId: item.id })}
-        activeOpacity={0.65}
-        style={styles.cardTouchable}
-      >
-        <View
-          style={[
-            styles.historyCard,
-            {
-              backgroundColor: isDark ? colors.card : '#FFFFFF',
-              ...(isDark ? shadows.dark.sm : shadows.light.md),
-            },
-          ]}
+      <Animated.View entering={FadeInDown.delay(index * 100).springify().damping(12)}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Results', { attemptId: item.id })}
+          activeOpacity={0.65}
+          style={styles.cardTouchable}
         >
-          {/* ── Row 1: Title + Percentage ── */}
-          <View style={styles.cardTopRow}>
-            <View style={styles.cardTitleBlock}>
-              <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={2}>
-                {displayTitle}
-              </Text>
-              {examName && (
-                <Text style={[styles.examSubtitle, { color: colors.textSecondary }]}>{examName}</Text>
+          <View
+            style={[
+              styles.historyCard,
+              {
+                backgroundColor: isDark ? colors.card : '#FFFFFF',
+                ...(isDark ? shadows.dark.sm : shadows.light.md),
+              },
+            ]}
+          >
+            {/* ── Row 1: Title + Percentage ── */}
+            <View style={styles.cardTopRow}>
+              <View style={styles.cardTitleBlock}>
+                <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={2}>
+                  {displayTitle}
+                </Text>
+                {examName && (
+                  <Text style={[styles.examSubtitle, { color: colors.textSecondary }]}>{examName}</Text>
+                )}
+              </View>
+
+              {/* Score percentage — the single visual focus */}
+              <View style={styles.scoreBlock}>
+                <Text style={[styles.scorePctLarge, { color: scoreColor }]}>{pct}%</Text>
+                <Text style={[styles.scoreRaw, { color: colors.textTertiary }]}>
+                  {item.score}/{item.totalMarks}
+                </Text>
+              </View>
+            </View>
+
+            {/* ── Row 2: Meta info ── */}
+            <View style={styles.cardMetaRow}>
+              <View style={styles.metaItem}>
+                <Ionicons name="calendar-outline" size={14} color={colors.textTertiary} />
+                <Text style={[styles.metaText, { color: colors.textTertiary }]}>
+                  {relDate} · {timeStr}
+                </Text>
+              </View>
+              <View style={styles.metaDot} />
+              {totalQ > 0 && (
+                <>
+                  <View style={styles.metaItem}>
+                    <Ionicons name="help-circle-outline" size={14} color={colors.textTertiary} />
+                    <Text style={[styles.metaText, { color: colors.textTertiary }]}>
+                      {answered}/{totalQ}
+                    </Text>
+                  </View>
+                  <View style={styles.metaDot} />
+                </>
               )}
+              <View style={styles.metaItem}>
+                <Ionicons name="time-outline" size={14} color={colors.textTertiary} />
+                <Text style={[styles.metaText, { color: colors.textTertiary }]}>{duration}</Text>
+              </View>
             </View>
 
-            {/* Score percentage — the single visual focus */}
-            <View style={styles.scoreBlock}>
-              <Text style={[styles.scorePctLarge, { color: scoreColor }]}>{pct}%</Text>
-              <Text style={[styles.scoreRaw, { color: colors.textTertiary }]}>
-                {item.score}/{item.totalMarks}
-              </Text>
-            </View>
-          </View>
+            {/* ── Row 3: CTA ── */}
+            <View style={styles.cardActions}>
+              <TouchableOpacity
+                style={[styles.reviewBtn, { backgroundColor: colors.primary + '12' }]}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate('Solutions', { attemptId: item.id });
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="eye-outline" size={16} color={colors.primary} />
+                <Text style={[styles.reviewBtnText, { color: colors.primary }]}>Review</Text>
+              </TouchableOpacity>
 
-          {/* ── Row 2: Meta info ── */}
-          <View style={styles.cardMetaRow}>
-            <View style={styles.metaItem}>
-              <Ionicons name="calendar-outline" size={14} color={colors.textTertiary} />
-              <Text style={[styles.metaText, { color: colors.textTertiary }]}>
-                {relDate} · {timeStr}
-              </Text>
-            </View>
-            <View style={styles.metaDot} />
-            {totalQ > 0 && (
-              <>
-                <View style={styles.metaItem}>
-                  <Ionicons name="help-circle-outline" size={14} color={colors.textTertiary} />
-                  <Text style={[styles.metaText, { color: colors.textTertiary }]}>
-                    {answered}/{totalQ}
-                  </Text>
-                </View>
-                <View style={styles.metaDot} />
-              </>
-            )}
-            <View style={styles.metaItem}>
-              <Ionicons name="time-outline" size={14} color={colors.textTertiary} />
-              <Text style={[styles.metaText, { color: colors.textTertiary }]}>{duration}</Text>
-            </View>
-          </View>
-
-          {/* ── Row 3: CTA ── */}
-          <View style={styles.cardActions}>
-            <TouchableOpacity
-              style={[styles.reviewBtn, { backgroundColor: colors.primary + '12' }]}
-              onPress={(e) => {
-                e.stopPropagation();
-                navigation.navigate('Solutions', { attemptId: item.id });
-              }}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="eye-outline" size={16} color={colors.primary} />
-              <Text style={[styles.reviewBtnText, { color: colors.primary }]}>Review</Text>
-            </TouchableOpacity>
-
-            {pct < 50 && (
               <TouchableOpacity
                 style={[styles.retryBtn, { backgroundColor: colors.error + '12' }]}
                 onPress={(e) => {
                   e.stopPropagation();
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                   Alert.alert(
                     'Retry Test',
                     'Start this test again with fresh answers?',
@@ -390,10 +442,10 @@ export default function StatsScreen() {
                 <Ionicons name="refresh-outline" size={16} color={colors.error} />
                 <Text style={[styles.retryBtnText, { color: colors.error }]}>Retry</Text>
               </TouchableOpacity>
-            )}
+            </View>
           </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </Animated.View>
     );
   };
 
@@ -415,44 +467,7 @@ export default function StatsScreen() {
       {/* Title */}
       <Text style={[styles.screenTitle, { color: colors.text }]}>Statistics</Text>
 
-      {/* Month / Year Filters */}
-      <View style={styles.filterSection}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-          <TouchableOpacity
-            style={[styles.chip, selectedMonth === null && { backgroundColor: colors.primary }]}
-            onPress={() => setSelectedMonth(null)}
-          >
-            <Text style={[styles.chipText, { color: selectedMonth === null ? '#fff' : colors.textSecondary }]}>All</Text>
-          </TouchableOpacity>
-          {MONTHS.map((m, i) => (
-            <TouchableOpacity
-              key={m}
-              style={[styles.chip, selectedMonth === i && { backgroundColor: colors.primary }]}
-              onPress={() => setSelectedMonth(i)}
-            >
-              <Text style={[styles.chipText, { color: selectedMonth === i ? '#fff' : colors.textSecondary }]}>{m}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-          {availableYears.map(year => (
-            <TouchableOpacity
-              key={year}
-              style={[
-                styles.yearChip,
-                { borderColor: colors.border },
-                selectedYear === year && { backgroundColor: colors.primary, borderColor: colors.primary },
-              ]}
-              onPress={() => setSelectedYear(year)}
-            >
-              <Text style={[styles.yearChipText, { color: selectedYear === year ? '#fff' : colors.text }]}>
-                {year}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
 
       {/* Stat Grid */}
       <View style={styles.statGrid}>
@@ -594,56 +609,83 @@ export default function StatsScreen() {
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <SectionList
-        sections={sections}
-        keyExtractor={item => item.id}
-        renderItem={renderHistoryItem}
-        renderSectionHeader={renderSectionHeader}
-        ListHeaderComponent={ListHeader}
-        stickySectionHeadersEnabled={false}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-          />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="document-text-outline" size={56} color={colors.textTertiary} />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>
-              {searchQuery ? 'No matching tests' : 'No tests completed yet'}
-            </Text>
-            <Text style={[styles.emptySubtitle, { color: colors.textTertiary }]}>
-              {searchQuery ? 'Try a different search term' : 'Complete a test to see your results here'}
-            </Text>
+      {isInitialLoading ? (
+        <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+          <ListHeader />
+          <View style={{ marginTop: 20, gap: 16 }}>
+            {[1, 2, 3, 4].map(i => <SkeletonCard key={i} />)}
+            {[1, 2, 3, 4].map(i => <SkeletonCard key={i} />)}
           </View>
-        }
-        ListFooterComponent={
-          <View style={{ paddingBottom: 110 }}>
-            {hasMoreHistory && (
-              <TouchableOpacity
-                style={[styles.loadMoreBtn, { borderColor: colors.border }]}
-                onPress={() => fetchHistory(historyPage + 1)}
-                disabled={isLoadingMoreHistory}
-                activeOpacity={0.7}
-              >
-                {isLoadingMoreHistory ? (
-                  <ActivityIndicator color={colors.primary} size="small" />
-                ) : (
-                  <>
-                    <Ionicons name="arrow-down-outline" size={18} color={colors.primary} />
-                    <Text style={[styles.loadMoreText, { color: colors.primary }]}>Load More Results</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            )}
-          </View>
-        }
-      />
+        </ScrollView>
+      ) : isInitialError ? (
+        <ErrorState message={historyError} onRetry={() => fetchHistory(0)} />
+      ) : (
+        <SectionList
+          sections={sections}
+          keyExtractor={item => item.id}
+          renderItem={renderHistoryItem}
+          renderSectionHeader={renderSectionHeader}
+          ListHeaderComponent={ListHeader}
+          stickySectionHeadersEnabled={false}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="document-text-outline" size={56} color={colors.textTertiary} />
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                {debouncedSearch ? 'No matching tests' : 'No tests completed yet'}
+              </Text>
+              <Text style={[styles.emptySubtitle, { color: colors.textTertiary }]}>
+                {debouncedSearch ? 'Try a different search term' : 'Complete a test to see your results here'}
+              </Text>
+              {!debouncedSearch && (
+                <TouchableOpacity
+                  style={[styles.ctaButton, { backgroundColor: colors.primary }]}
+                  onPress={() => navigation.navigate('Main', { screen: 'Tests' })}
+                >
+                  <Text style={styles.ctaText}>Start a Test</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          }
+          ListFooterComponent={
+            <View style={{ paddingBottom: 100 + insets.bottom }}>
+              {historyError && !isInitialError ? (
+                <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                  <Text style={{ color: colors.error, marginBottom: 8 }}>{historyError}</Text>
+                  <TouchableOpacity onPress={() => fetchHistory(historyPage + 1)}>
+                    <Text style={{ color: colors.primary, fontWeight: '600' }}>Try Again</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : hasMoreHistory && (
+                <TouchableOpacity
+                  style={[styles.loadMoreBtn, { borderColor: colors.border }]}
+                  onPress={() => fetchHistory(historyPage + 1)}
+                  disabled={isLoadingMoreHistory}
+                  activeOpacity={0.7}
+                >
+                  {isLoadingMoreHistory ? (
+                    <ActivityIndicator color={colors.primary} size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="arrow-down-outline" size={18} color={colors.primary} />
+                      <Text style={[styles.loadMoreText, { color: colors.primary }]}>Load More Results</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -663,23 +705,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
 
-  // ── Filters ──
-  filterSection: { gap: spacing.sm, marginBottom: spacing.xl },
-  chipRow: { gap: 8, paddingRight: spacing.lg },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: borderRadius.full,
-    backgroundColor: 'rgba(120,120,128,0.12)',
-  },
-  chipText: { fontSize: 13, fontWeight: '600' },
-  yearChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-  },
-  yearChipText: { fontSize: 12, fontWeight: '700' },
+
 
   // ── Stat Grid ──
   statGrid: {
@@ -738,7 +764,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     gap: 10,
   },
-  searchInput: { flex: 1, fontSize: 15, padding: 0 },
+  searchInput: { flex: 1, ...typography.body, padding: 0 },
   sortBtn: {
     width: 44,
     height: 44,
@@ -758,7 +784,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     gap: 12,
   },
-  sortItemText: { fontSize: 15, fontWeight: '500' },
+  sortItemText: { ...typography.subhead, fontWeight: '500' },
 
   // ── Section Headers (date groups) ──
   sectionHeader: {
@@ -769,8 +795,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     paddingHorizontal: 4,
   },
-  sectionHeaderText: { fontSize: 14, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  sectionCount: { fontSize: 12, fontWeight: '500' },
+  sectionHeaderText: { ...typography.footnote, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionCount: { ...typography.caption1, fontWeight: '500' },
 
   // ── History Cards ──
   cardTouchable: { marginBottom: spacing.md },
@@ -782,18 +808,18 @@ const styles = StyleSheet.create({
 
   // Row 1 — title + score
   cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 },
-  cardTitleBlock: { flex: 1, gap: 6 },
-  cardTitle: { fontSize: 17, fontWeight: '600', lineHeight: 22 },
-  examSubtitle: { fontSize: 13, fontWeight: '500', marginTop: 2 },
+  cardTitleBlock: { flex: 1, gap: 4 },
+  cardTitle: { ...typography.headline, lineHeight: 22 },
+  examSubtitle: { ...typography.footnote, fontWeight: '500', marginTop: 2 },
 
-  scoreBlock: { alignItems: 'flex-end', gap: 2 },
-  scorePctLarge: { fontSize: 28, fontWeight: '800', letterSpacing: -1 },
-  scoreRaw: { fontSize: 12, fontWeight: '500' },
+  scoreBlock: { alignItems: 'flex-end', gap: 0 },
+  scorePctLarge: { ...typography.title1, fontSize: 28, fontWeight: '800', letterSpacing: -1 },
+  scoreRaw: { ...typography.caption1, fontWeight: '500' },
 
   // Row 2 — meta
   cardMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  metaText: { fontSize: 12, fontWeight: '500' },
+  metaText: { ...typography.caption1, fontWeight: '500' },
   metaDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: 'rgba(142,142,147,0.4)' },
 
   // Row 3 — CTAs
@@ -807,7 +833,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     minHeight: 36,
   },
-  reviewBtnText: { fontSize: 14, fontWeight: '600' },
+  reviewBtnText: { ...typography.subhead, fontSize: 14, fontWeight: '600' },
   retryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -817,7 +843,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     minHeight: 36,
   },
-  retryBtnText: { fontSize: 14, fontWeight: '600' },
+  retryBtnText: { ...typography.subhead, fontSize: 14, fontWeight: '600' },
 
   // ── Empty State ──
   emptyState: {
@@ -826,8 +852,8 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
     gap: spacing.sm,
   },
-  emptyTitle: { fontSize: 18, fontWeight: '600', marginTop: spacing.md },
-  emptySubtitle: { fontSize: 14, fontWeight: '400', textAlign: 'center', maxWidth: 260 },
+  emptyTitle: { ...typography.title3, fontWeight: '600', marginTop: spacing.md },
+  emptySubtitle: { ...typography.body, fontWeight: '400', textAlign: 'center', maxWidth: 260 },
 
   // ── Load More ──
   loadMoreBtn: {
@@ -840,5 +866,39 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     marginTop: spacing.md,
   },
-  loadMoreText: { fontSize: 15, fontWeight: '600' },
+  loadMoreText: { ...typography.subhead, fontWeight: '600' },
+
+  // ── Skeleton ──
+  skeletonBase: {
+    backgroundColor: '#F2F2F7', // light gray
+    marginBottom: 16,
+    borderWidth: 0,
+  },
+  skeletonText: {
+    height: 16,
+    backgroundColor: '#E5E5EA',
+    borderRadius: 4,
+    width: 140,
+  },
+  skeletonScore: {
+    width: 48,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#E5E5EA',
+  },
+
+  // ── CTA ──
+  ctaButton: {
+    marginTop: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ctaText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
 });

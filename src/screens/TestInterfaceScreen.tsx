@@ -14,6 +14,16 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 import { audio } from '../utils/audio';
 
+import Animated, {
+  SlideInRight,
+  SlideOutLeft,
+  SlideInLeft,
+  SlideOutRight,
+  FadeIn,
+  runOnJS
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+
 // Components
 import { TestHeader } from '../components/test/TestHeader';
 import { QuestionDisplay } from '../components/test/QuestionDisplay';
@@ -271,6 +281,7 @@ export default function TestInterfaceScreen() {
     }
   };
 
+
   const handleNext = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setDirection('next');
@@ -353,6 +364,19 @@ export default function TestInterfaceScreen() {
 
 
 
+  const pan = Gesture.Pan()
+    .activeOffsetX([-10, 10]) // Only activate on horizontal movement
+    .failOffsetY([-10, 10]) // Fail if vertical movement (scroll) is detected first
+    .onEnd((e) => {
+      if (e.translationX < -50) {
+        // Swipe Left -> Next
+        runOnJS(handleNext)();
+      } else if (e.translationX > 50) {
+        // Swipe Right -> Prev
+        runOnJS(handlePrev)();
+      }
+    });
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <TestHeader
@@ -367,31 +391,48 @@ export default function TestInterfaceScreen() {
         isLearn={isLearn}
       />
 
-      <View style={{ flex: 1 }}>
-        <View
-          key={currentIndex}
-          style={[{ flex: 1 }]}
-        >
-          <View style={styles.mainContent}>
+      <QuestionPalette
+        isVisible={isPaletteVisible}
+        onClose={() => setPaletteVisible(false)}
+        questions={questions}
+        currentIndex={currentIndex}
+        answers={answers}
+        marked={markedForReview}
+        onJumpToQuestion={(index) => {
+          setDirection(index > currentIndex ? 'next' : 'prev');
+          useTestStore.getState().jumpToQuestion(index);
+          setPaletteVisible(false);
+        }}
+      />
+
+      <GestureDetector gesture={pan}>
+        <View style={{ flex: 1, backgroundColor: 'transparent' }}>
+          <Animated.View
+            key={currentIndex}
+            entering={direction === 'next' ? SlideInRight : direction === 'prev' ? SlideInLeft : FadeIn}
+            exiting={direction === 'next' ? SlideOutLeft : direction === 'prev' ? SlideOutRight : undefined}
+            style={{ flex: 1 }}
+          >
             <QuestionDisplay
               question={currentQuestion}
               questionNumber={currentIndex + 1}
             />
+          </Animated.View>
 
-            <View style={styles.optionsContainer}>
-              {currentQuestion.options.map((opt, idx) => (
-                <OptionButton
-                  key={idx}
-                  label={String.fromCharCode(65 + idx)}
-                  text={opt}
-                  isSelected={selectedOption === idx}
-                  onPress={() => handleOptionSelect(idx)}
-                />
-              ))}
-            </View>
+          {/* Options */}
+          <View style={styles.optionsContainer}>
+            {currentQuestion.options.map((option, idx) => (
+              <OptionButton
+                key={idx}
+                label={String.fromCharCode(65 + idx)}
+                text={option}
+                isSelected={selectedOption === idx}
+                onPress={() => handleOptionSelect(idx)}
+              />
+            ))}
           </View>
         </View>
-      </View>
+      </GestureDetector>
 
       <ActionBar
         onClear={handleClear}
@@ -403,16 +444,6 @@ export default function TestInterfaceScreen() {
         isFirst={isFirst}
         isLast={isLast}
         showSubmit={isLast}
-      />
-
-      <QuestionPalette
-        isVisible={isPaletteVisible}
-        onClose={() => setPaletteVisible(false)}
-        questions={questions}
-        currentIndex={currentIndex}
-        answers={answers}
-        marked={markedForReview}
-        onJumpToQuestion={useTestStore.getState().jumpToQuestion}
       />
     </SafeAreaView >
   );

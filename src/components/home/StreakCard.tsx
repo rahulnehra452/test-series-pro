@@ -1,7 +1,15 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, View, Text, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, {
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+  useAnimatedStyle,
+  Easing
+} from 'react-native-reanimated';
 import { borderRadius, spacing, typography, shadows } from '../../constants/theme';
 
 
@@ -12,6 +20,23 @@ interface StreakCardProps {
 }
 
 export const StreakCard: React.FC<StreakCardProps> = ({ days, style, index = 0 }) => {
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(1.1, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
   return (
     <View
       style={[styles.wrapper, style]}
@@ -28,9 +53,9 @@ export const StreakCard: React.FC<StreakCardProps> = ({ days, style, index = 0 }
           </View>
           <Text style={styles.days}>{days} Days</Text>
         </View>
-        <View style={styles.iconContainer}>
+        <Animated.View style={[styles.iconContainer, animatedStyle]}>
           <Ionicons name="trophy" size={32} color="#FFD700" />
-        </View>
+        </Animated.View>
       </LinearGradient>
     </View>
   );

@@ -1,11 +1,19 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet, Text, TextInput } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 import { useTheme } from '../../contexts/ThemeContext';
 import { typography } from '../../constants/theme';
 
+import Animated, {
+  useSharedValue,
+  withTiming,
+  useAnimatedProps,
+  Easing,
+} from 'react-native-reanimated';
 
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
 interface CircularProgressProps {
   score: number;
@@ -27,8 +35,31 @@ export const CircularProgress = ({
   const circumference = 2 * Math.PI * radius;
 
   // Clamp progress between 0 and 1 for visual ring
-  const progress = Math.max(0, Math.min(1, score / total));
-  const strokeDashoffset = circumference - progress * circumference;
+  const targetProgress = Math.max(0, Math.min(1, score / total));
+  const animatedProgress = useSharedValue(0);
+
+  useEffect(() => {
+    // Reset to 0 first if props change, then animate to target
+    animatedProgress.value = 0;
+    animatedProgress.value = withTiming(targetProgress, {
+      duration: duration,
+      easing: Easing.out(Easing.exp),
+    });
+  }, [targetProgress, duration]);
+
+  const animatedProps = useAnimatedProps(() => {
+    return {
+      strokeDashoffset: circumference - animatedProgress.value * circumference,
+    };
+  });
+
+  const scoreProps = useAnimatedProps<any>(() => {
+    // Determine displayed score: 0 to total
+    const currentScore = Math.round(animatedProgress.value * total);
+    return {
+      text: `${currentScore}`,
+    };
+  });
 
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
@@ -51,14 +82,14 @@ export const CircularProgress = ({
           fill="none"
         />
         {/* Progress Circle */}
-        <Circle
+        <AnimatedCircle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           stroke="url(#grad)"
           strokeWidth={strokeWidth}
           strokeDasharray={`${circumference} ${circumference}`}
-          strokeDashoffset={strokeDashoffset}
+          animatedProps={animatedProps}
           strokeLinecap="round"
           rotation="-90"
           origin={`${size / 2}, ${size / 2}`}
@@ -66,7 +97,13 @@ export const CircularProgress = ({
         />
       </Svg>
       <View style={styles.content}>
-        <Text style={[styles.score, { color: colors.text }]}>{score}</Text>
+        <AnimatedTextInput
+          underlineColorAndroid="transparent"
+          editable={false}
+          value="0" // Initial value
+          style={[styles.score, { color: colors.text }]}
+          animatedProps={scoreProps}
+        />
         <Text style={[styles.total, { color: colors.textSecondary }]}>/{total}</Text>
       </View>
     </View>
@@ -83,7 +120,9 @@ const styles = StyleSheet.create({
     ...typography.largeTitle,
     fontSize: 48,
     fontWeight: '800',
-    lineHeight: 56, // Fixed line height to prevent overlap
+    lineHeight: 56,
+    textAlign: 'center',
+    padding: 0,
   },
   total: {
     ...typography.title3,

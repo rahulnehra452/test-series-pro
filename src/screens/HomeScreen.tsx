@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -10,6 +10,8 @@ import { borderRadius, spacing, typography } from '../constants/theme';
 import { StreakCard } from '../components/home/StreakCard';
 import { ProgressGrid } from '../components/home/ProgressGrid';
 import { ContinueLearning } from '../components/home/ContinueLearning';
+import { SkeletonActivityCard } from '../components/home/SkeletonActivityCard';
+import * as Haptics from 'expo-haptics';
 
 // Types
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -35,11 +37,34 @@ export default function HomeScreen() {
   // useInAppUpdates(); // Requires expo-updates
   const navigation = useNavigation<NavigationProp>();
   const [greeting, setGreeting] = useState(getTimeBasedGreeting());
-  const { history, fetchHistory } = useTestStore();
+  const { history, fetchHistory, isFetchingHistory } = useTestStore();
   const { user } = useAuthStore();
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+  const isInitialLoading = history.length === 0 && isFetchingHistory;
+
+  const getRelativeDate = (timestamp: number): string => {
+    const now = Date.now();
+    const diff = now - timestamp;
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days === 1) return 'Yesterday';
+    if (days < 7) return `${days}d ago`;
+    return new Date(timestamp).toLocaleDateString();
+  };
 
   useEffect(() => {
     fetchHistory(0);
+  }, [fetchHistory]);
+
+  const onRefresh = React.useCallback(async () => {
+    setIsRefreshing(true);
+    await fetchHistory(0);
+    setIsRefreshing(false);
   }, [fetchHistory]);
 
   useEffect(() => {
@@ -79,6 +104,7 @@ export default function HomeScreen() {
   };
 
   const handleActivityPress = (attempt: (typeof recentActivity)[number]) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (attempt.status === 'In Progress') {
       navigation.navigate('TestInterface', {
         testId: attempt.testId,
@@ -98,6 +124,13 @@ export default function HomeScreen() {
         { paddingTop: insets.top + spacing.md }
       ]}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.primary}
+        />
+      }
     >
       {/* Header */}
       {/* Header */}
@@ -148,7 +181,10 @@ export default function HomeScreen() {
 
       {/* Activity List */}
       <View style={styles.activityList}>
-        {recentActivity.length > 0 ? (
+        {isInitialLoading ? (
+          // Show Skeletons
+          [1, 2, 3].map(i => <SkeletonActivityCard key={i} />)
+        ) : recentActivity.length > 0 ? (
           recentActivity.map((item) => (
             <TouchableOpacity
               key={item.id}
@@ -158,7 +194,7 @@ export default function HomeScreen() {
               <View>
                 <Text style={[styles.activityTitle, { color: colors.text }]}>{item.testTitle}</Text>
                 <Text style={[styles.activityDate, { color: colors.textSecondary }]}>
-                  {new Date(item.startTime).toLocaleDateString()}
+                  {getRelativeDate(item.startTime)}
                 </Text>
               </View>
               <Text style={[
