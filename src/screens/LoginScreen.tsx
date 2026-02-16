@@ -18,12 +18,39 @@ import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
 import { supabase } from '../lib/supabase';
 import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
 import { makeRedirectUri } from 'expo-auth-session';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-WebBrowser.maybeCompleteAuthSession(); // Ensure auth session completionative-safe-area-context';
+WebBrowser.maybeCompleteAuthSession();
+
+const OAUTH_SCHEME = 'testkra';
+
+type OAuthCallbackParams = {
+  code: string | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+  error: string | null;
+  errorDescription: string | null;
+};
+
+const parseOAuthCallbackParams = (callbackUrl: string): OAuthCallbackParams => {
+  const queryPart = callbackUrl.includes('?')
+    ? callbackUrl.split('?')[1]?.split('#')[0] ?? ''
+    : '';
+  const hashPart = callbackUrl.includes('#') ? callbackUrl.split('#')[1] : '';
+  const params = new URLSearchParams(
+    [queryPart, hashPart].filter(Boolean).join('&')
+  );
+
+  return {
+    code: params.get('code'),
+    accessToken: params.get('access_token'),
+    refreshToken: params.get('refresh_token'),
+    error: params.get('error'),
+    errorDescription: params.get('error_description'),
+  };
+};
 
 export default function LoginScreen() {
   const { colors, isDark } = useTheme();
@@ -37,70 +64,80 @@ export default function LoginScreen() {
   const performOAuth = async () => {
     try {
       const redirectUrl = makeRedirectUri({
-        scheme: 'testkra',
+        scheme: OAUTH_SCHEME,
       });
-      // console.log('generated redirectUrl:', redirectUrl);
 
       setLoading(true);
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: redirectUrl,
+          skipBrowserRedirect: true,
           queryParams: {
             access_type: 'offline',
             prompt: 'select_account',
           },
         },
       });
-      // console.log('Supabase OAuth initiated');
 
-      if (error) Alert.alert('Google Sign-In Error', error.message);
-      if (data.url) {
-        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
-        // console.log('WebBrowser Result Type:', result.type);
-
-        if (result.type === 'success' && result.url) {
-          const url = new URL(result.url);
-          const params = new URLSearchParams(url.search);
-          const code = params.get('code');
-
-          // 1. Try PKCE Flow (Code Exchange)
-          if (code) {
-            console.log('Found OAuth Code, exchanging...');
-            const { error: sessionError } = await supabase.auth.exchangeCodeForSession(code);
-            if (sessionError) {
-              Alert.alert('Session Error (Code)', sessionError.message);
-              return;
-            }
-            await useAuthStore.getState().checkSession();
-            return;
-          }
-
-          // 2. Try Implicit Flow (Hash Tokens)
-          // URLSearchParams usually works on query string, need to handle hash manually if not parsed by URL object
-          // Some environments might put it in search, others in hash.
-          const hashParams = new URLSearchParams(result.url.split('#')[1]);
-          const access_token = hashParams.get('access_token');
-          const refresh_token = hashParams.get('refresh_token');
-
-          if (access_token && refresh_token) {
-            console.log('Found Access Token, setting session...');
-            const { error: sessionError } = await supabase.auth.setSession({
-              access_token,
-              refresh_token,
-            });
-
-            if (sessionError) {
-              Alert.alert('Session Error (Token)', sessionError.message);
-              return;
-            }
-            await useAuthStore.getState().checkSession();
-          } else {
-            console.log('No code or tokens found in URL');
-            Alert.alert('Login Failed', 'Could not parse login info from validation.');
-          }
-        }
+      if (error) {
+        Alert.alert('Google Sign-In Error', error.message);
+        return;
       }
+
+      if (!data?.url) {
+        Alert.alert('Google Sign-In Error', 'No OAuth URL returned from server.');
+        return;
+      }
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+
+      if (result.type !== 'success') {
+        if (result.type !== 'cancel' && result.type !== 'dismiss') {
+          Alert.alert('Login Incomplete', `Auth session ended with type: ${result.type}`);
+        }
+        return;
+      }
+
+      const parsed = parseOAuthCallbackParams(result.url);
+      if (parsed.error) {
+        Alert.alert(
+          'Google Sign-In Error',
+          parsed.errorDescription ?? parsed.error
+        );
+        return;
+      }
+
+      if (parsed.code) {
+        const { error: sessionError } = await supabase.auth.exchangeCodeForSession(parsed.code);
+        if (sessionError) {
+          Alert.alert('Session Error', sessionError.message);
+          return;
+        }
+
+        await useAuthStore.getState().checkSession();
+        return;
+      }
+
+      if (parsed.accessToken && parsed.refreshToken) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: parsed.accessToken,
+          refresh_token: parsed.refreshToken,
+        });
+
+        if (sessionError) {
+          Alert.alert('Session Error', sessionError.message);
+          return;
+        }
+
+        await useAuthStore.getState().checkSession();
+        return;
+      }
+
+      Alert.alert(
+        'Login Failed',
+        'Could not read the OAuth callback on this device. Please try again.'
+      );
     } catch (error: any) {
       Alert.alert('Error', error.message);
     } finally {
@@ -188,6 +225,22 @@ export default function LoginScreen() {
               Don't have an account? <Text style={{ color: colors.primary, fontWeight: '600' }}>Sign Up</Text>
             </Text>
           </TouchableOpacity>
+
+          <Text style={[styles.footerText, { color: colors.textSecondary }]}>
+            By continuing, you agree to our{' '}
+            <Text
+              style={{ color: colors.primary }}
+              onPress={() => WebBrowser.openBrowserAsync('https://testkra.com/terms')}
+            >
+              Terms of Service
+            </Text> and{' '}
+            <Text
+              style={{ color: colors.primary }}
+              onPress={() => WebBrowser.openBrowserAsync('https://testkra.com/privacy')}
+            >
+              Privacy Policy
+            </Text>.
+          </Text>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -240,5 +293,11 @@ const styles = StyleSheet.create({
   linkButton: {
     alignItems: 'center',
     marginTop: 16,
+  },
+  footerText: {
+    ...typography.caption1,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginTop: spacing.xl,
   }
 });

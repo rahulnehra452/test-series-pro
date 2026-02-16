@@ -69,11 +69,30 @@ export default function ProfileScreen() {
       {
         text: "Logout",
         style: "destructive",
-        onPress: () => {
-          logout();
-        }
+        onPress: () => logout()
       }
     ]);
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account",
+      "This will permanently delete your profile, bookmarks, and test progress. This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete My Data",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await useAuthStore.getState().deleteAccount();
+            } catch (error: any) {
+              Alert.alert("Error", error.message || "Failed to delete account");
+            }
+          }
+        }
+      ]
+    );
   };
 
   const getInitials = (name: string) => {
@@ -144,25 +163,40 @@ export default function ProfileScreen() {
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>ACCOUNT</Text>
         <Card style={styles.card}>
           <MenuItem icon="person-outline" label="Edit Profile" onPress={() => setModalVisible(true)} />
-          {/* Admin / Dev only */}
+          {/* Admin / Dev only - Hide for production
           <MenuItem
             icon="cloud-upload-outline"
             label="Sync Data (Admin)"
             onPress={() => navigation.navigate('SeedData')}
           />
+          */}
           <MenuItem
             icon="card-outline"
             label="Subscription"
             value={user.isPro ? "Active" : "Inactive"}
             onPress={() => navigation.navigate('Pricing')}
           />
-          <MenuItem icon="help-circle-outline" label="Help & Support" onPress={() => { }} />
+          <MenuItem
+            icon="help-circle-outline"
+            label="Help & Support"
+            onPress={() => {
+              Alert.alert(
+                "Support",
+                "Need help? Contact us at support@testkra.com",
+                [{ text: "OK" }]
+              );
+            }}
+          />
         </Card>
       </Animated.View>
 
       <ScaleButton onPress={handleLogout} style={styles.logoutButton}>
         <Text style={styles.logoutText}>Log Out</Text>
       </ScaleButton>
+
+      <TouchableOpacity onPress={handleDeleteAccount} style={styles.deleteButton}>
+        <Text style={[styles.deleteText, { color: colors.textTertiary }]}>Delete Account</Text>
+      </TouchableOpacity>
 
       <Text style={[styles.versionText, { color: colors.textTertiary }]}>Version 1.0.0</Text>
       <View style={{ height: 100 }} />
@@ -271,6 +305,15 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: '#FF3B30',
     fontWeight: '600',
+  },
+  deleteButton: {
+    alignItems: 'center',
+    padding: spacing.md,
+    marginTop: -8,
+  },
+  deleteText: {
+    ...typography.caption1,
+    textDecorationLine: 'underline',
   },
   versionText: {
     textAlign: 'center',

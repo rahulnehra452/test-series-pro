@@ -503,7 +503,7 @@ export const useTestStore = create<TestState>()(
               .eq('test_id', completedTestId);
 
             if (error) {
-              console.error('Failed to clear completed test progress from cloud:', error);
+              console.error('Failed to clear completed test progress from cloud:', JSON.stringify(error, null, 2));
             }
           })();
         }

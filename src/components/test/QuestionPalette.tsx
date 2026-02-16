@@ -51,7 +51,7 @@ export const QuestionPalette = ({
         />
         <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
 
-        <View style={[styles.container, { backgroundColor: colors.card, paddingBottom: insets.bottom + spacing.md }]}>
+        <View style={[styles.container, { backgroundColor: colors.card, paddingBottom: Math.max(insets.bottom, spacing.md) + spacing.md }]}>
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <Text style={[styles.title, { color: colors.text }]}>Question Palette</Text>
             <TouchableOpacity onPress={onClose} style={[styles.closeButton, { backgroundColor: colors.secondaryBackground }]}>
@@ -74,7 +74,7 @@ export const QuestionPalette = ({
             </View>
           </View>
 
-          <View style={{ flex: 1, paddingHorizontal: spacing.lg }}>
+          <View style={{ paddingHorizontal: spacing.lg }}>
             <FlatList
               data={questions}
               keyExtractor={(item, index) => item.id || index.toString()}

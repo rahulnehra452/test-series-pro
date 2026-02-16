@@ -13,8 +13,10 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuthStore } from '../stores/authStore';
+import { spacing, typography, borderRadius } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as WebBrowser from 'expo-web-browser';
 
 export default function SignupScreen() {
   const { colors, isDark } = useTheme();
@@ -111,6 +113,22 @@ export default function SignupScreen() {
               <Text style={styles.buttonText}>Sign Up</Text>
             )}
           </TouchableOpacity>
+
+          <Text style={[styles.footerText, { color: colors.textSecondary }]}>
+            By signing up, you agree to our{' '}
+            <Text
+              style={{ color: colors.primary }}
+              onPress={() => WebBrowser.openBrowserAsync('https://testkra.com/terms')}
+            >
+              Terms of Service
+            </Text> and{' '}
+            <Text
+              style={{ color: colors.primary }}
+              onPress={() => WebBrowser.openBrowserAsync('https://testkra.com/privacy')}
+            >
+              Privacy Policy
+            </Text>.
+          </Text>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -165,5 +183,11 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  footerText: {
+    ...typography.caption1,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginTop: spacing.md,
   }
 });

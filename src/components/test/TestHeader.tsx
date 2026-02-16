@@ -55,7 +55,7 @@ export const TestHeader: React.FC<TestHeaderProps> = ({
 
       <View style={styles.rightButtons}>
         {onLearn && (
-          <TouchableOpacity onPress={onLearn} style={styles.menuButton}>
+          <TouchableOpacity onPress={onLearn} style={styles.menuButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons
               name={isLearn ? "bulb" : "bulb-outline"}
               size={24}
@@ -64,7 +64,7 @@ export const TestHeader: React.FC<TestHeaderProps> = ({
           </TouchableOpacity>
         )}
         {onBookmark && (
-          <TouchableOpacity onPress={onBookmark} style={styles.menuButton}>
+          <TouchableOpacity onPress={onBookmark} style={styles.menuButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons
               name={isBookmarked ? "bookmark" : "bookmark-outline"}
               size={24}
@@ -72,10 +72,10 @@ export const TestHeader: React.FC<TestHeaderProps> = ({
             />
           </TouchableOpacity>
         )}
-        <TouchableOpacity onPress={onOpenPalette} style={styles.menuButton}>
+        <TouchableOpacity onPress={onOpenPalette} style={styles.menuButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="grid-outline" size={24} color={colors.text} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={onPause} style={styles.menuButton}>
+        <TouchableOpacity onPress={onPause} style={styles.menuButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="pause-circle-outline" size={26} color={colors.text} />
         </TouchableOpacity>
       </View>
@@ -112,6 +112,6 @@ const styles = StyleSheet.create({
   rightButtons: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 16, // Increased from 8 for better separation
   },
 });

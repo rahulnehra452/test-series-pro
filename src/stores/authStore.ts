@@ -16,6 +16,7 @@ interface AuthState {
   checkStreak: () => Promise<void>;
   updateProfile: (updates: { name?: string; email?: string }) => Promise<void>;
   activatePro: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   hasHydrated: boolean;
   setHasHydrated: (state: boolean) => void;
 }
@@ -25,6 +26,32 @@ const triggerSync = () => {
   const { syncLibrary, syncProgress } = useTestStore.getState();
   syncLibrary();
   syncProgress();
+};
+
+const LOGIN_TIMEOUT_MS = 15000;
+const SESSION_TIMEOUT_MS = 10000;
+const PROFILE_TIMEOUT_MS = 8000;
+
+const withTimeout = <T>(
+  promise: Promise<T> | PromiseLike<T>,
+  timeoutMs: number,
+  message: string
+): Promise<T> => {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new Error(message));
+    }, timeoutMs);
+
+    Promise.resolve(promise)
+      .then(value => {
+        clearTimeout(timeoutId);
+        resolve(value);
+      })
+      .catch(error => {
+        clearTimeout(timeoutId);
+        reject(error);
+      });
+  });
 };
 
 export const useAuthStore = create<AuthState>()(
@@ -38,33 +65,58 @@ export const useAuthStore = create<AuthState>()(
       setHasHydrated: (state) => set({ hasHydrated: state }),
 
       login: async (email, password) => {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
+        const { data, error } = await withTimeout(
+          supabase.auth.signInWithPassword({
+            email,
+            password
+          }),
+          LOGIN_TIMEOUT_MS,
+          'Login timed out. Please check your internet connection and try again.'
+        );
 
         if (error) throw error;
 
         if (data.user) {
-          // Fetch profile
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', data.user.id)
-            .single();
-
           const user: User = {
             id: data.user.id,
             email: data.user.email!,
-            name: profile?.full_name || 'Student',
-            isPro: profile?.is_pro || false,
-            streak: profile?.streak || 0,
-            lastActiveDate: profile?.last_active_at,
+            name: 'Student',
+            isPro: false,
+            streak: 0,
             avatar: data.user.user_metadata?.avatar_url || data.user.user_metadata?.picture,
           };
 
           set({ user, isAuthenticated: true });
           triggerSync();
+
+          // Hydrate profile data in background so login navigation is never blocked by profile query latency.
+          void (async () => {
+            try {
+              const { data: profile } = await withTimeout<{ data: any; error: any }>(
+                supabase
+                  .from('profiles')
+                  .select('*')
+                  .eq('id', data.user!.id)
+                  .maybeSingle(),
+                PROFILE_TIMEOUT_MS,
+                'Profile fetch timed out after login.'
+              );
+
+              if (profile) {
+                set(state => ({
+                  user: state.user ? {
+                    ...state.user,
+                    name: profile.full_name || state.user.name,
+                    isPro: profile.is_pro || false,
+                    streak: profile.streak || 0,
+                    lastActiveDate: profile.last_active_at,
+                  } : null
+                }));
+              }
+            } catch (profileError) {
+              console.error('Failed to hydrate profile after login:', profileError);
+            }
+          })();
         }
       },
 
@@ -131,9 +183,14 @@ export const useAuthStore = create<AuthState>()(
       checkSession: async () => {
         set({ isLoading: true });
         try {
-          const { data, error } = await supabase.auth.getSession();
+          const { data, error } = await withTimeout(
+            supabase.auth.getSession(),
+            SESSION_TIMEOUT_MS,
+            'Session check timed out.'
+          );
 
-          if (error && error.message.includes('invalid_grant')) {
+          const errorMessage = error?.message || '';
+          if (error && errorMessage.includes('invalid_grant')) {
             // Token refresh failed, force logout
             await get().logout();
             return;
@@ -145,11 +202,15 @@ export const useAuthStore = create<AuthState>()(
 
           if (data.session?.user) {
             // Fetch full profile
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', data.session.user.id)
-              .single();
+            const { data: profile } = await withTimeout<{ data: any; error: any }>(
+              supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', data.session.user.id)
+                .maybeSingle(),
+              PROFILE_TIMEOUT_MS,
+              'Profile restore timed out.'
+            );
 
             const user: User = {
               id: data.session.user.id,
@@ -263,6 +324,24 @@ export const useAuthStore = create<AuthState>()(
             isPro: true,
           }
         });
+      },
+
+      deleteAccount: async () => {
+        const state = get();
+        if (!state.user) return;
+
+        // 1. Delete user profile and data (cascades)
+        // Note: For full auth deletion, an edge function is usually needed.
+        // This deletes the public profile and user data.
+        const { error } = await supabase
+          .from('profiles')
+          .delete()
+          .eq('id', state.user.id);
+
+        if (error) throw error;
+
+        // 2. Sign out
+        await get().logout();
       },
     }),
     {

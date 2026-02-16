@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "TestKra.",
+    "name": "TestKra",
     "slug": "testkra",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -16,14 +16,16 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.rahulnehra.testkra"
+      "bundleIdentifier": "com.rahulnehra.testkra",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/testkra_adaptive_foreground.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.rahulnehra.testkra"
+      "package": "com.rahulnehra.testkra",
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/favicon.png"

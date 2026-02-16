@@ -109,6 +109,24 @@ Keep entries newest-first under `## Recent Changes`.
 
 ## Recent Changes
 
+### 2026-02-14 — Codex (Pack 8: Login/Session Timeout Safety)
+- **Prevented post-login infinite loading states**
+  - Added timeout guards in `src/stores/authStore.ts` for:
+    - `signInWithPassword` (15s)
+    - `getSession` (10s)
+    - profile fetch/restore queries (8s)
+  - If Supabase/network stalls, auth now fails fast instead of leaving the app on a perpetual loading state.
+- **Login now hydrates profile non-blocking**
+  - `login()` sets authenticated base user immediately after successful sign-in.
+  - Profile enrichment (`full_name`, `is_pro`, `streak`) now runs in a background async path so navigation is not blocked by slow profile queries.
+- **Session restore query hardened**
+  - `checkSession()` profile read switched to `.maybeSingle()` with timeout to avoid brittle `.single()` failure behavior on missing rows.
+- **Files touched**
+  - `src/stores/authStore.ts`
+- **Validation**
+  - `npx tsc --noEmit` passed.
+  - `npx expo start --clear --tunnel` started successfully and produced a valid `exp.direct` URL.
+
 ### 2026-02-13 — Codex (Pack 7: Progress Lifecycle Cleanup)
 - **Completed tests now clear cloud resume rows**
   - `finishTest()` in `src/stores/testStore.ts` now deletes the matching `test_progress` row (`user_id + test_id`) after successful completion flow.
