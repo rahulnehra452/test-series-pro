@@ -1,5 +1,52 @@
 import { Platform } from 'react-native';
-import {
+import { supabase } from '../../lib/supabase';
+import { isProductionBillingEnabled, runtimeConfig } from '../../config/runtimeConfig';
+
+// Mock types to avoid importing from missing module
+export type Purchase = {
+  productId: string;
+  transactionId?: string;
+  transactionDate?: number;
+  transactionReceipt?: string;
+  purchaseToken?: string;
+  dataAndroid?: string;
+  signatureAndroid?: string;
+  autoRenewingAndroid?: boolean;
+  purchaseStateAndroid?: number;
+  originalJsonAndroid?: string;
+  isAcknowledgedAndroid?: boolean;
+  packageNameAndroid?: string;
+  developerPayloadAndroid?: string;
+  obfuscatedAccountIdAndroid?: string;
+  obfuscatedProfileIdAndroid?: string;
+  ids?: string[];
+  purchaseState?: 'pending' | 'purchased' | 'unspecified';
+};
+
+// Safely load IAP module or mock it
+let IAP: any = {
+  endConnection: () => Promise.resolve(),
+  fetchProducts: () => Promise.resolve([]),
+  finishTransaction: () => Promise.resolve(),
+  initConnection: () => Promise.resolve(),
+  purchaseErrorListener: () => ({ remove: () => { } }),
+  purchaseUpdatedListener: () => ({ remove: () => { } }),
+  requestPurchase: () => Promise.reject(new Error('IAP not available in Expo Go')),
+  getProducts: () => Promise.resolve([]),
+};
+
+try {
+  // Try to require the module. If the native module is missing, 
+  // some libraries might throw on require if they access NativeModules immediately.
+  const iapModule = require('expo-iap');
+  if (iapModule) {
+    IAP = iapModule;
+  }
+} catch (error) {
+  console.warn('IAP module not found or failed to load (expected in Expo Go). Using mock.');
+}
+
+const {
   endConnection,
   fetchProducts,
   finishTransaction,
@@ -7,10 +54,7 @@ import {
   purchaseErrorListener,
   purchaseUpdatedListener,
   requestPurchase,
-  type Purchase,
-} from 'expo-iap';
-import { supabase } from '../../lib/supabase';
-import { isProductionBillingEnabled, runtimeConfig } from '../../config/runtimeConfig';
+} = IAP;
 
 const PURCHASE_TIMEOUT_MS = 120000;
 
@@ -78,13 +122,13 @@ const createPurchaseEventWaiter = (productId: string) => {
       fail('Purchase confirmation timed out. Please try again.');
     }, PURCHASE_TIMEOUT_MS);
 
-    purchaseSub = purchaseUpdatedListener((purchase) => {
+    purchaseSub = purchaseUpdatedListener((purchase: Purchase) => {
       const productIds = [purchase.productId, ...(purchase.ids || [])].filter(Boolean) as string[];
       if (!productIds.includes(productId)) return;
       succeed(purchase);
     });
 
-    errorSub = purchaseErrorListener((error) => {
+    errorSub = purchaseErrorListener((error: any) => {
       fail(error.message || 'Purchase failed. Please try again.');
     });
   });
@@ -129,7 +173,7 @@ export const purchaseAndroidTier = async (params: {
   try {
     const products = await fetchProducts({ skus: [productId], type: 'in-app' });
     const productList = products || [];
-    const productFound = productList.some(product => product.id === productId);
+    const productFound = productList.some((product: { id: string }) => product.id === productId);
 
     if (!productFound) {
       throw new Error('Selected plan is not available in Google Play for this build.');
