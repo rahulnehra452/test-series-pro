@@ -262,16 +262,64 @@ Keep entries newest-first under `## Recent Changes`.
 - **Updated Progress Graph**: Changed specific "Performance Trend" to cumulative "Total Questions Solved".
 - **Fixed Progress Logic**: Updated `ProgressGrid` and `StatsScreen` to only count tests with `status === 'Completed'`.
 
+### 2026-02-16 — Codex (Release Hardening)
+- **Runtime env guardrails**
+  - Added `src/config/runtimeConfig.ts` to centralize runtime config and required env validation.
+  - Added `src/components/common/ConfigErrorScreen.tsx` and startup block in `src/App.tsx` so missing Supabase env now fails fast with a clear screen.
+  - Updated `src/lib/supabase.ts` to use explicit config flags and safe placeholders instead of silent empty strings.
+- **Secure purchase entitlement path (Android-first)**
+  - Added `expo-iap` dependency and plugin for Google Play Billing.
+  - Added `src/services/payments/googlePlayBilling.ts` for purchase orchestration and backend verification.
+  - Updated `src/screens/PricingScreen.tsx` to remove direct `activatePro()` purchase path and require verified backend response before entitlement.
+  - iOS now clearly shows Android-first billing messaging.
+- **Backend purchase verification + replay defense**
+  - Added Supabase Edge Function: `supabase/functions/verify-google-play-purchase/index.ts`.
+  - Added migration: `migrations/2026-02-16_billing_receipts.sql` (`purchase_receipts` table, constraints, RLS).
+- **Admin seeder lockdown**
+  - `SeedData` route is registered only in dev (`src/navigation/AppNavigator.tsx`).
+  - `src/screens/SeedDataScreen.tsx` now self-blocks in non-dev builds.
+- **Mock fallback disabled for release**
+  - `src/screens/TestsScreen.tsx`: mock catalog fallback is now dev-only.
+  - `src/screens/TestInterfaceScreen.tsx`: mock questions fallback is now dev-only.
+- **Library question open resilience**
+  - `LibraryItem` now stores optional cached question detail fields (`options`, `correctAnswer`, `explanation`, `questionType`).
+  - Library open path now resolves in order: cached details -> cloud `questions` row by UUID -> dev mock fallback -> minimal detail fallback.
+  - Updated cloud sync payloads/mapping in `src/stores/testStore.ts` and library save calls in `src/screens/TestInterfaceScreen.tsx`.
+- **Signup confirmation safety**
+  - `signup` return contract now distinguishes `signed_in` vs `email_confirmation_required` in `src/stores/authStore.ts`.
+  - `src/screens/SignupScreen.tsx` now shows verify-email message and keeps unverified users out of authenticated state.
+- **Schema alignment artifacts**
+  - Added `migrations/2026-02-16_release_schema_alignment.sql`.
+  - Added `migrations/verify_release_schema.sql`.
+  - Updated canonical `supabase_schema.sql` to match runtime table usage (`bookmarks`, `test_progress`, `purchase_receipts`) and mark `library_items` as legacy.
+- **Launch polish**
+  - Hid non-functional Notifications toggle for release (`src/screens/ProfileScreen.tsx`).
+  - Help & Support now opens `mailto:support@testkra.com` with alert fallback.
+- **Release pipeline baseline**
+  - Added `eas.json`.
+  - Added build/typecheck scripts in `package.json`.
+  - Added release QA checklist: `docs/release-smoke-checklist.md`.
+
 ## Pending Manual QA
 
 - Verify Google OAuth full round-trip on device/emulator (`testkra://` callback).
-- Verify non-Pro behavior in Tests tab:
-  - Free/unlocked test opens directly.
-  - Locked paid test routes to Pricing.
-  - Existing in-progress test can always be resumed.
-- Verify purchase path end-to-end:
-  - Non-Pro user -> Pricing -> Buy -> `isPro` updates in Profile and Tests access is unlocked.
-- Run DB migration `fix_tests_total_tests.sql` in Supabase SQL editor for older projects before using `SeedDataScreen`.
-- Verify cloud history rows display real test titles (not generic fallback labels) in `StatsScreen` and `ResultsScreen`.
-- Verify library type changes persist after app restart and across devices.
-- Confirm icons/splash render correctly on device builds after PNG conversion.
+- Verify Google Play purchase flow on Android real device:
+  - Completed purchase grants `profiles.is_pro` only after backend verification.
+  - Pending/cancelled purchase does not grant Pro.
+  - Replay token attempt does not grant another account.
+- Verify iOS Pricing behavior:
+  - Purchase CTA remains disabled/blocked with clear Android-first message.
+- Confirm `SeedData` screen is not reachable in release builds.
+- Confirm release build with empty cloud tests/questions shows empty state (no mock fallback).
+- Run SQL migrations in Supabase:
+  - `migrations/2026-02-16_release_schema_alignment.sql`
+  - `migrations/2026-02-16_billing_receipts.sql`
+  - `migrations/verify_release_schema.sql`
+- Deploy and test Supabase edge function:
+  - `supabase/functions/verify-google-play-purchase/index.ts`
+  - Set secrets: `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `GOOGLE_PLAY_PACKAGE_NAME`.
+- Verify library detail modal opens for:
+  - Cached saved data
+  - Cloud UUID questions
+  - Minimal fallback rows
+- Run release smoke checklist: `docs/release-smoke-checklist.md`.

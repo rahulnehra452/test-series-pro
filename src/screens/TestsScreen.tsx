@@ -15,6 +15,7 @@ import { useEffect } from 'react';
 import { SkeletonTestCard } from '../components/tests/SkeletonTestCard';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { ScaleButton } from '../components/common/ScaleButton';
+import { runtimeConfig } from '../config/runtimeConfig';
 
 // Mock Data
 export const CATEGORIES = ['All', 'UPSC', 'SSC', 'Banking', 'Railways', 'State PCS'];
@@ -102,7 +103,10 @@ export default function TestsScreen() {
     fetchTests(true);
   }, [fetchTests]);
 
-  const displayTests = tests.length > 0 ? tests : MOCK_TEST_SERIES;
+  const shouldUseMockFallback = runtimeConfig.features.allowMockFallback;
+  const displayTests = tests.length > 0
+    ? tests
+    : (shouldUseMockFallback ? MOCK_TEST_SERIES : []);
   const isInitialLoading = isLoadingTests && tests.length === 0;
 
   const filteredTests = displayTests.filter((test) => {

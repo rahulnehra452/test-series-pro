@@ -5,6 +5,7 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
   Dimensions,
   FlatList,
   Platform,
@@ -30,7 +31,8 @@ import { LibraryItem, LibraryItemType } from '../types';
 // Mock Data
 import { useTestStore } from '../stores/testStore';
 import { getQuestionById } from '../data/mockQuestions';
-import { Question } from '../types';
+import { supabase } from '../lib/supabase';
+import { runtimeConfig } from '../config/runtimeConfig';
 
 // Mock Data - Removed in favor of store
 // Mock Data - Removed in favor of store
@@ -56,6 +58,21 @@ const getExamCategory = (examStr: string | undefined): string => {
   if (lower.includes('railway') || lower.includes('rrb') || lower.includes('ntpc')) return 'Railways';
 
   return 'Other';
+};
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const isUuid = (value: string): boolean => UUID_PATTERN.test(value);
+
+type LibraryQuestionDetail = {
+  id: string;
+  text: string;
+  options: string[];
+  correctAnswer?: number;
+  explanation?: string;
+  subject: string;
+  difficulty: string;
+  type: string;
 };
 
 interface SummaryCardProps {
@@ -113,8 +130,9 @@ export default function LibraryScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
+  const [selectedQuestion, setSelectedQuestion] = useState<LibraryQuestionDetail | null>(null);
   const [questionModalVisible, setQuestionModalVisible] = useState(false);
+  const [openingQuestionId, setOpeningQuestionId] = useState<string | null>(null);
   const [typeChangeModalVisible, setTypeChangeModalVisible] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
@@ -254,6 +272,82 @@ export default function LibraryScreen() {
     }
   };
 
+  const toDetailFromLibraryItem = (item: LibraryItem): LibraryQuestionDetail => ({
+    id: item.questionId,
+    text: item.question,
+    options: item.options || [],
+    correctAnswer: item.correctAnswer,
+    explanation: item.explanation,
+    subject: item.subject,
+    difficulty: item.difficulty,
+    type: item.questionType || 'MCQ',
+  });
+
+  const fetchCloudQuestionDetail = async (questionId: string): Promise<LibraryQuestionDetail | null> => {
+    if (!isUuid(questionId)) return null;
+
+    const { data, error } = await supabase
+      .from('questions')
+      .select('id,text,options,correct_answer,explanation,subject,difficulty,type')
+      .eq('id', questionId)
+      .maybeSingle();
+
+    if (error || !data) {
+      return null;
+    }
+
+    return {
+      id: String(data.id),
+      text: data.text || 'Question',
+      options: Array.isArray(data.options) ? data.options : [],
+      correctAnswer: Number.isInteger(data.correct_answer) ? data.correct_answer : undefined,
+      explanation: data.explanation || undefined,
+      subject: data.subject || 'General',
+      difficulty: data.difficulty || 'Medium',
+      type: data.type || 'MCQ',
+    };
+  };
+
+  const openQuestionDetail = async (item: LibraryItem) => {
+    setOpeningQuestionId(item.id);
+    try {
+      let detail: LibraryQuestionDetail | null = null;
+
+      if (item.options && item.options.length > 0) {
+        detail = toDetailFromLibraryItem(item);
+      }
+
+      if (!detail) {
+        detail = await fetchCloudQuestionDetail(item.questionId);
+      }
+
+      if (!detail && runtimeConfig.features.allowMockFallback) {
+        const mockQuestion = getQuestionById(item.questionId);
+        if (mockQuestion) {
+          detail = {
+            id: mockQuestion.id,
+            text: mockQuestion.text,
+            options: mockQuestion.options,
+            correctAnswer: mockQuestion.correctAnswer,
+            explanation: mockQuestion.explanation,
+            subject: mockQuestion.subject,
+            difficulty: mockQuestion.difficulty,
+            type: mockQuestion.type,
+          };
+        }
+      }
+
+      if (!detail) {
+        detail = toDetailFromLibraryItem(item);
+      }
+
+      setSelectedQuestion(detail);
+      setQuestionModalVisible(true);
+    } finally {
+      setOpeningQuestionId(null);
+    }
+  };
+
   const renderItem = ({ item, index }: { item: LibraryItem, index: number }) => {
     const subjectDetails = getSubjectDetails(item.subject);
 
@@ -270,11 +364,7 @@ export default function LibraryScreen() {
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => {
-            const fullQuestion = getQuestionById(item.questionId);
-            if (fullQuestion) {
-              setSelectedQuestion(fullQuestion);
-              setQuestionModalVisible(true);
-            }
+            openQuestionDetail(item);
           }}
         >
           <Card style={styles.itemCard} padding={0}>
@@ -315,7 +405,11 @@ export default function LibraryScreen() {
                     <Ionicons name="chevron-down" size={12} color={status.color} style={{ marginLeft: 2 }} />
                   </View>
                 </TouchableOpacity>
-                <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+                {openingQuestionId === item.id ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+                )}
               </View>
             </View>
           </Card>
@@ -582,31 +676,41 @@ export default function LibraryScreen() {
 
                 {/* Options */}
                 <View style={styles.optionsContainer}>
-                  {selectedQuestion.options.map((option, idx) => {
-                    const isCorrect = idx === selectedQuestion.correctAnswer;
-                    return (
-                      <View
-                        key={idx}
-                        style={[
-                          styles.optionItem,
-                          {
-                            backgroundColor: isCorrect ? colors.success + '15' : colors.secondaryBackground,
-                            borderColor: isCorrect ? colors.success : colors.border,
-                          }
-                        ]}
-                      >
-                        <View style={[styles.optionLetter, { backgroundColor: isCorrect ? colors.success : colors.textTertiary + '30' }]}>
-                          <Text style={[styles.optionLetterText, { color: isCorrect ? '#FFF' : colors.text }]}>
-                            {String.fromCharCode(65 + idx)}
-                          </Text>
+                  {selectedQuestion.options.length > 0 ? (
+                    selectedQuestion.options.map((option, idx) => {
+                      const isCorrect =
+                        selectedQuestion.correctAnswer !== undefined &&
+                        idx === selectedQuestion.correctAnswer;
+                      return (
+                        <View
+                          key={idx}
+                          style={[
+                            styles.optionItem,
+                            {
+                              backgroundColor: isCorrect ? colors.success + '15' : colors.secondaryBackground,
+                              borderColor: isCorrect ? colors.success : colors.border,
+                            }
+                          ]}
+                        >
+                          <View style={[styles.optionLetter, { backgroundColor: isCorrect ? colors.success : colors.textTertiary + '30' }]}>
+                            <Text style={[styles.optionLetterText, { color: isCorrect ? '#FFF' : colors.text }]}>
+                              {String.fromCharCode(65 + idx)}
+                            </Text>
+                          </View>
+                          <Text style={[styles.optionText, { color: colors.text }]}>{option}</Text>
+                          {isCorrect && (
+                            <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+                          )}
                         </View>
-                        <Text style={[styles.optionText, { color: colors.text }]}>{option}</Text>
-                        {isCorrect && (
-                          <Ionicons name="checkmark-circle" size={20} color={colors.success} />
-                        )}
-                      </View>
-                    );
-                  })}
+                      );
+                    })
+                  ) : (
+                    <View style={[styles.optionItem, { backgroundColor: colors.secondaryBackground, borderColor: colors.border }]}>
+                      <Text style={[styles.optionText, { color: colors.textSecondary }]}>
+                        Full options are not available for this saved question yet.
+                      </Text>
+                    </View>
+                  )}
                 </View>
 
                 {/* Explanation */}

@@ -7,9 +7,11 @@ import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import AppNavigator, { RootStackParamList } from './navigation/AppNavigator';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import { Toast } from './components/common/Toast';
+import { ConfigErrorScreen } from './components/common/ConfigErrorScreen';
 import * as Linking from 'expo-linking';
 import { useAuthStore } from './stores/authStore';
 import { useTestStore } from './stores/testStore';
+import { runtimeConfigValidation } from './config/runtimeConfig';
 
 const linking: LinkingOptions<RootStackParamList> = {
   prefixes: [Linking.createURL('/'), 'testkra://', 'https://testkra.com'],
@@ -62,6 +64,10 @@ export default function App() {
   const testHydrated = useTestStore(state => state.hasHydrated);
 
   React.useEffect(() => {
+    if (!runtimeConfigValidation.isValid) {
+      return;
+    }
+
     if (authHydrated && testHydrated) {
       // 1. Initialize Auth Session
       useAuthStore.getState().checkSession();
@@ -70,6 +76,12 @@ export default function App() {
       useTestStore.getState().syncPendingUploads();
     }
   }, [authHydrated, testHydrated]);
+
+  if (!runtimeConfigValidation.isValid) {
+    return (
+      <ConfigErrorScreen missingVariables={runtimeConfigValidation.missingRequiredEnv} />
+    );
+  }
 
   return (
     <ErrorBoundary>

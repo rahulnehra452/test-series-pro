@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, Switch, TouchableOpacity, ScrollView, Alert, Image } from 'react-native';
+import { StyleSheet, View, Text, Switch, TouchableOpacity, ScrollView, Alert, Image, Linking } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../contexts/ThemeContext';
@@ -58,6 +58,7 @@ export default function ProfileScreen() {
   const { user, logout } = useAuthStore();
   const navigation = useNavigation<any>();
   const [modalVisible, setModalVisible] = useState(false);
+  const showNotificationsToggle = __DEV__;
 
   const toggleTheme = (value: boolean) => {
     setThemePreference(value ? 'dark' : 'light');
@@ -92,6 +93,26 @@ export default function ProfileScreen() {
           }
         }
       ]
+    );
+  };
+
+  const handleSupportPress = async () => {
+    const supportEmail = 'support@testkra.com';
+    const mailtoUrl = `mailto:${supportEmail}?subject=${encodeURIComponent('TestKra Support')}`;
+
+    try {
+      const supported = await Linking.canOpenURL(mailtoUrl);
+      if (supported) {
+        await Linking.openURL(mailtoUrl);
+        return;
+      }
+    } catch {
+      // Fall through to fallback alert.
+    }
+
+    Alert.alert(
+      'Support',
+      `Reach us at ${supportEmail}`
     );
   };
 
@@ -150,12 +171,14 @@ export default function ProfileScreen() {
             value={isDark}
             onSwitchChange={toggleTheme}
           />
-          <MenuItem
-            icon="notifications-outline"
-            label="Notifications"
-            isSwitch
-            value={true}
-          />
+          {showNotificationsToggle && (
+            <MenuItem
+              icon="notifications-outline"
+              label="Notifications"
+              isSwitch
+              value={true}
+            />
+          )}
         </Card>
       </Animated.View>
 
@@ -163,13 +186,6 @@ export default function ProfileScreen() {
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>ACCOUNT</Text>
         <Card style={styles.card}>
           <MenuItem icon="person-outline" label="Edit Profile" onPress={() => setModalVisible(true)} />
-          {/* Admin / Dev only - Hide for production
-          <MenuItem
-            icon="cloud-upload-outline"
-            label="Sync Data (Admin)"
-            onPress={() => navigation.navigate('SeedData')}
-          />
-          */}
           <MenuItem
             icon="card-outline"
             label="Subscription"
@@ -179,13 +195,7 @@ export default function ProfileScreen() {
           <MenuItem
             icon="help-circle-outline"
             label="Help & Support"
-            onPress={() => {
-              Alert.alert(
-                "Support",
-                "Need help? Contact us at support@testkra.com",
-                [{ text: "OK" }]
-              );
-            }}
+            onPress={handleSupportPress}
           />
         </Card>
       </Animated.View>

@@ -33,6 +33,7 @@ import { QuestionPalette } from '../components/test/QuestionPalette';
 
 // ... imports
 import { getQuestionsForTest } from '../data/mockQuestions';
+import { runtimeConfig } from '../config/runtimeConfig';
 
 export default function TestInterfaceScreen() {
   const { colors } = useTheme();
@@ -90,9 +91,9 @@ export default function TestInterfaceScreen() {
           // Fetch real questions from Supabase
           const fetchedQuestions = await useTestStore.getState().fetchQuestions(testId);
 
-          if (fetchedQuestions.length === 0) {
-            // Fallback to mock if database is empty for now (Launch transitional)
-            // But we should probably alert for PRODUCTION
+          if (fetchedQuestions.length > 0) {
+            startTest(testId, testTitle || 'TestKra. Practice', fetchedQuestions, duration);
+          } else if (runtimeConfig.features.allowMockFallback) {
             const mockQuestions = getQuestionsForTest(testId);
             if (mockQuestions.length === 0) {
               Alert.alert("Notice", "This test doesn't have any questions yet.");
@@ -101,7 +102,12 @@ export default function TestInterfaceScreen() {
             }
             startTest(testId, testTitle || 'TestKra. Practice', mockQuestions, duration);
           } else {
-            startTest(testId, testTitle || 'TestKra. Practice', fetchedQuestions, duration);
+            Alert.alert(
+              "Notice",
+              "Questions for this test are not available yet. Please try another test."
+            );
+            navigation.goBack();
+            return;
           }
         } catch (e) {
           console.error('Failed to initialize test:', e);
@@ -256,6 +262,10 @@ export default function TestInterfaceScreen() {
         question: currentQuestion.text,
         subject: currentQuestion.subject,
         difficulty: currentQuestion.difficulty,
+        options: currentQuestion.options,
+        correctAnswer: currentQuestion.correctAnswer,
+        explanation: currentQuestion.explanation,
+        questionType: currentQuestion.type,
         type: 'saved',
         exam: testId // Storing Test ID as Exam for now
       });
@@ -274,6 +284,10 @@ export default function TestInterfaceScreen() {
         question: currentQuestion.text,
         subject: currentQuestion.subject,
         difficulty: currentQuestion.difficulty,
+        options: currentQuestion.options,
+        correctAnswer: currentQuestion.correctAnswer,
+        explanation: currentQuestion.explanation,
+        questionType: currentQuestion.type,
         type: 'learn',
         exam: testId // Storing Test ID as Exam for now
       });

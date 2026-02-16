@@ -1,12 +1,12 @@
 
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { runtimeConfig } from '../config/runtimeConfig';
 
-// Better to use environment variables
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
-// const SUPABASE_URL = 'https://example.supabase.co';
-// const SUPABASE_ANON_KEY = 'dummy-key';
+const SUPABASE_URL = runtimeConfig.supabase.url || 'https://invalid.supabase.local';
+const SUPABASE_ANON_KEY = runtimeConfig.supabase.anonKey || 'invalid-anon-key';
+
+export const isSupabaseConfigured = runtimeConfig.supabase.isConfigured;
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {

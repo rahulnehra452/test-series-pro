@@ -36,8 +36,14 @@ export default function SignupScreen() {
 
     setLoading(true);
     try {
-      await signup(email, password, name);
-      // Success handled by authStore
+      const result = await signup(email, password, name);
+      if (result.status === 'email_confirmation_required') {
+        Alert.alert(
+          'Verify Your Email',
+          'We sent a confirmation link to your email. Please verify your account before logging in.',
+          [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+        );
+      }
     } catch (error: any) {
       Alert.alert('Signup Failed', error.message || 'Something went wrong');
     } finally {

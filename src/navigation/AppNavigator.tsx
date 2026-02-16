@@ -174,7 +174,9 @@ export default function AppNavigator() {
               animation: 'slide_from_right',
             }}
           />
-          <Stack.Screen name="SeedData" component={SeedDataScreen} />
+          {__DEV__ && (
+            <Stack.Screen name="SeedData" component={SeedDataScreen} />
+          )}
           <Stack.Screen
             name="Pricing"
             component={PricingScreen}

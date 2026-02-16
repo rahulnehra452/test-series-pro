@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Question, TestAttempt, LibraryItem, LibraryItemType, Difficulty } from '../types';
 import { supabase } from '../lib/supabase';
 import * as Crypto from 'expo-crypto';
+import { runtimeConfigValidation } from '../config/runtimeConfig';
 
 interface StoreTestSeries {
   id: string;
@@ -404,6 +405,10 @@ export const useTestStore = create<TestState>()(
                   question: q.text,
                   subject: q.subject,
                   difficulty: q.difficulty,
+                  options: q.options,
+                  correctAnswer: q.correctAnswer,
+                  explanation: q.explanation,
+                  questionType: q.type,
                   type: 'wrong',
                   saveTimestamp: Date.now(),
                   exam: state.currentTestId || undefined,
@@ -480,6 +485,10 @@ export const useTestStore = create<TestState>()(
                   subject: item.subject,
                   difficulty: item.difficulty,
                   exam: item.exam,
+                  options: item.options,
+                  correctAnswer: item.correctAnswer,
+                  explanation: item.explanation,
+                  questionType: item.questionType,
                 }
               }, { onConflict: 'user_id,question_id,type' });
 
@@ -797,6 +806,10 @@ export const useTestStore = create<TestState>()(
                 question: item.question_data?.text || 'Question',
                 subject: item.question_data?.subject,
                 difficulty: item.question_data?.difficulty,
+                options: item.question_data?.options,
+                correctAnswer: item.question_data?.correctAnswer,
+                explanation: item.question_data?.explanation,
+                questionType: item.question_data?.questionType,
                 saveTimestamp: new Date(item.created_at).getTime(),
                 exam: item.question_data?.exam,
               };
@@ -982,7 +995,11 @@ export const useTestStore = create<TestState>()(
               text: item.question,
               subject: item.subject,
               difficulty: item.difficulty,
-              exam: item.exam
+              exam: item.exam,
+              options: item.options,
+              correctAnswer: item.correctAnswer,
+              explanation: item.explanation,
+              questionType: item.questionType,
             }
           }, { onConflict: 'user_id,question_id,type' });
           if (error) console.error('Failed to save bookmark to cloud:', error);
@@ -1054,6 +1071,10 @@ export const useTestStore = create<TestState>()(
                 subject: currentItem.subject,
                 difficulty: currentItem.difficulty,
                 exam: currentItem.exam,
+                options: currentItem.options,
+                correctAnswer: currentItem.correctAnswer,
+                explanation: currentItem.explanation,
+                questionType: currentItem.questionType,
               }
             }, { onConflict: 'user_id,question_id,type' });
 
@@ -1175,7 +1196,7 @@ export const useTestStore = create<TestState>()(
       hasHydrated: false,
       setHasHydrated: (state) => {
         set({ hasHydrated: state });
-        if (state) {
+        if (state && runtimeConfigValidation.isValid) {
           // Trigger initial syncs
           get().syncLibrary();
           get().syncProgress();

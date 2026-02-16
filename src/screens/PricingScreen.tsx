@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView, SafeAreaView, Dimensions, Pressable, Alert, ActivityIndicator } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, SafeAreaView, Dimensions, Pressable, Alert, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { borderRadius, spacing, typography } from '../constants/theme';
@@ -7,6 +7,8 @@ import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming, interpolateColor } from 'react-native-reanimated';
 import { useAuthStore } from '../stores/authStore';
+import { getAndroidBillingSkus, canAttemptAndroidBilling, purchaseAndroidTier } from '../services/payments/googlePlayBilling';
+import { runtimeConfig } from '../config/runtimeConfig';
 
 const { width } = Dimensions.get('window');
 
@@ -20,6 +22,7 @@ const TIERS = [
     tagline: 'Need a quick boost?',
     icon: 'disc', // Target-like
     color: '#007AFF', // Brand Blue
+    productId: '5days',
   },
   {
     id: '15days',
@@ -30,6 +33,7 @@ const TIERS = [
     badge: 'MOST POPULAR',
     icon: 'book', // Books
     color: '#007AFF', // Brand Blue
+    productId: '15days',
   },
   {
     id: '1month',
@@ -40,6 +44,7 @@ const TIERS = [
     savings: null,
     icon: 'trending-up', // Graph
     color: '#007AFF', // Brand Blue
+    productId: '1month',
   },
   {
     id: '1year',
@@ -52,6 +57,7 @@ const TIERS = [
     icon: 'ribbon', // Crown/Award-like
     color: '#FF9500', // Gold
     isPremium: true,
+    productId: '1year',
   },
 ];
 
@@ -60,28 +66,85 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 export default function PricingScreen() {
   const { colors, isDark } = useTheme();
   const navigation = useNavigation();
-  const { user, activatePro } = useAuthStore();
+  const { user } = useAuthStore();
   const [selectedTier, setSelectedTier] = useState<string | null>('1year');
   const [isPurchasing, setIsPurchasing] = useState(false);
   const isAlreadyPro = user?.isPro || false;
+  const billingSkus = useMemo(
+    () => getAndroidBillingSkus(TIERS.map(tier => tier.productId)),
+    []
+  );
+  const isAndroidBillingAvailable = Platform.OS === 'android' && canAttemptAndroidBilling();
+  const selectedTierMeta = TIERS.find(tier => tier.id === selectedTier);
+  const selectedProductId = selectedTierMeta?.productId;
+  const isSelectedSkuConfigured = !!selectedProductId && billingSkus.includes(selectedProductId);
+  const canCheckout =
+    !!selectedTier &&
+    !isPurchasing &&
+    !isAlreadyPro &&
+    isAndroidBillingAvailable &&
+    isSelectedSkuConfigured;
 
   const handlePurchase = async () => {
     if (!selectedTier || isPurchasing || isAlreadyPro) return;
     const tier = TIERS.find(t => t.id === selectedTier);
+    const productId = tier?.productId;
+    if (!productId) return;
+
+    if (Platform.OS !== 'android') {
+      Alert.alert(
+        'Android Billing Only',
+        'Google Play Billing is currently enabled only for Android. iOS billing will be added in a later release.'
+      );
+      return;
+    }
+
+    if (!isAndroidBillingAvailable) {
+      Alert.alert(
+        'Billing Not Available',
+        runtimeConfig.build.isRelease
+          ? 'Payments are temporarily unavailable in this build.'
+          : 'Billing is not configured yet for this development build.'
+      );
+      return;
+    }
+
+    if (!isSelectedSkuConfigured) {
+      Alert.alert(
+        'Plan Not Configured',
+        'This plan is not mapped in EXPO_PUBLIC_ANDROID_BILLING_PRODUCT_IDS.'
+      );
+      return;
+    }
+
     setIsPurchasing(true);
     try {
-      await activatePro();
+      const result = await purchaseAndroidTier({
+        productId,
+        userId: user?.id,
+      });
+
+      if (result.status === 'pending') {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        Alert.alert(
+          'Purchase Pending',
+          result.reason || 'Google Play has marked this purchase as pending. Please complete the payment in Play Store.'
+        );
+        return;
+      }
+
+      await useAuthStore.getState().checkSession();
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
         'Purchase Successful',
-        `Pro access has been activated for the ${tier?.title || 'selected'} plan.`,
+        `Pro access has been activated for the ${tier?.title || 'selected'} plan after payment verification.`,
         [{ text: 'Continue', onPress: () => navigation.goBack() }]
       );
     } catch (error: any) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(
         'Purchase Failed',
-        error?.message || 'We could not activate Pro right now. Please try again.'
+        error?.message || 'Payment could not be verified. You were not charged for Pro access.'
       );
     } finally {
       setIsPurchasing(false);
@@ -147,11 +210,11 @@ export default function PricingScreen() {
               styles.buyButton,
               {
                 backgroundColor: selectedTier ? (TIERS.find(t => t.id === selectedTier)?.color || colors.primary) : colors.border,
-                opacity: selectedTier && !isPurchasing && !isAlreadyPro ? 1 : 0.6
+                opacity: canCheckout ? 1 : 0.6
               }
             ]}
             onPress={handlePurchase}
-            disabled={!selectedTier || isPurchasing || isAlreadyPro}
+            disabled={!canCheckout}
             activeOpacity={0.8}
           >
             {isPurchasing ? (
@@ -159,7 +222,7 @@ export default function PricingScreen() {
             ) : (
               <>
                 <Text style={styles.buyButtonText}>{isAlreadyPro ? 'Pro Active' : 'Buy Now'}</Text>
-                {selectedTier && !isAlreadyPro && (
+                {selectedTier && !isAlreadyPro && canCheckout && (
                   <Text style={styles.buyButtonPrice}>
                     ₹{TIERS.find(t => t.id === selectedTier)?.price}
                   </Text>
@@ -171,7 +234,9 @@ export default function PricingScreen() {
           <View style={styles.secureBadgeInfo}>
             <Ionicons name="shield-checkmark" size={14} color={colors.success} />
             <Text style={[styles.secureText, { color: colors.textSecondary }]}>
-              100% Secure Payment via UPI
+              {Platform.OS === 'android'
+                ? 'Secure Google Play Billing'
+                : 'Android billing available first'}
             </Text>
           </View>
         </View>

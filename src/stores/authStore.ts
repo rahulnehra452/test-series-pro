@@ -10,7 +10,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, name: string) => Promise<void>;
+  signup: (email: string, password: string, name: string) => Promise<{ status: 'signed_in' | 'email_confirmation_required' }>;
   logout: () => Promise<void>;
   checkSession: () => Promise<void>;
   checkStreak: () => Promise<void>;
@@ -131,7 +131,11 @@ export const useAuthStore = create<AuthState>()(
 
         if (error) throw error;
 
-        if (data.user) {
+        if (!data.user) {
+          throw new Error('Signup did not return a user. Please try again.');
+        }
+
+        if (data.session) {
           // Setup initial user state from metadata immediately
           const user: User = {
             id: data.user.id,
@@ -169,7 +173,11 @@ export const useAuthStore = create<AuthState>()(
           };
 
           fetchProfileWithRetry();
+          return { status: 'signed_in' as const };
         }
+
+        set({ user: null, isAuthenticated: false });
+        return { status: 'email_confirmation_required' as const };
       },
 
       logout: async () => {

@@ -9,6 +9,17 @@ export default function SeedDataScreen() {
   const { colors } = useTheme();
   const [log, setLog] = useState<string[]>([]);
 
+  if (!__DEV__) {
+    return (
+      <View style={{ flex: 1, padding: 20, backgroundColor: colors.background, justifyContent: 'center' }}>
+        <Text style={{ color: colors.text, fontSize: 24, marginBottom: 12 }}>Unavailable</Text>
+        <Text style={{ color: colors.textSecondary, fontSize: 16, lineHeight: 24 }}>
+          Seed tools are only available in development builds.
+        </Text>
+      </View>
+    );
+  }
+
   const addLog = (msg: string) => setLog(prev => [...prev, msg]);
 
   const seedTests = async () => {

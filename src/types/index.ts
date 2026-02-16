@@ -63,6 +63,10 @@ export interface LibraryItem {
   question: string;
   subject: Subject;
   difficulty: Difficulty;
+  options?: string[];
+  correctAnswer?: number;
+  explanation?: string;
+  questionType?: QuestionType;
   type: LibraryItemType;
   saveTimestamp: number;
   exam?: string; // Optional exam tag
