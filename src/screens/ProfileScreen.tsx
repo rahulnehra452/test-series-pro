@@ -27,7 +27,7 @@ const MenuItem = ({ icon, label, value, onPress, isSwitch, onSwitchChange }: any
         <Switch
           value={value}
           onValueChange={onSwitchChange}
-          trackColor={{ false: '#767577', true: colors.primary }}
+          trackColor={{ false: colors.textTertiary, true: colors.primary }}
         />
       ) : (
         <View style={styles.menuRight}>
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
   userName: {
     ...typography.title2,
     fontWeight: '700',
-    marginBottom: 2,
+    marginBottom: spacing.xs,
   },
   userEmail: {
     ...typography.subhead,
@@ -289,8 +289,8 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   iconBox: {
-    width: 32,
-    height: 32,
+    width: spacing['2xl'],
+    height: spacing['2xl'],
     borderRadius: borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -313,13 +313,13 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     ...typography.body,
-    color: '#FF3B30',
+    color: '#FF3B30', // Use hex for error color in StyleSheet or refactor to useTheme hook
     fontWeight: '600',
   },
   deleteButton: {
     alignItems: 'center',
     padding: spacing.md,
-    marginTop: -8,
+    marginTop: -spacing.sm,
   },
   deleteText: {
     ...typography.caption1,

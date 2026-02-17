@@ -355,7 +355,7 @@ export default function LibraryScreen() {
     const statusConfig = {
       saved: { bg: colors.primary + '20', color: colors.primary, icon: 'bookmark' as const },
       wrong: { bg: colors.error + '20', color: colors.error, icon: 'close-circle' as const },
-      learn: { bg: '#FF9500' + '20', color: '#FF9500', icon: 'bulb' as const },
+      learn: { bg: colors.warning + '20', color: colors.warning, icon: 'bulb' as const },
     };
     const status = statusConfig[item.type as keyof typeof statusConfig] || statusConfig.saved;
 
@@ -493,7 +493,7 @@ export default function LibraryScreen() {
                 title="Saved"
                 count={stats.saved}
                 icon="bookmark"
-                gradient={['#007AFF', '#00C6FF']}
+                gradient={[colors.primary, '#00C6FF']}
                 onPress={() => setSelectedType(selectedType === 'saved' ? null : 'saved')}
                 isActive={selectedType === 'saved'}
               />
@@ -501,7 +501,7 @@ export default function LibraryScreen() {
                 title="Incorrect"
                 count={stats.wrong}
                 icon="close-circle"
-                gradient={['#FF3B30', '#FF9500']}
+                gradient={[colors.error, colors.warning]}
                 onPress={() => setSelectedType(selectedType === 'wrong' ? null : 'wrong')}
                 isActive={selectedType === 'wrong'}
               />
@@ -509,7 +509,7 @@ export default function LibraryScreen() {
                 title="Revision"
                 count={stats.learn}
                 icon="bulb"
-                gradient={['#34C759', '#30D158']}
+                gradient={[colors.success, '#30D158']}
                 onPress={() => setSelectedType(selectedType === 'learn' ? null : 'learn')}
                 isActive={selectedType === 'learn'}
               />
@@ -584,7 +584,7 @@ export default function LibraryScreen() {
           onPress={() => setModalVisible(false)}
         >
           <TouchableWithoutFeedback>
-            <View style={[styles.modalContent, { backgroundColor: isDark ? '#1C1C1E' : '#FFF', paddingBottom: insets.bottom + 20 }]}>
+            <View style={[styles.modalContent, { backgroundColor: colors.card, paddingBottom: insets.bottom + 20 }]}>
               <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                 <Text style={[styles.modalTitle, { color: colors.text }]}>Filter by Exam</Text>
                 <TouchableOpacity
@@ -715,7 +715,7 @@ export default function LibraryScreen() {
 
                 {/* Explanation */}
                 {selectedQuestion.explanation && (
-                  <View style={[styles.explanationBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#FFF9E6' }]}>
+                  <View style={[styles.explanationBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : colors.warning + '10' }]}>
                     <View style={styles.explanationHeader}>
                       <Ionicons name="bulb" size={18} color="#FF9500" />
                       <Text style={[styles.explanationTitle, { color: colors.text }]}>Explanation</Text>
@@ -800,236 +800,126 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   summaryCardActive: {
-    transform: [{ scale: 1.05 }],
+    opacity: 1,
+    transform: [{ scale: 1.02 }],
   },
   activeIndicator: {
     height: 4,
-    width: '40%',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginTop: 8,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
+    marginTop: -4,
   },
   summaryIconContainer: {
     width: 36,
     height: 36,
-    borderRadius: borderRadius.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   summaryCount: {
-    fontSize: 24,
-    fontWeight: '700',
+    ...typography.title2,
     color: '#FFF',
+    fontWeight: '800',
   },
   summaryTitle: {
-    fontSize: 12,
+    ...typography.caption1,
+    color: 'rgba(255,255,255,0.9)',
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 2,
   },
   searchSection: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.base,
     marginBottom: spacing.md,
   },
   searchInput: {
-    marginBottom: 0,
+    backgroundColor: 'transparent',
   },
   categoryWrap: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.sm,
   },
   subjectList: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
+    paddingHorizontal: spacing.base,
+    gap: 8,
   },
   subjectChip: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: borderRadius.full,
+    borderRadius: 20,
     borderWidth: 1,
   },
   subjectChipText: {
-    ...typography.subhead,
+    fontSize: 13,
     fontWeight: '600',
-  },
-  examChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginRight: 8,
-  },
-  examChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  listSection: {
-    paddingHorizontal: spacing.base,
-    gap: spacing.md,
-  },
-  itemCard: {
-    marginHorizontal: spacing.base,
-    marginBottom: spacing.sm,
-  },
-  itemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-
-  subjectTagText: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  examTag: {
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    borderRadius: borderRadius.xs,
-  },
-  examTagText: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  itemDate: {
-    ...typography.caption2,
-    marginLeft: 'auto',
-  },
-  itemQuestion: {
-    ...typography.body,
-    fontWeight: '600',
-    marginBottom: 12,
-    lineHeight: 22,
-  },
-  noteContainer: {
-    flexDirection: 'row',
-    padding: 10,
-    borderRadius: borderRadius.sm,
-    gap: 8,
-    marginBottom: 12,
-    alignItems: 'center',
-  },
-  noteText: {
-    ...typography.caption1,
-    flex: 1,
-  },
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '70%',
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: -4,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalScroll: {
-    padding: spacing.md,
-  },
-  modalOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    marginBottom: 4,
-  },
-  modalOptionText: {
-    fontSize: 16,
-  },
-  itemFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 12,
-    borderTopWidth: 0.5,
-  },
-  typeTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  typeText: {
-    ...typography.caption1,
-    fontWeight: '500',
-  },
-  arrowButton: {
-    padding: 4,
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: spacing.xl,
-    paddingHorizontal: spacing.xl,
-  },
-  emptyText: {
-    ...typography.subhead,
-    marginTop: spacing.md,
-    textAlign: 'center',
   },
   fadeGradient: {
     position: 'absolute',
     right: 0,
     top: 0,
     bottom: 0,
-    width: 60,
+    width: 40,
   },
-  // New card styles
-  cardAccent: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 4,
-    borderTopLeftRadius: borderRadius.lg,
-    borderBottomLeftRadius: borderRadius.lg,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: spacing.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  modalTitle: {
+    ...typography.title3,
+    fontWeight: '700',
+  },
+  closeButton: {
+    padding: 4,
+    borderRadius: 12,
+  },
+  modalScroll: {
+    padding: spacing.lg,
+  },
+  modalOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: borderRadius.md,
+    marginBottom: 8,
+  },
+  modalOptionText: {
+    fontSize: 16,
+  },
+  itemCard: {
+    marginHorizontal: spacing.base,
+    marginBottom: spacing.md,
+    overflow: 'hidden',
   },
   cardContent: {
     padding: spacing.md,
-    paddingLeft: spacing.md,
   },
   cardTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
-    gap: spacing.sm,
+    marginBottom: spacing.sm,
   },
   subjectBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 6,
-    gap: 6,
+    gap: 4,
   },
   subjectBadgeText: {
     fontSize: 11,
@@ -1037,13 +927,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   cardDate: {
-    ...typography.caption2,
-    fontWeight: '500',
+    fontSize: 12,
   },
   questionText: {
-    ...typography.body,
-    fontWeight: '500',
+    fontSize: 15,
     lineHeight: 22,
+    fontWeight: '500',
     marginBottom: spacing.md,
   },
   cardBottomRow: {
@@ -1056,103 +945,115 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 8,
-    gap: 6,
+    borderRadius: 20,
+    gap: 4,
   },
   statusBadgeText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
-  // Question Detail Modal Styles
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    ...typography.title3,
+    marginBottom: 4,
+    fontWeight: '600',
+  },
+  // Question Detail Modal
   questionModalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
   },
   questionModalContent: {
+    height: '90%',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '90%',
+    overflow: 'hidden',
   },
   questionModalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
+    padding: spacing.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   questionModalTitle: {
     ...typography.headline,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   questionModalBody: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    flex: 1,
+    padding: spacing.lg,
   },
   questionMetaRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
   },
   difficultyBadge: {
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 4,
     borderRadius: 6,
   },
   difficultyText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
   },
   questionFullText: {
-    ...typography.body,
-    fontWeight: '500',
-    lineHeight: 24,
-    marginBottom: spacing.lg,
+    ...typography.title3,
+    fontWeight: '600',
+    marginBottom: spacing.xl,
+    lineHeight: 28,
   },
   optionsContainer: {
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
+    gap: 12,
+    marginBottom: spacing.xl,
   },
   optionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    gap: spacing.sm,
+    padding: 16,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1.5,
+    gap: 12,
   },
   optionLetter: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   optionLetterText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
   },
   optionText: {
     flex: 1,
-    ...typography.subhead,
+    fontSize: 15,
+    lineHeight: 22,
   },
   explanationBox: {
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
+    marginTop: spacing.sm,
   },
   explanationHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
+    gap: 8,
+    marginBottom: 8,
   },
   explanationTitle: {
-    ...typography.subhead,
-    fontWeight: '600',
+    fontWeight: '700',
+    fontSize: 14,
   },
   explanationContent: {
-    ...typography.body,
+    fontSize: 14,
     lineHeight: 22,
   },
 });

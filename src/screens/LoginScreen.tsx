@@ -205,12 +205,14 @@ export default function LoginScreen() {
             title="Sign In"
             onPress={handleLogin}
             loading={loading}
+            size="lg"
             style={styles.button}
           />
 
           <Button
             title="Sign in with Google"
             variant="outline"
+            size="lg"
             onPress={performOAuth}
             disabled={loading}
             leftIcon={<Ionicons name="logo-google" size={20} color={colors.text} />}
@@ -249,29 +251,29 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   header: {
-    marginBottom: 40,
+    marginBottom: spacing['3xl'],
   },
   title: {
-    fontSize: 32,
+    ...typography.largeTitle,
     fontWeight: '700',
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 16,
+    ...typography.subhead,
   },
   form: {
-    gap: 16,
+    gap: spacing.base,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: borderRadius.md,
     borderWidth: 1,
-    paddingHorizontal: 16,
-    height: 56,
+    paddingHorizontal: spacing.base,
+    // height: 56, // Handled by Input component now
   },
   icon: {
-    marginRight: 12,
+    marginRight: spacing.md,
   },
   input: {
     flex: 1,
@@ -279,14 +281,14 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   button: {
-    height: 56,
-    borderRadius: 12,
+    // height: 56, // Handled by size="lg" prop
+    // borderRadius: borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   buttonText: {
-    color: '#fff',
+    color: '#FFFFFF', // Provide default white for primary button text
     fontSize: 16,
     fontWeight: '600',
   },

@@ -78,15 +78,15 @@ export default function SolutionsScreen() {
         style={[
           styles.filterChip,
           {
-            backgroundColor: isActive ? colors.primary : (isDark ? 'rgba(255,255,255,0.12)' : '#F0F0F0'),
-            borderColor: isActive ? colors.primary : (isDark ? 'rgba(255,255,255,0.3)' : '#D0D0D0'),
+            backgroundColor: isActive ? colors.primary : (isDark ? 'rgba(255,255,255,0.12)' : colors.secondaryBackground),
+            borderColor: isActive ? colors.primary : (isDark ? 'rgba(255,255,255,0.3)' : colors.border),
           }
         ]}
         activeOpacity={0.7}
       >
         <Text style={[
           styles.filterChipText,
-          { color: isActive ? '#FFFFFF' : (isDark ? '#FFFFFF' : '#333333'), fontWeight: '600' }
+          { color: isActive ? '#FFFFFF' : (isDark ? '#FFFFFF' : colors.text), fontWeight: '600' }
         ]}>
           {label}{count !== undefined && count > 0 ? ` (${count})` : ''}
         </Text>

@@ -80,9 +80,9 @@ export const Button: React.FC<ButtonProps> = ({
 
   const getHeight = () => {
     switch (size) {
-      case 'sm': return 36;
-      case 'md': return 48;
-      case 'lg': return 56;
+      case 'sm': return 32;
+      case 'md': return 48; // Standard
+      case 'lg': return 56; // Prominent/Auth
       default: return 48;
     }
   };
@@ -91,7 +91,7 @@ export const Button: React.FC<ButtonProps> = ({
     switch (size) {
       case 'sm': return 14;
       case 'md': return 16;
-      case 'lg': return 18;
+      case 'lg': return 18; // Larger text for large buttons
       default: return 16;
     }
   };

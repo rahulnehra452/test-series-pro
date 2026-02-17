@@ -11,6 +11,8 @@ import { StreakCard } from '../components/home/StreakCard';
 import { ProgressGrid } from '../components/home/ProgressGrid';
 import { ContinueLearning } from '../components/home/ContinueLearning';
 import { SkeletonActivityCard } from '../components/home/SkeletonActivityCard';
+import { Button } from '../components/common/Button';
+import { EmptyState } from '../components/common/EmptyState';
 import * as Haptics from 'expo-haptics';
 
 // Types
@@ -143,13 +145,15 @@ export default function HomeScreen() {
             {user?.name || 'Student'}
           </Text>
         </View>
-        <TouchableOpacity
-          style={[styles.subscriptionButton, { backgroundColor: colors.warning + '20' }]}
+        <Button
+          title="Pro"
+          size="sm"
+          variant="secondary"
           onPress={() => navigation.navigate('Main', { screen: 'Profile' })}
-        >
-          <Ionicons name="diamond" size={20} color={colors.warning} />
-          <Text style={[styles.subscriptionText, { color: colors.warning }]}>Pro</Text>
-        </TouchableOpacity>
+          leftIcon={<Ionicons name="diamond" size={16} color={colors.warning} />}
+          style={{ backgroundColor: colors.warning + '20' }}
+          textStyle={{ color: colors.warning, fontWeight: '700' }}
+        />
       </View>
 
       {/* Streak Card */}
@@ -216,11 +220,11 @@ export default function HomeScreen() {
             </TouchableOpacity>
           ))
         ) : (
-          <View style={[styles.activityItem, { backgroundColor: colors.secondaryBackground }]}>
-            <Text style={{ color: colors.textSecondary, fontStyle: 'italic' }}>
-              No recent activity
-            </Text>
-          </View>
+          <EmptyState
+            description="No recent activity"
+            icon="time-outline"
+            variant="inline"
+          />
         )}
       </View>
 
@@ -249,22 +253,9 @@ const styles = StyleSheet.create({
   },
   userName: {
     ...typography.title1,
-    fontSize: 28,
-    marginTop: -4,
-    lineHeight: 34,
+    marginTop: -spacing.xs,
   },
-  subscriptionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: borderRadius.full,
-    gap: 6,
-  },
-  subscriptionText: {
-    ...typography.subhead,
-    fontWeight: '700',
-  },
+  // subscriptionButton styles removed as handled by Button component
   streakCard: {
     marginBottom: spacing.md,
   },
@@ -294,7 +285,7 @@ const styles = StyleSheet.create({
   activityTitle: {
     ...typography.body,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   activityDate: {
     ...typography.caption1,

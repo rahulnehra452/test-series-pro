@@ -15,6 +15,7 @@ import { useTestStore } from '../stores/testStore';
 import { useTheme } from '../contexts/ThemeContext';
 import { spacing, typography, borderRadius, shadows } from '../constants/theme';
 import { Card } from '../components/common/Card';
+import { EmptyState } from '../components/common/EmptyState';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -43,7 +44,7 @@ const getChartConfig = (colors: any, isDark: boolean) => ({
   propsForDots: { r: '3', strokeWidth: '1', stroke: colors.card },
   propsForBackgroundLines: {
     strokeDasharray: '6', // Dashed for cleaner look
-    stroke: isDark ? '#2C2C2E' : '#E5E5EA',
+    stroke: colors.border,
     strokeWidth: 1
   },
   fillShadowGradientFrom: colors.primary,
@@ -150,7 +151,11 @@ export default function StatsScreen() {
                   />
                 </View>
               ) : (
-                <Text style={[styles.emptyText, { color: colors.textTertiary }]}>Complete more tests to see your trend.</Text>
+                <EmptyState
+                  description="Complete more tests to see your trend."
+                  icon="analytics"
+                  variant="inline"
+                />
               )}
               <Text style={[styles.chartCaption, { color: colors.textSecondary }]}>
                 Target: consistently above 60%
@@ -167,7 +172,7 @@ export default function StatsScreen() {
                       <Text style={[styles.accuracyLabel, { color: colors.text }]}>{item.subject}</Text>
                       <Text style={[styles.accuracyValue, { color: colors.textSecondary }]}>{item.accuracy}%</Text>
                     </View>
-                    <View style={styles.progressBarBg}>
+                    <View style={[styles.progressBarBg, { backgroundColor: colors.secondaryBackground }]}>
                       <View
                         style={[
                           styles.progressBarFill,
@@ -182,7 +187,11 @@ export default function StatsScreen() {
                   </View>
                 ))}
                 {subjectAccuracy.length === 0 && (
-                  <Text style={[styles.emptyText, { color: colors.textTertiary }]}>No subject data available.</Text>
+                  <EmptyState
+                    description="No subject data available."
+                    icon="pie-chart"
+                    variant="inline"
+                  />
                 )}
               </View>
             </Card>
@@ -211,12 +220,16 @@ export default function StatsScreen() {
                   />
                 </View>
               ) : (
-                <Text style={[styles.emptyText, { color: colors.textTertiary }]}>Start studying to track hours.</Text>
+                <EmptyState
+                  description="Start studying to track hours."
+                  icon="time"
+                  variant="inline"
+                />
               )}
             </Card>
 
             {/* ─── SECONDARY TRACKING ─────────────────────────────────────────── */}
-            <View style={styles.divider} />
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
             {/* 4. Syllabus Coverage */}
             <Card style={styles.card}>
@@ -261,7 +274,11 @@ export default function StatsScreen() {
                 })}
 
                 {Object.values(syllabusCoverage).every(s => s.covered === 0) && (
-                  <Text style={[styles.emptyText, { color: colors.textTertiary }]}>Attempt questions to track coverage.</Text>
+                  <EmptyState
+                    description="Attempt questions to track coverage."
+                    icon="book"
+                    variant="inline"
+                  />
                 )}
               </View>
             </Card>
@@ -289,7 +306,11 @@ export default function StatsScreen() {
                   />
                 </View>
               ) : (
-                <Text style={[styles.emptyText, { color: colors.textTertiary }]}>No questions recently.</Text>
+                <EmptyState
+                  description="No questions recently."
+                  icon="bar-chart"
+                  variant="inline"
+                />
               )}
             </Card>
 
@@ -299,7 +320,7 @@ export default function StatsScreen() {
                 <SectionTitle title="Focus Areas (< 40%)" icon="warning" />
                 <View style={{ marginTop: 12 }}>
                   {weakTopics.map((topic, idx) => (
-                    <View key={idx} style={styles.weakTopicRow}>
+                    <View key={idx} style={[styles.weakTopicRow, { borderBottomColor: colors.border }]}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
                         <Ionicons name="alert-circle" size={16} color={colors.error} />
                         {/* Fix: Text clipping for long subjects */}
@@ -374,7 +395,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: spacing.md,
   },
   sectionTitle: {
     ...typography.headline,
@@ -386,15 +407,10 @@ const styles = StyleSheet.create({
     marginTop: 12,
     opacity: 0.7,
   },
-  emptyText: {
-    ...typography.callout,
-    textAlign: 'center',
-    marginVertical: 24,
-    fontStyle: 'italic',
-  },
+  // emptyText style removed as handled by EmptyState component
   divider: {
     height: 1,
-    backgroundColor: '#E5E5EA', // Theme separate later
+    // backgroundColor: '#E5E5EA', // Handled inline
     opacity: 0.5,
     marginVertical: 8,
   },
@@ -415,7 +431,7 @@ const styles = StyleSheet.create({
   },
   progressBarBg: {
     height: 12,
-    backgroundColor: '#F2F2F7',
+    // backgroundColor: '#F2F2F7', // Handled inline
     borderRadius: 6,
     overflow: 'hidden',
   },
@@ -430,7 +446,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
+    // borderBottomColor: '#E5E5EA', // Handled inline
   },
   weakTopicText: {
     ...typography.body,
@@ -444,17 +460,17 @@ const styles = StyleSheet.create({
   // Legend
   legendRow: {
     flexDirection: 'row',
-    gap: 16,
-    marginBottom: 8,
+    gap: spacing.base,
+    marginBottom: spacing.sm,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.sm,
   },
   legendDot: {
-    width: 10,
-    height: 10,
+    width: spacing.md,
+    height: spacing.md,
     borderRadius: 5,
   },
   legendText: {

@@ -25,7 +25,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.rahulnehra.testkra",
-      "versionCode": 1
+      "versionCode": 2
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -35,6 +35,11 @@
       "expo-secure-store",
       "expo-iap"
     ],
-    "scheme": "testkra"
+    "scheme": "testkra",
+    "extra": {
+      "eas": {
+        "projectId": "a130ed14-4621-47e7-a997-e4538c5babb6"
+      }
+    }
   }
 }

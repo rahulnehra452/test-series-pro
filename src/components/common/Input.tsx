@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: borderRadius.md,
-    height: 48,
+    height: 56, // Standardize to match 'lg' buttons for Auth screens by default or add size prop
     paddingHorizontal: spacing.md,
   },
   input: {

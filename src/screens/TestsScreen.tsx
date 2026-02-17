@@ -8,6 +8,7 @@ import { borderRadius, spacing, typography } from '../constants/theme';
 import { Input } from '../components/common/Input';
 import { TestSeriesCard } from '../components/tests/TestSeriesCard';
 import { CategoryPill } from '../components/common/CategoryPill';
+import { EmptyState } from '../components/common/EmptyState';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useTestStore } from '../stores/testStore';
 import { useAuthStore } from '../stores/authStore';
@@ -166,18 +167,13 @@ export default function TestsScreen() {
         ListEmptyComponent={
           !isInitialLoading ? (
             <View style={styles.emptyContainer}>
-              <Ionicons name="search-outline" size={48} color={colors.textTertiary} />
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                {searchQuery ? 'No tests match your search' : 'No tests available right now'}
-              </Text>
-              {!searchQuery && (
-                <ScaleButton
-                  style={[styles.retryButton, { backgroundColor: colors.primary }]}
-                  onPress={onRefresh}
-                >
-                  <Text style={styles.retryText}>Retry Fetch</Text>
-                </ScaleButton>
-              )}
+              <EmptyState
+                title={searchQuery ? 'No results found' : 'No tests available'}
+                description={searchQuery ? 'Try adjusting your search terms' : 'Check back later for new test series'}
+                icon="search-outline"
+                actionLabel={!searchQuery ? "Retry Fetch" : undefined}
+                onAction={!searchQuery ? onRefresh : undefined}
+              />
             </View>
           ) : null
         }
@@ -220,7 +216,6 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.largeTitle,
-    fontWeight: '700',
     marginBottom: spacing.md,
   },
   searchBar: {
@@ -238,21 +233,5 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl * 2,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  emptyText: {
-    ...typography.body,
-    marginTop: spacing.md,
-    textAlign: 'center',
-    paddingHorizontal: spacing.xl,
-  },
-  retryButton: {
-    marginTop: spacing.xl,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xl,
-    borderRadius: borderRadius.md,
-  },
-  retryText: {
-    ...typography.headline,
-    color: '#FFFFFF',
   },
 });

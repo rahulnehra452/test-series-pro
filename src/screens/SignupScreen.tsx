@@ -14,6 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuthStore } from '../stores/authStore';
 import { spacing, typography, borderRadius } from '../constants/theme';
+import { Button } from '../components/common/Button';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
@@ -108,17 +109,13 @@ export default function SignupScreen() {
             />
           </View>
 
-          <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.primary }]}
+          <Button
+            title="Sign Up"
             onPress={handleSignup}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Sign Up</Text>
-            )}
-          </TouchableOpacity>
+            loading={loading}
+            size="lg"
+            style={styles.button}
+          />
 
           <Text style={[styles.footerText, { color: colors.textSecondary }]}>
             By signing up, you agree to our{' '}
@@ -149,29 +146,29 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   header: {
-    marginBottom: 40,
+    marginBottom: spacing['3xl'],
   },
   title: {
-    fontSize: 32,
+    ...typography.largeTitle,
     fontWeight: '700',
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 16,
+    ...typography.subhead,
   },
   form: {
-    gap: 16,
+    gap: spacing.base,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: borderRadius.md,
     borderWidth: 1,
-    paddingHorizontal: 16,
-    height: 56,
+    paddingHorizontal: spacing.base,
+    // height: 56, // Handled by Input component now
   },
   icon: {
-    marginRight: 12,
+    marginRight: spacing.md,
   },
   input: {
     flex: 1,
@@ -179,17 +176,13 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   button: {
-    height: 56,
-    borderRadius: 12,
+    // height: 56, // Handled by size="lg" prop
+    // borderRadius: borderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  // buttonText style removed as it's handled by Button component
   footerText: {
     ...typography.caption1,
     textAlign: 'center',

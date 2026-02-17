@@ -12,55 +12,6 @@ import { runtimeConfig } from '../config/runtimeConfig';
 
 const { width } = Dimensions.get('window');
 
-const TIERS = [
-  {
-    id: '5days',
-    title: '5 Days',
-    price: 19,
-    description: 'Perfect for quick revision',
-    dailyCost: '₹3.80/day',
-    tagline: 'Need a quick boost?',
-    icon: 'disc', // Target-like
-    color: '#007AFF', // Brand Blue
-    productId: '5days',
-  },
-  {
-    id: '15days',
-    title: '15 Days',
-    price: 49,
-    description: 'Exam prep sprint',
-    dailyCost: '₹3.27/day',
-    badge: 'MOST POPULAR',
-    icon: 'book', // Books
-    color: '#007AFF', // Brand Blue
-    productId: '15days',
-  },
-  {
-    id: '1month',
-    title: '1 Month',
-    price: 79,
-    description: 'Build your study habit',
-    dailyCost: '₹2.63/day',
-    savings: null,
-    icon: 'trending-up', // Graph
-    color: '#007AFF', // Brand Blue
-    productId: '1month',
-  },
-  {
-    id: '1year',
-    title: '1 Year',
-    price: 699,
-    description: 'Master your exam - save ₹249',
-    dailyCost: '₹1.91/day',
-    badge: 'BEST VALUE',
-    savings: 'SAVE ₹249',
-    icon: 'ribbon', // Crown/Award-like
-    color: '#FF9500', // Gold
-    isPremium: true,
-    productId: '1year',
-  },
-];
-
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function PricingScreen() {
@@ -70,9 +21,59 @@ export default function PricingScreen() {
   const [selectedTier, setSelectedTier] = useState<string | null>('1year');
   const [isPurchasing, setIsPurchasing] = useState(false);
   const isAlreadyPro = user?.isPro || false;
+
+  const TIERS = useMemo(() => [
+    {
+      id: '5days',
+      title: '5 Days',
+      price: 19,
+      description: 'Perfect for quick revision',
+      dailyCost: '₹3.80/day',
+      tagline: 'Need a quick boost?',
+      icon: 'disc', // Target-like
+      color: colors.primary,
+      productId: '5days',
+    },
+    {
+      id: '15days',
+      title: '15 Days',
+      price: 49,
+      description: 'Exam prep sprint',
+      dailyCost: '₹3.27/day',
+      badge: 'MOST POPULAR',
+      icon: 'book', // Books
+      color: colors.primary,
+      productId: '15days',
+    },
+    {
+      id: '1month',
+      title: '1 Month',
+      price: 79,
+      description: 'Build your study habit',
+      dailyCost: '₹2.63/day',
+      savings: null,
+      icon: 'trending-up', // Graph
+      color: colors.primary,
+      productId: '1month',
+    },
+    {
+      id: '1year',
+      title: '1 Year',
+      price: 699,
+      description: 'Master your exam - save ₹249',
+      dailyCost: '₹1.91/day',
+      badge: 'BEST VALUE',
+      savings: 'SAVE ₹249',
+      icon: 'ribbon', // Crown/Award-like
+      color: colors.warning,
+      isPremium: true,
+      productId: '1year',
+    },
+  ], [colors]);
+
   const billingSkus = useMemo(
     () => getAndroidBillingSkus(TIERS.map(tier => tier.productId)),
-    []
+    [TIERS]
   );
   const isAndroidBillingAvailable = Platform.OS === 'android' && canAttemptAndroidBilling();
   const selectedTierMeta = TIERS.find(tier => tier.id === selectedTier);
@@ -266,7 +267,7 @@ function TierCard({ tier, isSelected, onSelect, isDark, colors }: any) {
       style={[
         styles.tierCard,
         {
-          backgroundColor: isDark ? colors.secondaryBackground : '#FFFFFF',
+          backgroundColor: isDark ? colors.secondaryBackground : colors.card,
         },
         animatedStyle,
         tier.isPremium && styles.premiumCard
@@ -294,7 +295,7 @@ function TierCard({ tier, isSelected, onSelect, isDark, colors }: any) {
           <View style={styles.titleRow}>
             <Text style={[styles.tierTitle, { color: colors.text }]}>{tier.title}</Text>
             {tier.savings && (
-              <View style={styles.savingsContainer}>
+              <View style={[styles.savingsContainer, { backgroundColor: colors.success }]}>
                 <Text style={styles.savingsText}>{tier.savings}</Text>
               </View>
             )}
@@ -383,6 +384,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
     minHeight: 100,
+    backgroundColor: '#FFFFFF', // Default light bg, overridden by props
   },
   premiumCard: {
     shadowOpacity: 0.1,
@@ -461,7 +463,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   savingsContainer: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#34C759', // This is success color, but static style. Can't easy inject theme here without refactor. Keep as is or move to inline.
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -487,7 +489,7 @@ const styles = StyleSheet.create({
   },
   featuresContainer: {
     marginTop: spacing.lg,
-    backgroundColor: 'rgba(120, 120, 128, 0.05)',
+    backgroundColor: 'rgba(120, 120, 128, 0.05)', // SystemGray6 like, semi-transparent
     padding: spacing.xl,
     borderRadius: borderRadius.xl,
   },
