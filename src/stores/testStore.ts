@@ -1,10 +1,11 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Question, TestAttempt, LibraryItem, LibraryItemType, Difficulty } from '../types';
+import { Question, TestAttempt, LibraryItem, LibraryItemType, Difficulty, Exam, TestSeries } from '../types';
 import { supabase } from '../lib/supabase';
 import * as Crypto from 'expo-crypto';
 import { runtimeConfigValidation } from '../config/runtimeConfig';
+import { handleError } from '../utils/errorHandler';
 
 interface StoreTestSeries {
   id: string;
@@ -79,6 +80,14 @@ interface TestState {
   syncProgress: () => Promise<void>;
   hasHydrated: boolean;
   setHasHydrated: (state: boolean) => void;
+
+  // Multi-Exam Hierarchy
+  exams: Exam[];
+  currentExamId: string | null;
+  testSeries: TestSeries[];
+  fetchExams: () => Promise<void>;
+  fetchTestSeries: (examId: string) => Promise<void>;
+  setCurrentExam: (examId: string | null) => void;
 }
 
 // Helper to calculate score
@@ -157,7 +166,20 @@ const getExamFromTestId = (testId: string): string | null => {
   return examParts.length > 0 ? examParts.join(' ') : null;
 };
 
-const mapRemoteTestToStore = (test: any): StoreTestSeries => {
+interface RemoteTest {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  difficulty: string; // db constraints might allow text
+  total_tests?: number;
+  total_questions?: number;
+  duration_minutes?: number;
+  duration?: number;
+  price?: number;
+}
+
+const mapRemoteTestToStore = (test: RemoteTest): StoreTestSeries => {
   const totalTests = Number(test.total_tests ?? 1);
   const totalQuestions = Number(test.total_questions ?? 0);
   const duration = Number(test.duration_minutes ?? test.duration ?? 60);
@@ -198,8 +220,12 @@ export const useTestStore = create<TestState>()(
       endTime: null,
       sessionStartTime: null,
       isPlaying: false,
+      isPlaying: false,
       history: [],
-      tests: [],
+      tests: [], // Kept for flat list backward compat if needed, but primary focus shifts to hierarchy
+      exams: [],
+      currentExamId: null,
+      testSeries: [],
       isLoadingTests: false,
       pendingUploads: [],
       isLoadingMoreHistory: false,
@@ -210,6 +236,64 @@ export const useTestStore = create<TestState>()(
       library: [],
       hasSeenSwipeHint: false,
       markSwipeHintSeen: () => set({ hasSeenSwipeHint: true }),
+
+      setCurrentExam: (examId) => set({ currentExamId: examId }),
+
+      fetchExams: async () => {
+        try {
+          const { data, error } = await supabase
+            .from('exams')
+            .select('*')
+            .eq('is_active', true)
+            .order('title');
+
+          if (error) throw error;
+
+          if (data) {
+            set({
+              exams: data.map(e => ({
+                id: e.id,
+                title: e.title,
+                slug: e.slug,
+                icon_url: e.icon_url
+              }))
+            });
+          }
+        } catch (e) {
+          handleError(e, 'TestStore:FetchExams');
+        }
+      },
+
+      fetchTestSeries: async (examId) => {
+        set({ isLoadingTests: true });
+        try {
+          const { data, error } = await supabase
+            .from('test_series')
+            .select('*, tests(*)') // Fetch series and nested tests
+            .eq('exam_id', examId)
+            .eq('is_active', true);
+
+          if (error) throw error;
+
+          if (data) {
+            const series: TestSeries[] = data.map(s => ({
+              id: s.id,
+              examId: s.exam_id,
+              title: s.title,
+              description: s.description || '',
+              price: s.price ? `₹${s.price}` : 'Free',
+              isActive: s.is_active,
+              coverImage: s.cover_image_url,
+              tests: s.tests ? s.tests.map(mapRemoteTestToStore) : []
+            }));
+            set({ testSeries: series });
+          }
+        } catch (e) {
+          handleError(e, 'TestStore:FetchSeries');
+        } finally {
+          set({ isLoadingTests: false });
+        }
+      },
 
 
       startTest: (testId, title, questions, duration) => {
@@ -493,7 +577,7 @@ export const useTestStore = create<TestState>()(
               }, { onConflict: 'user_id,question_id,type' });
 
               if (error) {
-                console.error('Failed to sync wrong answer to cloud:', error);
+                handleError(error, 'TestStore:SyncWrongAnswer');
               }
             }
           })();
@@ -512,7 +596,7 @@ export const useTestStore = create<TestState>()(
               .eq('test_id', completedTestId);
 
             if (error) {
-              console.error('Failed to clear completed test progress from cloud:', JSON.stringify(error, null, 2));
+              handleError(error, 'TestStore:ClearProgress');
             }
           })();
         }
@@ -533,7 +617,7 @@ export const useTestStore = create<TestState>()(
             .order('created_at', { ascending: false });
 
           if (error) {
-            console.error('Error fetching tests:', error);
+            handleError(error, 'TestStore:FetchTests');
             return;
           }
 
@@ -542,7 +626,7 @@ export const useTestStore = create<TestState>()(
             set({ tests: mappedTests });
           }
         } catch (e) {
-          console.error('Critical failure in fetchTests:', e);
+          handleError(e, 'TestStore:FetchTests:Critical');
         } finally {
           set({ isLoadingTests: false });
         }
@@ -583,7 +667,7 @@ export const useTestStore = create<TestState>()(
             type: q.type || 'MCQ'
           }));
         } catch (e) {
-          console.error('Error fetching questions for test:', testId, e);
+          handleError(e, 'TestStore:FetchQuestions');
           return [];
         }
       },
@@ -689,7 +773,7 @@ export const useTestStore = create<TestState>()(
             set({ isLoadingMoreHistory: false });
           }
         } catch (e) {
-          console.error('Error fetching history:', e);
+          handleError(e, 'TestStore:FetchHistory');
           set({ historyError: 'Failed to load history' });
         } finally {
           set({ isFetchingHistory: false });
@@ -734,7 +818,7 @@ export const useTestStore = create<TestState>()(
         });
 
         if (error) {
-          console.error('Upload failed, queuing:', error);
+          handleError(error, 'TestStore:UploadAttempt');
           set(state => ({
             // Avoid duplicates in queue
             pendingUploads: state.pendingUploads.some(a => a.id === attempt.id)
@@ -771,11 +855,11 @@ export const useTestStore = create<TestState>()(
             }, { onConflict: 'id' });
 
             if (error) {
-              console.error('Sync failed for attempt:', attempt.id, error);
+              handleError(error, 'TestStore:SyncPendingUpload');
               remainingUploads.push(attempt); // Keep in queue
             }
           } catch (e) {
-            console.error('Critical sync failure:', e);
+            handleError(e, 'TestStore:SyncPendingUpload:Critical');
             remainingUploads.push(attempt);
           }
         }
@@ -829,7 +913,7 @@ export const useTestStore = create<TestState>()(
             set({ library: mergedLibrary });
           }
         } catch (e) {
-          console.error('Error syncing library:', e);
+          handleError(e, 'TestStore:SyncLibrary');
         }
       },
 
@@ -970,7 +1054,7 @@ export const useTestStore = create<TestState>()(
             });
           }
         } catch (e) {
-          console.error('Error syncing progress:', e);
+          handleError(e, 'TestStore:SyncProgress');
         }
       },
 
@@ -1002,7 +1086,7 @@ export const useTestStore = create<TestState>()(
               questionType: item.questionType,
             }
           }, { onConflict: 'user_id,question_id,type' });
-          if (error) console.error('Failed to save bookmark to cloud:', error);
+          if (error) handleError(error, 'TestStore:AddToLibrary');
         }
       },
 
@@ -1025,7 +1109,7 @@ export const useTestStore = create<TestState>()(
           if (dbType) query = query.eq('type', dbType);
 
           const { error } = await query;
-          if (error) console.error('Failed to delete bookmark from cloud:', error);
+          if (error) handleError(error, 'TestStore:RemoveFromLibrary');
         }
       },
 
@@ -1080,7 +1164,7 @@ export const useTestStore = create<TestState>()(
 
           if (upsertError) throw upsertError;
         } catch (error) {
-          console.error('Failed to update bookmark type in cloud:', error);
+          handleError(error, 'TestStore:UpdateLibraryItem');
           // Roll back optimistic update if cloud sync fails.
           set(state => ({
             library: state.library.map(item =>
@@ -1154,7 +1238,7 @@ export const useTestStore = create<TestState>()(
             last_updated_at: new Date(now).toISOString()
           }, { onConflict: 'user_id,test_id' }); // Ensure composite PK matches
 
-          if (error) console.error('Failed to save progress to cloud:', error);
+          if (error) handleError(error, 'TestStore:SaveProgress');
         }
       },
 

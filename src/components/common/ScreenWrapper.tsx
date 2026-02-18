@@ -18,7 +18,7 @@ export const ScreenWrapper: React.FC<ScreenWrapperProps> = ({
   style,
   safeAreaEdges = ['top'],
   backgroundColor,
-  statusBarStyle,
+  statusBarStyle = 'auto',
 }) => {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
@@ -42,7 +42,7 @@ export const ScreenWrapper: React.FC<ScreenWrapperProps> = ({
       ]}
     >
       <StatusBar
-        barStyle={statusBarStyle === 'auto' ? defaultBarStyle : (statusBarStyle || defaultBarStyle)}
+        barStyle={statusBarStyle === 'auto' ? defaultBarStyle : statusBarStyle}
         backgroundColor={backgroundColor || colors.background}
       />
       {children}

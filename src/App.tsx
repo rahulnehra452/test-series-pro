@@ -4,7 +4,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, LinkingOptions, DefaultTheme } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
-import AppNavigator, { RootStackParamList } from './navigation/AppNavigator';
+import AppNavigator from './navigation/AppNavigator';
+import { RootStackParamList } from './types/navigationTypes';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import { Toast } from './components/common/Toast';
 import { ConfigErrorScreen } from './components/common/ConfigErrorScreen';
@@ -52,7 +53,7 @@ function NavigationWrapper() {
         fonts: DefaultTheme.fonts,
       }}
     >
-      <StatusBar style={isDark ? 'light' : 'dark'} translucent />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <AppNavigator />
       <Toast />
     </NavigationContainer>

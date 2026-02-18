@@ -9,7 +9,7 @@ import { safeHaptics as Haptics } from '../utils/haptics';
 import { useToastStore } from '../stores/toastStore';
 import { StackActions } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/AppNavigator';
+import { RootStackParamList } from '../types/navigationTypes';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 

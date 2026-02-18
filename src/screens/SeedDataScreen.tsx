@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { supabase } from '../lib/supabase';
-import { MOCK_TEST_SERIES } from './TestsScreen';
+import { MOCK_TEST_SERIES } from '../data/mockTests';
 import { useTheme } from '../contexts/ThemeContext';
 
 export default function SeedDataScreen() {

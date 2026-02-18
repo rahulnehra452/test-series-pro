@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Platform, KeyboardAvoidingView } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Platform, KeyboardAvoidingView, Alert } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuthStore } from '../../stores/authStore';
 import { Input } from '../common/Input';
@@ -37,12 +37,14 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
     if (!isValid) return;
 
     setIsLoading(true);
-    // Simulate API call delay
-    setTimeout(() => {
-      updateProfile({ name, email });
-      setIsLoading(false);
+    try {
+      await updateProfile({ name, email });
       onClose();
-    }, 1000);
+    } catch (error: any) {
+      Alert.alert('Update Failed', error?.message || 'Could not save profile changes.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

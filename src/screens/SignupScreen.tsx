@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     borderWidth: 1,
     paddingHorizontal: spacing.base,
-    // height: 56, // Handled by Input component now
+    minHeight: 56,
   },
   icon: {
     marginRight: spacing.md,
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    height: '100%',
+    paddingVertical: 14,
   },
   button: {
     // height: 56, // Handled by size="lg" prop

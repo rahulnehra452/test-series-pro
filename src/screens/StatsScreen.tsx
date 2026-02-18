@@ -58,7 +58,14 @@ export default function StatsScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const { history, fetchHistory, isFetchingHistory, library, historyError } = useTestStore();
+  const history = useTestStore(state => state.history);
+  const fetchHistory = useTestStore(state => state.fetchHistory);
+  const isFetchingHistory = useTestStore(state => state.isFetchingHistory);
+  const historyError = useTestStore(state => state.historyError);
+  // library removed as it seemed unused in the viewed snippet, 
+  // but if used later in file I must keep it.
+  // I'll keep it to be safe.
+  const library = useTestStore(state => state.library);
   const [refreshing, setRefreshing] = useState(false);
 
   // Initial Fetch

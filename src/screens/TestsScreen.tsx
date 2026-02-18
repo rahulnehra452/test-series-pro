@@ -9,7 +9,7 @@ import { Input } from '../components/common/Input';
 import { TestSeriesCard } from '../components/tests/TestSeriesCard';
 import { CategoryPill } from '../components/common/CategoryPill';
 import { EmptyState } from '../components/common/EmptyState';
-import type { RootStackParamList } from '../navigation/AppNavigator';
+import type { RootStackParamList } from '../types/navigationTypes';
 import { useTestStore } from '../stores/testStore';
 import { useAuthStore } from '../stores/authStore';
 import { useEffect } from 'react';
@@ -17,57 +17,9 @@ import { SkeletonTestCard } from '../components/tests/SkeletonTestCard';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { ScaleButton } from '../components/common/ScaleButton';
 import { runtimeConfig } from '../config/runtimeConfig';
+import { CATEGORIES, MOCK_TEST_SERIES } from '../data/mockTests';
 
-// Mock Data
-export const CATEGORIES = ['All', 'UPSC', 'SSC', 'Banking', 'Railways', 'State PCS'];
-export const MOCK_TEST_SERIES = [
-  {
-    id: 'upsc-pre-2024',
-    title: 'UPSC Prelims 2024 Test Series',
-    description: 'Comprehensive test series for UPSC CSE Prelims 2024 including GS and CSAT papers.',
-    category: 'UPSC',
-    difficulty: 'Hard' as const,
-    totalTests: 30,
-    totalQuestions: 100,
-    duration: 120,
-    isPurchased: true,
-  },
-  {
-    id: 'ssc-cgl-tier1',
-    title: 'SSC CGL Tier I Full Length Mocks',
-    description: 'Based on latest pattern. Includes previous year questions.',
-    category: 'SSC',
-    difficulty: 'Medium' as const,
-    totalTests: 20,
-    totalQuestions: 100,
-    duration: 60,
-    isPurchased: false,
-    price: '₹499',
-  },
-  {
-    id: 'sbi-po-pre',
-    title: 'SBI PO Prelims 2024',
-    description: 'High level puzzles and DI questions for SBI PO preparation.',
-    category: 'Banking',
-    difficulty: 'Hard' as const,
-    totalTests: 15,
-    totalQuestions: 100,
-    duration: 60,
-    isPurchased: false,
-    price: '₹399',
-  },
-  {
-    id: 'rrb-ntpc',
-    title: 'RRB NTPC CBT 2',
-    description: 'Focus on General Awareness and Mathematics.',
-    category: 'Railways',
-    difficulty: 'Medium' as const,
-    totalTests: 10,
-    totalQuestions: 120,
-    duration: 90,
-    isPurchased: true,
-  },
-];
+// Mock Data Handled via Import
 
 export default function TestsScreen() {
   const { colors } = useTheme();

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, Switch, TouchableOpacity, ScrollView, Alert, Image, Linking } from 'react-native';
+import { StyleSheet, View, Text, Switch, TouchableOpacity, ScrollView, Alert, Image, Linking, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../contexts/ThemeContext';
@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../components/common/Card';
 import { useAuthStore } from '../stores/authStore';
 import { EditProfileModal } from '../components/profile/EditProfileModal';
+import { handleError, showAlert } from '../utils/errorHandler';
 import { Button } from '../components/common/Button';
 import { ScreenHeader } from '../components/common/ScreenHeader';
 import { ScreenWrapper } from '../components/common/ScreenWrapper';
@@ -91,7 +92,7 @@ export default function ProfileScreen() {
             try {
               await useAuthStore.getState().deleteAccount();
             } catch (error: any) {
-              Alert.alert("Error", error.message || "Failed to delete account");
+              showAlert("Error", handleError(error, 'Profile:DeleteAccount'));
             }
           }
         }
@@ -113,7 +114,7 @@ export default function ProfileScreen() {
       // Fall through to fallback alert.
     }
 
-    Alert.alert(
+    showAlert(
       'Support',
       `Reach us at ${supportEmail}`
     );
@@ -127,7 +128,18 @@ export default function ProfileScreen() {
     return name[0]?.toUpperCase() || 'U';
   };
 
-  if (!user) return null; // Should ideally redirect to login
+  if (!user) {
+    return (
+      <ScreenWrapper>
+        <View style={styles.emptyUserContainer}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={[styles.emptyUserText, { color: colors.textSecondary }]}>
+            Loading profile...
+          </Text>
+        </View>
+      </ScreenWrapper>
+    );
+  }
 
   return (
     <ScreenWrapper>
@@ -330,5 +342,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     ...typography.caption2,
     marginTop: spacing.sm,
+  },
+  emptyUserContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  emptyUserText: {
+    ...typography.subhead,
   },
 });

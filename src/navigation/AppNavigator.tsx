@@ -9,6 +9,8 @@ import * as Haptics from 'expo-haptics';
 
 // Screens
 import HomeScreen from '../screens/HomeScreen';
+import ExamDetailsScreen from '../screens/ExamDetailsScreen';
+import SeriesDetailsScreen from '../screens/SeriesDetailsScreen';
 import TestsScreen from '../screens/TestsScreen';
 import LibraryScreen from '../screens/LibraryScreen';
 import StatsScreen from '../screens/StatsScreen';
@@ -18,19 +20,16 @@ import ResultsScreen from '../screens/ResultsScreen';
 import SolutionsScreen from '../screens/SolutionsScreen';
 import SeedDataScreen from '../screens/SeedDataScreen'; // Hidden
 import PricingScreen from '../screens/PricingScreen';
+import LoginScreen from '../screens/LoginScreen';
+import SignupScreen from '../screens/SignupScreen';
 
 // Types
 import { TestAttempt } from '../types';
-
+import { MainTabParamList, RootStackParamList, AuthStackParamList } from '../types/navigationTypes';
 import { NavigatorScreenParams } from '@react-navigation/native';
-
-export type MainTabParamList = {
-  Home: undefined;
-  Tests: undefined;
-  Library: undefined;
-  Progress: undefined;
-  Profile: undefined;
-};
+import { useAuthStore } from '../stores/authStore';
+import { useEffect } from 'react';
+import { LoadingScreen } from '../components/common/LoadingScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -71,7 +70,7 @@ function MainTabs() {
           } else if (route.name === 'Library') {
             iconName = focused ? 'bookmarks' : 'bookmarks-outline';
           } else if (route.name === 'Progress') {
-            iconName = focused ? 'pie-chart' : 'pie-chart-outline';
+            iconName = focused ? 'stats-chart' : 'stats-chart-outline';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
           }
@@ -93,29 +92,6 @@ function MainTabs() {
     </Tab.Navigator >
   );
 }
-
-import LoginScreen from '../screens/LoginScreen';
-import SignupScreen from '../screens/SignupScreen';
-import { useAuthStore } from '../stores/authStore';
-import { useEffect } from 'react';
-import { LoadingScreen } from '../components/common/LoadingScreen';
-
-// ... (Keep existing imports)
-
-export type RootStackParamList = {
-  Auth: undefined; // New Auth Group
-  Main: NavigatorScreenParams<MainTabParamList>;
-  TestInterface: { testId: string; testTitle: string };
-  Results: { attemptId?: string; result?: TestAttempt };
-  Solutions: { attemptId?: string; result?: TestAttempt };
-  SeedData: undefined;
-  Pricing: undefined;
-};
-
-export type AuthStackParamList = {
-  Login: undefined;
-  Signup: undefined;
-};
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 
@@ -155,6 +131,16 @@ export default function AppNavigator() {
       ) : (
         <>
           <Stack.Screen name="Main" component={MainTabs} />
+          <Stack.Screen
+            name="ExamDetails"
+            component={ExamDetailsScreen}
+            options={{ animation: 'slide_from_right' }}
+          />
+          <Stack.Screen
+            name="SeriesDetails"
+            component={SeriesDetailsScreen}
+            options={{ animation: 'slide_from_right' }}
+          />
           <Stack.Screen
             name="TestInterface"
             component={TestInterfaceScreen}

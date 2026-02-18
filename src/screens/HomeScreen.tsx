@@ -18,7 +18,7 @@ import * as Haptics from 'expo-haptics';
 
 // Types
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/AppNavigator';
+import { RootStackParamList } from '../types/navigationTypes';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -39,9 +39,13 @@ export default function HomeScreen() {
   // useInAppUpdates(); // Requires expo-updates
   const navigation = useNavigation<NavigationProp>();
   const [greeting, setGreeting] = useState(getTimeBasedGreeting());
-  const { history, fetchHistory, isFetchingHistory } = useTestStore();
-  const { user } = useAuthStore();
+  const { history, fetchHistory, isFetchingHistory, exams, fetchExams } = useTestStore();
+  const { user, checkStreak } = useAuthStore();
   const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+  useEffect(() => {
+    checkStreak();
+  }, [checkStreak]);
 
   const isInitialLoading = history.length === 0 && isFetchingHistory;
 
@@ -61,7 +65,8 @@ export default function HomeScreen() {
 
   useEffect(() => {
     fetchHistory(0);
-  }, [fetchHistory]);
+    fetchExams();
+  }, [fetchHistory, fetchExams]);
 
   const onRefresh = React.useCallback(async () => {
     setIsRefreshing(true);
@@ -136,7 +141,6 @@ export default function HomeScreen() {
         }
       >
         {/* Header */}
-        {/* Header */}
         <View style={styles.header}>
           <View>
             <Text style={[styles.greeting, { color: colors.textSecondary }]}>
@@ -156,6 +160,27 @@ export default function HomeScreen() {
             textStyle={{ color: colors.warning }}
           />
         </View>
+
+        {/* Explore Exams */}
+        {exams.length > 0 && (
+          <View style={styles.examsSection}>
+            <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: spacing.sm }]}>Explore Exams</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.examsList}>
+              {exams.map((exam) => (
+                <TouchableOpacity
+                  key={exam.id}
+                  style={[styles.examCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => console.log('Open Exam:', exam.title)}
+                >
+                  <View style={[styles.examIcon, { backgroundColor: colors.primary + '15' }]}>
+                    <Ionicons name={exam.icon_url as any || "school"} size={24} color={colors.primary} />
+                  </View>
+                  <Text style={[styles.examTitle, { color: colors.text }]}>{exam.title}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Streak Card */}
         <StreakCard days={user?.streak || 0} style={styles.streakCard} />
@@ -285,6 +310,33 @@ const styles = StyleSheet.create({
   },
   activityDate: {
     ...typography.caption1,
+  },
+  examsSection: {
+    marginBottom: spacing.xl,
+  },
+  examsList: {
+    paddingRight: spacing.lg,
+    gap: spacing.md,
+  },
+  examCard: {
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    width: 100,
+    borderWidth: 1,
+  },
+  examIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  examTitle: {
+    ...typography.caption1,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   activityScore: {
     ...typography.headline,

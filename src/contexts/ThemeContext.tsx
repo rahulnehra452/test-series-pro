@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useColorScheme } from 'react-native';
+import { ActivityIndicator, StyleSheet, View, useColorScheme } from 'react-native';
 import { colors } from '../constants/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { StatusBar } from 'expo-status-bar';
 
 type ThemeType = 'light' | 'dark' | 'system';
 
@@ -60,7 +59,12 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const activeColors = theme === 'dark' ? colors.dark : colors.light;
 
   if (!isThemeLoaded) {
-    return null; // Or a splash screen component
+    const bootColors = theme === 'dark' ? colors.dark : colors.light;
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: bootColors.background }]}>
+        <ActivityIndicator size="large" color={bootColors.primary} />
+      </View>
+    );
   }
 
   return (
@@ -73,7 +77,6 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         isDark: theme === 'dark',
       }}
     >
-      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
       {children}
     </ThemeContext.Provider>
   );
@@ -86,3 +89,11 @@ export const useTheme = () => {
   }
   return context;
 };
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

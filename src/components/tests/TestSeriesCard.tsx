@@ -86,8 +86,15 @@ export const TestSeriesCard: React.FC<TestSeriesCardProps> = ({
                 <Ionicons name="play" size={16} color="#FFF" />
               </View>
             </View>
-          ) : (
+          ) : isPurchased ? (
             <Text style={[styles.statusText, { color: colors.success }]}>Start Test</Text>
+          ) : (
+            <View style={styles.lockedContainer}>
+              <Ionicons name="lock-closed" size={14} color={colors.warning} />
+              <Text style={[styles.lockedText, { color: colors.warning }]}>
+                {price ? `Unlock ${price}` : 'Unlock Premium'}
+              </Text>
+            </View>
           )}
         </View>
       </TouchableOpacity>
@@ -176,6 +183,15 @@ const styles = StyleSheet.create({
   statusText: {
     ...typography.subhead,
     fontWeight: '600',
+  },
+  lockedContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  lockedText: {
+    ...typography.caption1,
+    fontWeight: '700',
   },
   priceText: {
     ...typography.headline,

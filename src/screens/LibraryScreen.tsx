@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -41,7 +41,7 @@ import { runtimeConfig } from '../config/runtimeConfig';
 // Mock Data - Removed in favor of store
 const SUBJECTS = ['All', 'Polity', 'History', 'Economy', 'Geography', 'Quant', 'Current Affairs'];
 // const EXAMS = ['All Exams', 'UPSC Prelims 2025', 'CSAT 2025', 'History Daily Quiz', 'Mains 2024'];
-import { CATEGORIES, MOCK_TEST_SERIES } from './TestsScreen';
+import { CATEGORIES, MOCK_TEST_SERIES } from '../data/mockTests';
 const EXAM_FILTERS = ['All Exams', ...CATEGORIES.filter(c => c !== 'All')];
 
 const getExamCategory = (examStr: string | undefined): string => {
@@ -139,10 +139,16 @@ export default function LibraryScreen() {
   const [selectedQuestion, setSelectedQuestion] = useState<LibraryQuestionDetail | null>(null);
   const [questionModalVisible, setQuestionModalVisible] = useState(false);
   const [openingQuestionId, setOpeningQuestionId] = useState<string | null>(null);
-  const [typeChangeModalVisible, setTypeChangeModalVisible] = useState(false);
-  const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
-  const { library, updateLibraryItemType } = useTestStore();
+  const { library, updateLibraryItemType, exams, fetchExams } = useTestStore();
+
+  const examFilters = useMemo(() => {
+    return ['All Exams', ...exams.map(e => e.title)];
+  }, [exams]);
+
+  useEffect(() => {
+    fetchExams();
+  }, [fetchExams]);
 
   const filteredItems = useMemo(() => {
     // First filter by criteria
@@ -150,7 +156,10 @@ export default function LibraryScreen() {
       const itemCategory = getExamCategory(item.exam);
 
       const matchesSubject = selectedSubject === 'All' || item.subject.toLowerCase() === selectedSubject.toLowerCase() || item.subject.toLowerCase().includes(selectedSubject.toLowerCase());
-      const matchesExam = selectedExam === 'All Exams' || itemCategory === selectedExam;
+      const matchesExam = selectedExam === 'All Exams' ||
+        (item.exam && item.exam === selectedExam) ||
+        (item.examId && exams.find(e => e.id === item.examId)?.title === selectedExam) ||
+        getExamCategory(item.exam) === selectedExam; // Fallback to old category logic
       const matchesType = !selectedType || item.type.toLowerCase() === selectedType;
       const matchesSearch = item.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -607,7 +616,7 @@ export default function LibraryScreen() {
               </View>
 
               <ScrollView contentContainerStyle={styles.modalScroll}>
-                {EXAM_FILTERS.map((exam) => (
+                {examFilters.map((exam) => (
                   <TouchableOpacity
                     key={exam}
                     style={[

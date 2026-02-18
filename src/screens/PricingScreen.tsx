@@ -80,12 +80,10 @@ export default function PricingScreen() {
   const selectedTierMeta = TIERS.find(tier => tier.id === selectedTier);
   const selectedProductId = selectedTierMeta?.productId;
   const isSelectedSkuConfigured = !!selectedProductId && billingSkus.includes(selectedProductId);
-  const canCheckout =
-    !!selectedTier &&
-    !isPurchasing &&
-    !isAlreadyPro &&
-    isAndroidBillingAvailable &&
-    isSelectedSkuConfigured;
+  const isPurchaseActionDisabled =
+    !selectedTier ||
+    isPurchasing ||
+    isAlreadyPro;
 
   const handlePurchase = async () => {
     if (!selectedTier || isPurchasing || isAlreadyPro) return;
@@ -211,11 +209,11 @@ export default function PricingScreen() {
             styles.buyButton,
             {
               backgroundColor: selectedTier ? (TIERS.find(t => t.id === selectedTier)?.color || colors.primary) : colors.border,
-              opacity: canCheckout ? 1 : 0.6
+              opacity: isPurchaseActionDisabled ? 0.6 : 1
             }
           ]}
           onPress={handlePurchase}
-          disabled={!canCheckout}
+          disabled={isPurchaseActionDisabled}
           activeOpacity={0.8}
         >
           {isPurchasing ? (
@@ -223,7 +221,7 @@ export default function PricingScreen() {
           ) : (
             <>
               <Text style={styles.buyButtonText}>{isAlreadyPro ? 'Pro Active' : 'Buy Now'}</Text>
-              {selectedTier && !isAlreadyPro && canCheckout && (
+              {selectedTier && !isAlreadyPro && !isPurchasing && (
                 <Text style={styles.buyButtonPrice}>
                   ₹{TIERS.find(t => t.id === selectedTier)?.price}
                 </Text>

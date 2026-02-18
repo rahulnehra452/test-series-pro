@@ -2,8 +2,9 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
-import { User } from '../types';
+import { User, UserProfile } from '../types';
 import { useTestStore } from './testStore';
+import { handleError } from '../utils/errorHandler';
 
 interface AuthState {
   user: User | null;
@@ -92,7 +93,7 @@ export const useAuthStore = create<AuthState>()(
           // Hydrate profile data in background so login navigation is never blocked by profile query latency.
           void (async () => {
             try {
-              const { data: profile } = await withTimeout<{ data: any; error: any }>(
+              const { data: profile } = await withTimeout<{ data: UserProfile | null; error: any }>(
                 supabase
                   .from('profiles')
                   .select('*')
@@ -114,7 +115,7 @@ export const useAuthStore = create<AuthState>()(
                 }));
               }
             } catch (profileError) {
-              console.error('Failed to hydrate profile after login:', profileError);
+              handleError(profileError, 'Auth:HydrateProfile');
             }
           })();
         }
@@ -155,7 +156,7 @@ export const useAuthStore = create<AuthState>()(
               .from('profiles')
               .select('*')
               .eq('id', data.user!.id)
-              .single();
+              .single<UserProfile>();
 
             if (profile) {
               set(state => ({
@@ -210,7 +211,7 @@ export const useAuthStore = create<AuthState>()(
 
           if (data.session?.user) {
             // Fetch full profile
-            const { data: profile } = await withTimeout<{ data: any; error: any }>(
+            const { data: profile } = await withTimeout<{ data: UserProfile | null; error: any }>(
               supabase
                 .from('profiles')
                 .select('*')
@@ -236,7 +237,7 @@ export const useAuthStore = create<AuthState>()(
 
           set({ user: null, isAuthenticated: false });
         } catch (error) {
-          console.error('Error checking session:', error);
+          handleError(error, 'Auth:CheckSession');
           set({ user: null, isAuthenticated: false });
         } finally {
           set({ isLoading: false });

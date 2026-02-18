@@ -13,6 +13,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuthStore } from '../stores/authStore';
+import { handleError, showAlert } from '../utils/errorHandler';
 import { spacing, typography, borderRadius } from '../constants/theme';
 import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
@@ -81,12 +82,12 @@ export default function LoginScreen() {
       });
 
       if (error) {
-        Alert.alert('Google Sign-In Error', error.message);
+        showAlert('Google Sign-In Error', handleError(error, 'Login:GoogleSignIn'));
         return;
       }
 
       if (!data?.url) {
-        Alert.alert('Google Sign-In Error', 'No OAuth URL returned from server.');
+        showAlert('Google Sign-In Error', 'No OAuth URL returned from server.');
         return;
       }
 
@@ -94,16 +95,16 @@ export default function LoginScreen() {
 
       if (result.type !== 'success') {
         if (result.type !== 'cancel' && result.type !== 'dismiss') {
-          Alert.alert('Login Incomplete', `Auth session ended with type: ${result.type}`);
+          showAlert('Login Incomplete', `Auth session ended with type: ${result.type}`);
         }
         return;
       }
 
       const parsed = parseOAuthCallbackParams(result.url);
       if (parsed.error) {
-        Alert.alert(
+        showAlert(
           'Google Sign-In Error',
-          parsed.errorDescription ?? parsed.error
+          parsed.errorDescription ?? parsed.error ?? 'Unknown error'
         );
         return;
       }
@@ -111,7 +112,7 @@ export default function LoginScreen() {
       if (parsed.code) {
         const { error: sessionError } = await supabase.auth.exchangeCodeForSession(parsed.code);
         if (sessionError) {
-          Alert.alert('Session Error', sessionError.message);
+          showAlert('Session Error', handleError(sessionError, 'Login:ExchangeCode'));
           return;
         }
 
@@ -126,7 +127,7 @@ export default function LoginScreen() {
         });
 
         if (sessionError) {
-          Alert.alert('Session Error', sessionError.message);
+          showAlert('Session Error', handleError(sessionError, 'Login:SetSession'));
           return;
         }
 
@@ -134,12 +135,12 @@ export default function LoginScreen() {
         return;
       }
 
-      Alert.alert(
+      showAlert(
         'Login Failed',
         'Could not read the OAuth callback on this device. Please try again.'
       );
     } catch (error: any) {
-      Alert.alert('Error', error.message);
+      showAlert('Error', handleError(error, 'Login:OAuhFlow'));
     } finally {
       setLoading(false);
     }
@@ -147,7 +148,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      showAlert('Error', 'Please fill in all fields');
       return;
     }
 
@@ -156,7 +157,7 @@ export default function LoginScreen() {
       await login(email, password);
       // Success is handled by authStore updating state
     } catch (error: any) {
-      Alert.alert('Login Failed', error.message || 'Something went wrong');
+      showAlert('Login Failed', handleError(error, 'Login:EmailAuth'));
     } finally {
       setLoading(false);
     }
@@ -270,7 +271,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     borderWidth: 1,
     paddingHorizontal: spacing.base,
-    // height: 56, // Handled by Input component now
+    minHeight: 56,
   },
   icon: {
     marginRight: spacing.md,
@@ -278,7 +279,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    height: '100%',
+    paddingVertical: 14,
   },
   button: {
     // height: 56, // Handled by size="lg" prop

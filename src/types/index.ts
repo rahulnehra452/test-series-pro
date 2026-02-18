@@ -12,6 +12,18 @@ export interface User {
   lastActiveDate?: string; // ISO Date string YYYY-MM-DD
 }
 
+export interface UserProfile {
+  id: string;
+  email: string;
+  full_name?: string;
+  avatar_url?: string;
+  is_pro?: boolean;
+  streak?: number;
+  last_active_at?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Question {
   id: string;
   text: string;
@@ -23,8 +35,28 @@ export interface Question {
   type: QuestionType;
 }
 
+
+export interface Exam {
+  id: string;
+  title: string;
+  slug: string;
+  icon_url?: string;
+}
+
 export interface TestSeries {
   id: string;
+  examId: string;
+  title: string;
+  description: string;
+  price: string;
+  isActive: boolean;
+  coverImage?: string;
+  tests?: RemoteTest[]; // Optional, for nested fetching
+}
+
+export interface RemoteTest {
+  id: string;
+  seriesId?: string;
   title: string;
   description: string;
   category: string;
@@ -70,5 +102,6 @@ export interface LibraryItem {
   type: LibraryItemType;
   saveTimestamp: number;
   exam?: string; // Optional exam tag
+  examId?: string; // For filtering by Exam ID
   note?: string;
 }

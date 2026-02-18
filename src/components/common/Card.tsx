@@ -40,6 +40,13 @@ export const Card: React.FC<CardProps> = ({
         borderWidth: 1,
         borderColor: colors.border,
       };
+    // Add subtle border to elevated cards in light mode for better visibility
+    if (variant === 'elevated' && theme === 'light') {
+      return {
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.05)',
+      };
+    }
     return {};
   };
 
