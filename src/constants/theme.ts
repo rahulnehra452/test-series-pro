@@ -33,14 +33,26 @@ export const colors = {
     text: '#000000', // Label
     textSecondary: '#3C3C4399', // SecondaryLabel (60% opacity)
     textTertiary: '#3C3C434D', // TertiaryLabel (30% opacity)
-    primary: '#007AFF', // SystemBlue
+    primary: '#007AFF', // SystemBlue - Primary Actions Only
     primaryLight: '#5856D6', // SystemIndigo (as accent)
-    success: '#34C759', // SystemGreen
-    warning: '#FF9500', // SystemOrange
-    error: '#FF3B30', // SystemRed
+    success: '#34C759', // SystemGreen - Success Only
+    warning: '#FF9500', // SystemOrange - Warnings/Caution Only
+    error: '#FF3B30', // SystemRed - Errors/Destructive Only
     border: '#C6C6C8', // Opaque Separator (Gray3)
     separator: '#3C3C434D', // Non-Opaque Separator
     selected: '#E5EFFF',
+
+    // Subject Colors (Distinct from Semantic Colors)
+    subject: {
+      history: '#A0522D', // Sienna
+      polity: '#4682B4', // SteelBlue
+      economy: '#9B59B6', // Amethyst (Purple) - Distinct from Success Green
+      geography: '#D35400', // Pumpkin - Distinct from Warning Orange
+      science: '#1ABC9C', // Turquoise
+      environment: '#27AE60', // Nephritis
+      currentAffairs: '#E67E22', // Carrot
+      other: '#95A5A6', // Concrete
+    }
   },
   dark: {
     background: '#000000', // SystemBackground
@@ -57,6 +69,18 @@ export const colors = {
     border: '#38383A', // Opaque Separator (Gray4)
     separator: '#54545899', // Non-Opaque Separator
     selected: '#1A3A5C',
+
+    // Subject Colors (Dark Mode variations if needed, keeping same for consistency)
+    subject: {
+      history: '#CD853F', // Peru (Lighter Sienna)
+      polity: '#5DADE2', // Lighter SteelBlue
+      economy: '#AF7AC5', // Lighter Purple
+      geography: '#E59866', // Lighter Pumpkin
+      science: '#48C9B0', // Lighter Turquoise
+      environment: '#58D68D', // Lighter Green
+      currentAffairs: '#F0B27A', // Lighter Carrot
+      other: '#BFC9CA', // Lighter Concrete
+    }
   },
 };
 
@@ -111,6 +135,11 @@ export const shadows = {
 };
 
 export const typography = {
+  display: {
+    fontSize: 32,
+    fontWeight: '700' as const,
+    lineHeight: 40,
+  },
   largeTitle: {
     fontSize: 34,
     fontWeight: '700' as const,
@@ -165,6 +194,13 @@ export const typography = {
     fontSize: 11,
     fontWeight: '400' as const,
     lineHeight: 13,
+  },
+  label: {
+    fontSize: 12,
+    fontWeight: '500' as const,
+    lineHeight: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 };
 

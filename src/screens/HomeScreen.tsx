@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScreenWrapper } from '../components/common/ScreenWrapper';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { borderRadius, spacing, typography } from '../constants/theme';
@@ -13,6 +13,7 @@ import { ContinueLearning } from '../components/home/ContinueLearning';
 import { SkeletonActivityCard } from '../components/home/SkeletonActivityCard';
 import { Button } from '../components/common/Button';
 import { EmptyState } from '../components/common/EmptyState';
+import { getScoreColor } from '../utils/score';
 import * as Haptics from 'expo-haptics';
 
 // Types
@@ -35,7 +36,6 @@ import { useTestStore } from '../stores/testStore';
 
 export default function HomeScreen() {
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
   // useInAppUpdates(); // Requires expo-updates
   const navigation = useNavigation<NavigationProp>();
   const [greeting, setGreeting] = useState(getTimeBasedGreeting());
@@ -119,118 +119,115 @@ export default function HomeScreen() {
   };
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={[
-        styles.contentContainer,
-        { paddingTop: insets.top + spacing.md }
-      ]}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={isRefreshing}
-          onRefresh={onRefresh}
-          tintColor={colors.primary}
-        />
-      }
-    >
-      {/* Header */}
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={[styles.greeting, { color: colors.textSecondary }]}>
-            {greeting} 👋
-          </Text>
-          <Text style={[styles.userName, { color: colors.text }]}>
-            {user?.name || 'Student'}
-          </Text>
-        </View>
-        <Button
-          title="Pro"
-          size="sm"
-          variant="secondary"
-          onPress={() => navigation.navigate('Main', { screen: 'Profile' })}
-          leftIcon={<Ionicons name="diamond" size={16} color={colors.warning} />}
-          style={{ backgroundColor: colors.warning + '20' }}
-          textStyle={{ color: colors.warning, fontWeight: '700' }}
-        />
-      </View>
-
-      {/* Streak Card */}
-      <StreakCard days={user?.streak || 0} style={styles.streakCard} />
-
-      {/* Progress Grid */}
-      <ProgressGrid />
-
-      {/* Continue Learning */}
-      <ContinueLearning
-        title={currentAttempt ? currentAttempt.testTitle : MOCK_PROGESS.title}
-        subtitle={currentAttempt
-          ? `Question ${(currentAttempt.currentIndex || 0) + 1} of ${currentAttempt.questions.length || '?'} • Resume`
-          : `${MOCK_PROGESS.completedTests} of ${MOCK_PROGESS.totalTests} tests completed`}
-        progress={currentAttempt
-          ? ((currentAttempt.currentIndex || 0) / (currentAttempt.questions.length || 1))
-          : MOCK_PROGESS.progress}
-        buttonText={currentAttempt ? "Resume Test" : "Continue Series"}
-        onPress={handleContinue}
-      />
-
-      {/* Recent Activity */}
-      <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Activity</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Main', { screen: 'Progress' })}>
-          <Text style={[styles.seeAll, { color: colors.primary }]}>See All</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Activity List */}
-      <View style={styles.activityList}>
-        {isInitialLoading ? (
-          // Show Skeletons
-          [1, 2, 3].map(i => <SkeletonActivityCard key={i} />)
-        ) : recentActivity.length > 0 ? (
-          recentActivity.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={[styles.activityItem, { backgroundColor: colors.secondaryBackground }]}
-              onPress={() => handleActivityPress(item)}
-            >
-              <View>
-                <Text style={[styles.activityTitle, { color: colors.text }]}>{item.testTitle}</Text>
-                <Text style={[styles.activityDate, { color: colors.textSecondary }]}>
-                  {getRelativeDate(item.startTime)}
-                </Text>
-              </View>
-              <Text style={[
-                styles.activityScore,
-                {
-                  // Guard totalMarks=0 rows to avoid NaN/Infinity color decisions.
-                  color:
-                    item.status !== 'Completed'
-                      ? colors.textTertiary
-                      : item.totalMarks > 0 && (item.score / item.totalMarks) >= 0.6
-                        ? colors.success
-                        : item.totalMarks > 0 && (item.score / item.totalMarks) >= 0.2
-                          ? colors.warning
-                          : colors.error
-                }
-              ]}>
-                {item.status === 'Completed' ? `${item.score}/${item.totalMarks}` : 'In Progress'}
-              </Text>
-            </TouchableOpacity>
-          ))
-        ) : (
-          <EmptyState
-            description="No recent activity"
-            icon="time-outline"
-            variant="inline"
+    <ScreenWrapper>
+      <ScrollView
+        style={[styles.container]}
+        contentContainerStyle={[
+          styles.contentContainer,
+          { paddingTop: spacing.md }
+        ]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
           />
-        )}
-      </View>
+        }
+      >
+        {/* Header */}
+        {/* Header */}
+        <View style={styles.header}>
+          <View>
+            <Text style={[styles.greeting, { color: colors.textSecondary }]}>
+              {greeting} 👋
+            </Text>
+            <Text style={[styles.userName, { color: colors.text }]}>
+              {user?.name || 'Student'}
+            </Text>
+          </View>
+          <Button
+            title="Pro"
+            size="sm"
+            variant="secondary"
+            onPress={() => navigation.navigate('Main', { screen: 'Profile' })}
+            leftIcon={<Ionicons name="diamond" size={16} color={colors.warning} />}
+            style={{ backgroundColor: colors.warning + '20' }}
+            textStyle={{ color: colors.warning }}
+          />
+        </View>
 
-      {/* Bottom Padding */}
-      <View style={{ height: 100 }} />
-    </ScrollView>
+        {/* Streak Card */}
+        <StreakCard days={user?.streak || 0} style={styles.streakCard} />
+
+        {/* Progress Grid */}
+        <ProgressGrid />
+
+        {/* Continue Learning */}
+        <ContinueLearning
+          title={currentAttempt ? currentAttempt.testTitle : MOCK_PROGESS.title}
+          subtitle={currentAttempt
+            ? `Question ${(currentAttempt.currentIndex || 0) + 1} of ${currentAttempt.questions.length || '?'} • Resume`
+            : `${MOCK_PROGESS.completedTests} of ${MOCK_PROGESS.totalTests} tests completed`}
+          progress={currentAttempt
+            ? ((currentAttempt.currentIndex || 0) / (currentAttempt.questions.length || 1))
+            : MOCK_PROGESS.progress}
+          buttonText={currentAttempt ? "Resume Test" : "Continue Series"}
+          onPress={handleContinue}
+        />
+
+        {/* Recent Activity */}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Activity</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Main', { screen: 'Progress' })}>
+            <Text style={[styles.seeAll, { color: colors.primary }]}>See All</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Activity List */}
+        <View style={styles.activityList}>
+          {isInitialLoading ? (
+            // Show Skeletons
+            [1, 2, 3].map(i => <SkeletonActivityCard key={i} />)
+          ) : recentActivity.length > 0 ? (
+            recentActivity.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={[styles.activityItem, { backgroundColor: colors.secondaryBackground }]}
+                onPress={() => handleActivityPress(item)}
+              >
+                <View>
+                  <Text style={[styles.activityTitle, { color: colors.text }]}>{item.testTitle}</Text>
+                  <Text style={[styles.activityDate, { color: colors.textSecondary }]}>
+                    {getRelativeDate(item.startTime)}
+                  </Text>
+                </View>
+                <Text style={[
+                  styles.activityScore,
+                  {
+                    // Guard totalMarks=0 rows to avoid NaN/Infinity color decisions.
+                    color: item.status !== 'Completed'
+                      ? colors.textTertiary
+                      : getScoreColor(item.score, item.totalMarks, colors)
+                  }
+                ]}>
+                  {item.status === 'Completed' ? `${item.score}/${item.totalMarks}` : 'In Progress'}
+                </Text>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <EmptyState
+              description="No recent activity"
+              icon="time-outline"
+              variant="inline"
+            />
+          )}
+        </View>
+
+        {/* Bottom Padding */}
+        <View style={{ height: 100 }} />
+      </ScrollView>
+    </ScreenWrapper>
   );
 }
 
@@ -283,15 +280,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activityTitle: {
-    ...typography.body,
-    fontWeight: '600',
+    ...typography.headline,
     marginBottom: spacing.xs,
   },
   activityDate: {
     ...typography.caption1,
   },
   activityScore: {
-    ...typography.callout,
-    fontWeight: '700',
+    ...typography.headline,
   },
 });

@@ -8,7 +8,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../components/common/Card';
 import { useAuthStore } from '../stores/authStore';
 import { EditProfileModal } from '../components/profile/EditProfileModal';
-import { ScaleButton } from '../components/common/ScaleButton';
+import { Button } from '../components/common/Button';
+import { ScreenHeader } from '../components/common/ScreenHeader';
+import { ScreenWrapper } from '../components/common/ScreenWrapper';
+import { ScaleButton } from '../components/common/ScaleButton'; // Kept for MenuItem usage
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 const MenuItem = ({ icon, label, value, onPress, isSwitch, onSwitchChange }: any) => {
@@ -124,95 +127,103 @@ export default function ProfileScreen() {
     return name[0]?.toUpperCase() || 'U';
   };
 
-  const insets = useSafeAreaInsets();
-
   if (!user) return null; // Should ideally redirect to login
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={{ paddingTop: insets.top + spacing.md }}
-    >
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
-      </View>
-
-      <Animated.View
-        entering={FadeInDown.delay(100).springify()}
-        style={styles.profileHeader}
+    <ScreenWrapper>
+      <ScrollView
+        style={[styles.container]}
+        contentContainerStyle={{ paddingTop: spacing.md }}
       >
-        <View style={[styles.avatar, { backgroundColor: colors.primaryLight, overflow: 'hidden' }]}>
-          {user.avatar ? (
-            <Image
-              source={{ uri: user.avatar }}
-              style={{ width: '100%', height: '100%' }}
-              resizeMode="cover"
-            />
-          ) : (
-            <Text style={styles.avatarText}>{getInitials(user.name)}</Text>
-          )}
-        </View>
-        <Text style={[styles.userName, { color: colors.text }]}>{user.name}</Text>
-        <Text style={[styles.userEmail, { color: colors.textSecondary }]}>{user.email}</Text>
-        {user.isPro && (
-          <View style={[styles.planBadge, { backgroundColor: colors.primary }]}>
-            <Text style={styles.planText}>PRO MEMBER</Text>
+        <ScreenHeader title="Profile" style={{ marginBottom: spacing.md }} />
+
+        <Animated.View
+          entering={FadeInDown.delay(100).springify()}
+          style={styles.profileHeader}
+        >
+          <View style={[styles.avatar, { backgroundColor: colors.primaryLight, overflow: 'hidden' }]}>
+            {user.avatar ? (
+              <Image
+                source={{ uri: user.avatar }}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode="cover"
+              />
+            ) : (
+              <Text style={styles.avatarText}>{getInitials(user.name)}</Text>
+            )}
           </View>
-        )}
-      </Animated.View>
-
-      <Animated.View style={styles.section} entering={FadeInDown.delay(200).springify()}>
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>PREFERENCES</Text>
-        <Card style={styles.card}>
-          <MenuItem
-            icon="moon-outline"
-            label="Dark Mode"
-            isSwitch
-            value={isDark}
-            onSwitchChange={toggleTheme}
-          />
-          {showNotificationsToggle && (
-            <MenuItem
-              icon="notifications-outline"
-              label="Notifications"
-              isSwitch
-              value={true}
-            />
+          <Text style={[styles.userName, { color: colors.text }]}>{user.name}</Text>
+          <Text style={[styles.userEmail, { color: colors.textSecondary }]}>{user.email}</Text>
+          {user.isPro && (
+            <View style={[styles.planBadge, { backgroundColor: colors.primary }]}>
+              <Text style={styles.planText}>PRO MEMBER</Text>
+            </View>
           )}
-        </Card>
-      </Animated.View>
+        </Animated.View>
 
-      <Animated.View style={styles.section} entering={FadeInDown.delay(300).springify()}>
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>ACCOUNT</Text>
-        <Card style={styles.card}>
-          <MenuItem icon="person-outline" label="Edit Profile" onPress={() => setModalVisible(true)} />
-          <MenuItem
-            icon="card-outline"
-            label="Subscription"
-            value={user.isPro ? "Active" : "Inactive"}
-            onPress={() => navigation.navigate('Pricing')}
+        <Animated.View style={styles.section} entering={FadeInDown.delay(200).springify()}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>PREFERENCES</Text>
+          <Card style={styles.card}>
+            <MenuItem
+              icon="moon-outline"
+              label="Dark Mode"
+              isSwitch
+              value={isDark}
+              onSwitchChange={toggleTheme}
+            />
+            {showNotificationsToggle && (
+              <MenuItem
+                icon="notifications-outline"
+                label="Notifications"
+                isSwitch
+                value={true}
+              />
+            )}
+          </Card>
+        </Animated.View>
+
+        <Animated.View style={styles.section} entering={FadeInDown.delay(300).springify()}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>ACCOUNT</Text>
+          <Card style={styles.card}>
+            <MenuItem icon="person-outline" label="Edit Profile" onPress={() => setModalVisible(true)} />
+            <MenuItem
+              icon="card-outline"
+              label="Subscription"
+              value={user.isPro ? "Active" : "Inactive"}
+              onPress={() => navigation.navigate('Pricing')}
+            />
+            <MenuItem
+              icon="help-circle-outline"
+              label="Help & Support"
+              onPress={handleSupportPress}
+            />
+          </Card>
+        </Animated.View>
+
+        <View style={styles.logoutContainer}>
+          <Button
+            title="Log Out"
+            onPress={handleLogout}
+            variant="secondary"
+            style={[styles.logoutButton, { backgroundColor: colors.error + '20' }]}
+            textStyle={{ color: colors.error }}
           />
-          <MenuItem
-            icon="help-circle-outline"
-            label="Help & Support"
-            onPress={handleSupportPress}
+
+          <Button
+            title="Delete Account"
+            onPress={handleDeleteAccount}
+            variant="ghost"
+            style={styles.deleteButton}
+            textStyle={{ color: colors.textTertiary, textDecorationLine: 'underline', ...typography.footnote }}
           />
-        </Card>
-      </Animated.View>
+        </View>
 
-      <ScaleButton onPress={handleLogout} style={styles.logoutButton}>
-        <Text style={styles.logoutText}>Log Out</Text>
-      </ScaleButton>
+        <Text style={[styles.versionText, { color: colors.textTertiary }]}>Version 1.0.0</Text>
+        <View style={{ height: 100 }} />
 
-      <TouchableOpacity onPress={handleDeleteAccount} style={styles.deleteButton}>
-        <Text style={[styles.deleteText, { color: colors.textTertiary }]}>Delete Account</Text>
-      </TouchableOpacity>
-
-      <Text style={[styles.versionText, { color: colors.textTertiary }]}>Version 1.0.0</Text>
-      <View style={{ height: 100 }} />
-
-      <EditProfileModal visible={modalVisible} onClose={() => setModalVisible(false)} />
-    </ScrollView>
+        <EditProfileModal visible={modalVisible} onClose={() => setModalVisible(false)} />
+      </ScrollView>
+    </ScreenWrapper>
   );
 }
 
@@ -221,12 +232,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: spacing.lg,
   },
-  header: {
-    marginBottom: spacing.lg,
-  },
-  headerTitle: {
-    ...typography.largeTitle,
-  },
+
   profileHeader: {
     alignItems: 'center',
     marginBottom: spacing.xl,
@@ -241,11 +247,10 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     ...typography.largeTitle,
-    color: '#FFFFFF',
+    color: '#FFFFFF', // Creates a "textOnPrimary" effect, keeping white is usually correct for primary backgrounds even in dark mode
   },
   userName: {
     ...typography.title2,
-    fontWeight: '700',
     marginBottom: spacing.xs,
   },
   userEmail: {
@@ -254,15 +259,17 @@ const styles = StyleSheet.create({
   },
   planBadge: {
     paddingHorizontal: spacing.md,
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
   },
   planText: {
     ...typography.caption2,
-    color: '#FFFFFF',
-    fontWeight: '700',
+    color: '#FFFFFF', // Keep white for contrast on primary color
+    fontWeight: '700', // Kept as specific design choice for badge
     letterSpacing: 1,
   },
+  // ...
+
   section: {
     marginBottom: spacing.lg,
   },
@@ -306,24 +313,18 @@ const styles = StyleSheet.create({
   menuValue: {
     ...typography.subhead,
   },
-  logoutButton: {
-    alignItems: 'center',
-    padding: spacing.md,
+  logoutContainer: {
+    paddingHorizontal: spacing.md,
     marginTop: spacing.sm,
+    gap: spacing.xs,
   },
-  logoutText: {
-    ...typography.body,
-    color: '#FF3B30', // Use hex for error color in StyleSheet or refactor to useTheme hook
-    fontWeight: '600',
+  logoutButton: {
+    // backgroundColor handled inline with theme opacity
   },
   deleteButton: {
-    alignItems: 'center',
-    padding: spacing.md,
-    marginTop: -spacing.sm,
-  },
-  deleteText: {
-    ...typography.caption1,
-    textDecorationLine: 'underline',
+    alignSelf: 'center',
+    marginTop: -spacing.xs,
+    height: 32,
   },
   versionText: {
     textAlign: 'center',

@@ -14,14 +14,17 @@ import {
   ActionSheetIOS,
   Alert,
 } from 'react-native';
+import { ScreenWrapper } from '../components/common/ScreenWrapper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../contexts/ThemeContext';
 import { borderRadius, spacing, typography, colors as themeColors } from '../constants/theme';
 import { Card } from '../components/common/Card';
 import { Input } from '../components/common/Input';
 import { ExpandableText } from '../components/common/ExpandableText';
+import { EmptyState } from '../components/common/EmptyState';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 
 import { getSubjectDetails } from '../utils/subjectIcons';
 import { LibraryItem, LibraryItemType } from '../types';
@@ -88,7 +91,10 @@ const SummaryCard = ({ title, count, icon, gradient, onPress, isActive }: Summar
   const { isDark } = useTheme();
   return (
     <TouchableOpacity
-      onPress={onPress}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onPress();
+      }}
       style={[
         styles.summaryCardWrapper,
         isActive && styles.summaryCardActive
@@ -364,6 +370,7 @@ export default function LibraryScreen() {
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             openQuestionDetail(item);
           }}
         >
@@ -392,6 +399,7 @@ export default function LibraryScreen() {
                 <TouchableOpacity
                   onPress={(e) => {
                     e.stopPropagation();
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     handleTypeChange(item.id, item.type);
                   }}
                   activeOpacity={0.7}
@@ -450,19 +458,19 @@ export default function LibraryScreen() {
     }
 
     return (
-      <View style={styles.emptyState}>
-        <View style={[styles.emptyIconBg, { backgroundColor: colors.secondaryBackground }]}>
-          <Ionicons name={iconName as any} size={32} color={colors.primary} />
-        </View>
-        <Text style={[styles.emptyText, { color: colors.text }]}>{message}</Text>
-        <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>{subtext}</Text>
-      </View>
+      <EmptyState
+        title={message}
+        description={subtext}
+        icon={iconName as any}
+        actionLabel={searchQuery ? "Clear Search" : undefined}
+        onAction={searchQuery ? () => setSearchQuery('') : undefined}
+      />
     );
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: insets.top + spacing.md }]}>
+    <ScreenWrapper>
+      <View style={[styles.header, { paddingTop: spacing.md }]}>
         <Text style={[styles.title, { color: colors.text }]}>Library</Text>
         <TouchableOpacity
           style={[
@@ -536,7 +544,10 @@ export default function LibraryScreen() {
                 {SUBJECTS.map(subject => (
                   <TouchableOpacity
                     key={subject}
-                    onPress={() => setSelectedSubject(subject)}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setSelectedSubject(subject);
+                    }}
                     style={[
                       styles.subjectChip,
                       {
@@ -604,6 +615,7 @@ export default function LibraryScreen() {
                       { backgroundColor: exam === selectedExam ? colors.primary + '15' : 'transparent' }
                     ]}
                     onPress={() => {
+                      Haptics.selectionAsync();
                       setSelectedExam(exam);
                       setModalVisible(false);
                     }}
@@ -734,7 +746,7 @@ export default function LibraryScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </ScreenWrapper>
   );
 }
 

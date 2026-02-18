@@ -18,7 +18,8 @@ import { Card } from '../components/common/Card';
 import { EmptyState } from '../components/common/EmptyState';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScreenWrapper } from '../components/common/ScreenWrapper';
 import {
   getScoreTrend,
   getSubjectAccuracy,
@@ -27,6 +28,7 @@ import {
   getDailyQuestionsStats,
   getWeakTopics
 } from '../utils/statHelpers';
+import { getScoreConfig } from '../utils/score';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CHART_WIDTH = SCREEN_WIDTH - spacing.lg * 2;
@@ -111,7 +113,7 @@ export default function StatsScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+    <ScreenWrapper safeAreaEdges={['top']}>
       <View style={[styles.header, { paddingTop: spacing.md }]}>
         <Text style={[styles.screenTitle, { color: colors.text }]}>Progress</Text>
       </View>
@@ -178,8 +180,7 @@ export default function StatsScreen() {
                           styles.progressBarFill,
                           {
                             width: `${item.accuracy}%`,
-                            backgroundColor: item.accuracy < 40 ? colors.error :
-                              item.accuracy < 70 ? colors.warning : colors.success
+                            backgroundColor: getScoreConfig(item.accuracy, colors).color
                           }
                         ]}
                       />
@@ -350,7 +351,7 @@ export default function StatsScreen() {
           </>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 }
 
@@ -377,12 +378,11 @@ const styles = StyleSheet.create({
     marginBottom: -8,
   },
   card: {
-    padding: spacing.lg,
     borderRadius: borderRadius.xl,
-    ...Platform.select<any>({
-      ios: shadows.light.sm,
-      android: { elevation: 2 }
-    })
+    // Shadow handled by Card component now, but if this View is NOT a Card (it IS a Card component in usage),
+    // we should check. Wait, the usage is <Card style={styles.card}>.
+    // The Card component ALREADY applies shadows based on variant='elevated'.
+    // So we should REMOVE the manual shadow from here to avoid double shadowing or conflict.
   },
   sectionHeader: {
     flexDirection: 'row',

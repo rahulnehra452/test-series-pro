@@ -9,7 +9,7 @@ import { Input } from '../components/common/Input';
 import { TestSeriesCard } from '../components/tests/TestSeriesCard';
 import { CategoryPill } from '../components/common/CategoryPill';
 import { EmptyState } from '../components/common/EmptyState';
-import { RootStackParamList } from '../navigation/AppNavigator';
+import type { RootStackParamList } from '../navigation/AppNavigator';
 import { useTestStore } from '../stores/testStore';
 import { useAuthStore } from '../stores/authStore';
 import { useEffect } from 'react';

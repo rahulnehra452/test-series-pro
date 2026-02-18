@@ -10,6 +10,8 @@ import { RootStackParamList } from '../navigation/AppNavigator';
 import { useTheme } from '../contexts/ThemeContext';
 import { borderRadius, spacing, typography } from '../constants/theme';
 import { Button } from '../components/common/Button';
+import { ScreenHeader } from '../components/common/ScreenHeader';
+import { ScreenWrapper } from '../components/common/ScreenWrapper';
 import { Card } from '../components/common/Card';
 import { Ionicons } from '@expo/vector-icons';
 import { useTestStore } from '../stores/testStore';
@@ -18,6 +20,7 @@ import { getQuestionsForTest } from '../data/mockQuestions';
 import { CircularProgress } from '../components/common/CircularProgress';
 import { AnimatedCounter } from '../components/common/AnimatedCounter';
 import { ScaleButton } from '../components/common/ScaleButton';
+import { getScoreConfig, getScorePercentage } from '../utils/score';
 
 export default function ResultsScreen() {
   const { colors, isDark } = useTheme();
@@ -91,9 +94,9 @@ export default function ResultsScreen() {
   // But wait, score might differ from correct count due to negative marking.
   // Visual fill is usually Score %. But user emphasized "with 0 correct... should show 0%".
   // Let's use Score / Total Marks, but clamped to 0.
-  const scorePercentage = attempt.totalMarks > 0
-    ? Math.max(0, (attempt.score / attempt.totalMarks) * 100)
-    : 0;
+  // Progress & Message
+  const scorePercentage = getScorePercentage(attempt.score, attempt.totalMarks);
+  const scoreConfig = getScoreConfig(scorePercentage, colors);
 
   // Time String
   const durationMs = (attempt.endTime || Date.now()) - attempt.startTime;
@@ -101,12 +104,15 @@ export default function ResultsScreen() {
   const secs = Math.floor((durationMs % 60000) / 1000);
   const timeString = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
 
-  // Messaging Logic
+  // Messaging Logic - Override text if needed, or use defaults
   const getMessage = () => {
-    if (scorePercentage < 30) return { text: "Review & Learn 📚", color: colors.error };
-    if (scorePercentage < 50) return { text: "Keep Practicing 💪", color: colors.warning };
-    if (scorePercentage < 70) return { text: "Good Progress 📈", color: colors.primary };
-    return { text: "Excellent Work! 🎉", color: colors.success };
+    // Custom messages per tier
+    switch (scoreConfig.status) {
+      case 'poor': return { text: "Review & Learn 📚", color: scoreConfig.color };
+      case 'average': return { text: "Keep Practicing 💪", color: scoreConfig.color };
+      case 'good': return { text: "Good Progress 📈", color: scoreConfig.color };
+      case 'excellent': return { text: "Excellent Work! 🎉", color: scoreConfig.color };
+    }
   };
   const message = getMessage();
 
@@ -129,24 +135,18 @@ export default function ResultsScreen() {
   const timeAgo = new Date(attempt.endTime || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-
+    <ScreenWrapper>
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + (Platform.OS === 'android' ? 60 : 20) }]}
+        contentContainerStyle={[styles.content, { paddingTop: Platform.OS === 'android' ? 60 : 20 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Header with Back Button */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleSeries} style={styles.backBtn}>
-            <Ionicons name="chevron-back" size={24} color={colors.text} />
-          </TouchableOpacity>
-          <View style={styles.headerTextContainer}>
-            <Text style={[styles.headerTitle, { color: colors.text }]}>Test Results</Text>
-            <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-              {attempt.testTitle} • {stats.attempted} of {stats.total} attempted
-            </Text>
-          </View>
-        </View>
+        <ScreenHeader
+          title="Test Results"
+          subtitle={`${attempt.testTitle} • ${stats.attempted} of ${stats.total} attempted`}
+          showBack
+          onBack={handleSeries}
+        />
 
         {/* Hero Section */}
         <View style={styles.heroSection}>
@@ -239,7 +239,7 @@ export default function ResultsScreen() {
             <Card style={[styles.combinedCard]} padding={spacing.md}>
               <View style={styles.statItem}>
                 <Ionicons name="time" size={20} color={colors.primary} />
-                <View style={{ marginLeft: 8 }}>
+                <View style={{ marginLeft: spacing.sm }}>
                   <Text style={[styles.statValue, { color: colors.text }]}>{timeString}</Text>
                   <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Time Taken</Text>
                 </View>
@@ -275,7 +275,7 @@ export default function ResultsScreen() {
             leftIcon={<Ionicons name="book-outline" size={20} color="#FFF" />}
           />
 
-          <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+          <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.md }}>
             <Button
               title="Retry"
               onPress={handleRetry}
@@ -299,12 +299,12 @@ export default function ResultsScreen() {
             onPress={() => navigation.goBack()}
             variant="outline"
             style={{
-              marginTop: 16,
+              marginTop: spacing.base,
               borderColor: colors.border,
               backgroundColor: colors.secondaryBackground,
               alignSelf: 'center',
               minWidth: 160,
-              paddingHorizontal: 24
+              paddingHorizontal: spacing.xl
             }}
             textStyle={{ color: colors.textSecondary }}
             leftIcon={<Ionicons name="home-outline" size={18} color={colors.textSecondary} />}
@@ -312,7 +312,7 @@ export default function ResultsScreen() {
         </View>
 
       </ScrollView>
-    </View>
+    </ScreenWrapper>
   );
 }
 
@@ -321,7 +321,7 @@ const BentoCard = ({ label, value, icon, color, delay, flex }: any) => {
   return (
     <View style={{ flex }}>
       <Card style={styles.bentoCardContent} padding={spacing.sm}>
-        <Ionicons name={icon} size={24} color={color} style={{ marginBottom: 4 }} />
+        <Ionicons name={icon} size={24} color={color} style={{ marginBottom: spacing.xs }} />
         <AnimatedCounter
           value={value}
           delay={delay}
@@ -341,60 +341,37 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     paddingBottom: 100,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  backBtn: {
-    padding: 8,
-    marginRight: 8,
-    marginLeft: -8,
-  },
-  headerTextContainer: {
-    flex: 1,
-    alignItems: 'center',
-    marginRight: 32, // Balance out back button
-  },
-  headerTitle: {
-    ...typography.headline,
-    fontWeight: '700',
-  },
-  headerSubtitle: {
-    ...typography.caption1,
-    marginTop: 2,
-  },
+
   heroSection: {
     alignItems: 'center',
     marginBottom: spacing.xl,
   },
   motivationalContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
     borderRadius: 20,
     marginTop: spacing.lg,
   },
   motivationalText: {
-    ...typography.subhead,
-    fontWeight: '700',
+    ...typography.headline,
   },
   timestamp: {
     ...typography.caption2,
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   gridContainer: {
     gap: spacing.md,
     marginBottom: spacing.xl,
   },
   breakdownCard: {
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   breakdownTitle: {
     ...typography.caption1,
-    fontWeight: '700',
+    fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   breakdownRow: {
     flexDirection: 'row',
@@ -406,11 +383,10 @@ const styles = StyleSheet.create({
   },
   breakdownLabel: {
     ...typography.caption2,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   breakdownValue: {
-    ...typography.title3,
-    fontWeight: '800',
+    ...typography.title2,
   },
   row: {
     flexDirection: 'row',
@@ -423,7 +399,6 @@ const styles = StyleSheet.create({
   },
   cardValue: {
     ...typography.title2,
-    fontWeight: '700',
   },
   cardLabel: {
     ...typography.caption2,
@@ -436,7 +411,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: spacing.base,
   },
   statItem: {
     flexDirection: 'row',
@@ -447,8 +422,7 @@ const styles = StyleSheet.create({
     height: 30,
   },
   statValue: {
-    ...typography.subhead,
-    fontWeight: '700',
+    ...typography.headline,
   },
   statLabel: {
     ...typography.caption2,
@@ -464,7 +438,7 @@ const styles = StyleSheet.create({
   secondaryActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   textBtn: {
     flex: 1,
@@ -473,7 +447,6 @@ const styles = StyleSheet.create({
     height: 48,
   },
   textBtnTitle: {
-    ...typography.body,
-    fontWeight: '600',
+    ...typography.headline,
   },
 });

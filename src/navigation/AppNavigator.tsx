@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
 
 // Screens
 import HomeScreen from '../screens/HomeScreen';
@@ -66,11 +67,11 @@ function MainTabs() {
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Tests') {
-            iconName = focused ? 'book' : 'book-outline';
+            iconName = focused ? 'document-text' : 'document-text-outline';
           } else if (route.name === 'Library') {
             iconName = focused ? 'bookmarks' : 'bookmarks-outline';
           } else if (route.name === 'Progress') {
-            iconName = focused ? 'bar-chart' : 'bar-chart-outline';
+            iconName = focused ? 'pie-chart' : 'pie-chart-outline';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
           }
@@ -78,13 +79,18 @@ function MainTabs() {
           return <Ionicons name={iconName} size={size} color={color} />;
         },
       })}
+      screenListeners={{
+        tabPress: () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        },
+      }}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Tests" component={TestsScreen} />
       <Tab.Screen name="Library" component={LibraryScreen} />
       <Tab.Screen name="Progress" component={StatsScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
-    </Tab.Navigator>
+    </Tab.Navigator >
   );
 }
 

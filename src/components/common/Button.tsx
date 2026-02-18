@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,12 +6,21 @@ import {
   ActivityIndicator,
   ViewStyle,
   TextStyle,
-  PressableProps
+  PressableProps,
+  GestureResponderEvent,
+  StyleProp
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
 
 import { useTheme } from '../../contexts/ThemeContext';
 import { borderRadius, spacing, typography } from '../../constants/theme';
 import * as Haptics from 'expo-haptics';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface ButtonProps extends PressableProps {
   title: string;
@@ -21,13 +30,11 @@ interface ButtonProps extends PressableProps {
   disabled?: boolean;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   textStyle?: TextStyle;
   fullWidth?: boolean;
-  onPress?: (event: any) => void;
+  onPress?: (event: GestureResponderEvent) => void;
 }
-
-
 
 export const Button: React.FC<ButtonProps> = ({
   title,
@@ -44,15 +51,26 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const { colors } = useTheme();
+  const scale = useSharedValue(1);
 
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
-  const handlePress = (e: any) => {
+  const handlePressIn = () => {
+    if (disabled || loading) return;
+    scale.value = withSpring(0.96, { damping: 10, stiffness: 300 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 10, stiffness: 300 });
+  };
+
+  const handlePress = (e: GestureResponderEvent) => {
     if (disabled || loading) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onPress?.(e);
   };
-
-
 
   const getBackgroundColor = () => {
     if (disabled) return variant === 'outline' || variant === 'ghost' ? 'transparent' : colors.textTertiary;
@@ -97,10 +115,12 @@ export const Button: React.FC<ButtonProps> = ({
   };
 
   return (
-    <Pressable
+    <AnimatedPressable
       onPress={handlePress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
       disabled={disabled || loading}
-      style={({ pressed }) => [
+      style={[
         styles.container,
         {
           height: getHeight(),
@@ -109,9 +129,9 @@ export const Button: React.FC<ButtonProps> = ({
           alignSelf: fullWidth ? 'stretch' : 'flex-start',
           borderColor: variant === 'outline' ? colors.border : 'transparent',
           borderWidth: variant === 'outline' ? 1 : 0,
-          transform: [{ scale: pressed ? 0.96 : 1 }],
           opacity: disabled ? 0.6 : 1
         },
+        animatedStyle,
         style,
       ]}
       {...props}
@@ -138,7 +158,7 @@ export const Button: React.FC<ButtonProps> = ({
           {rightIcon}
         </>
       )}
-    </Pressable>
+    </AnimatedPressable>
   );
 };
 

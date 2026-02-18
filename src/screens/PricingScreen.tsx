@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView, SafeAreaView, Dimensions, Pressable, Alert, ActivityIndicator, Platform } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, Dimensions, Pressable, Alert, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
-import { borderRadius, spacing, typography } from '../constants/theme';
+import { borderRadius, spacing, typography, shadows } from '../constants/theme';
+import { ScreenWrapper } from '../components/common/ScreenWrapper';
 import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming, interpolateColor } from 'react-native-reanimated';
@@ -160,89 +161,87 @@ export default function PricingScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="close" size={28} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Go Premium</Text>
-          <View style={{ width: 40 }} />
-        </View>
+    <ScreenWrapper>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="close" size={28} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Go Premium</Text>
+        <View style={{ width: 40 }} />
+      </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          <View style={styles.heroSection}>
-            <Text style={[styles.heroTitle, { color: colors.text }]}>Unlock All Tests</Text>
-            <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
-              Get unlimited access to all subjects, mock tests, and detailed solutions.
-            </Text>
-          </View>
-
-          <View style={styles.tiersContainer}>
-            {TIERS.map((tier) => (
-              <TierCard
-                key={tier.id}
-                tier={tier}
-                isSelected={selectedTier === tier.id}
-                onSelect={() => handleSelectTier(tier.id)}
-                isDark={isDark}
-                colors={colors}
-              />
-            ))}
-          </View>
-
-          <View style={styles.featuresContainer}>
-            <FeatureItem icon="checkmark-circle" text="Full access to 500+ tests" />
-            <FeatureItem icon="checkmark-circle" text="Detailed performance analysis" />
-            <FeatureItem icon="checkmark-circle" text="Offline access to solutions" />
-            <FeatureItem icon="checkmark-circle" text="Ad-free experience" />
-          </View>
-
-          <Text style={[styles.footerText, { color: colors.textTertiary }]}>
-            Prices are in INR. Subscriptions do not auto-renew.
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.heroSection}>
+          <Text style={[styles.heroTitle, { color: colors.text }]}>Unlock All Tests</Text>
+          <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
+            Get unlimited access to all subjects, mock tests, and detailed solutions.
           </Text>
-
-          <View style={{ height: 100 }} />
-        </ScrollView>
-
-        <View style={[styles.bottomAction, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
-          <TouchableOpacity
-            style={[
-              styles.buyButton,
-              {
-                backgroundColor: selectedTier ? (TIERS.find(t => t.id === selectedTier)?.color || colors.primary) : colors.border,
-                opacity: canCheckout ? 1 : 0.6
-              }
-            ]}
-            onPress={handlePurchase}
-            disabled={!canCheckout}
-            activeOpacity={0.8}
-          >
-            {isPurchasing ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <>
-                <Text style={styles.buyButtonText}>{isAlreadyPro ? 'Pro Active' : 'Buy Now'}</Text>
-                {selectedTier && !isAlreadyPro && canCheckout && (
-                  <Text style={styles.buyButtonPrice}>
-                    ₹{TIERS.find(t => t.id === selectedTier)?.price}
-                  </Text>
-                )}
-              </>
-            )}
-          </TouchableOpacity>
-
-          <View style={styles.secureBadgeInfo}>
-            <Ionicons name="shield-checkmark" size={14} color={colors.success} />
-            <Text style={[styles.secureText, { color: colors.textSecondary }]}>
-              {Platform.OS === 'android'
-                ? 'Secure Google Play Billing'
-                : 'Android billing available first'}
-            </Text>
-          </View>
         </View>
-      </SafeAreaView>
-    </View>
+
+        <View style={styles.tiersContainer}>
+          {TIERS.map((tier) => (
+            <TierCard
+              key={tier.id}
+              tier={tier}
+              isSelected={selectedTier === tier.id}
+              onSelect={() => handleSelectTier(tier.id)}
+              isDark={isDark}
+              colors={colors}
+            />
+          ))}
+        </View>
+
+        <View style={styles.featuresContainer}>
+          <FeatureItem icon="checkmark-circle" text="Full access to 500+ tests" />
+          <FeatureItem icon="checkmark-circle" text="Detailed performance analysis" />
+          <FeatureItem icon="checkmark-circle" text="Offline access to solutions" />
+          <FeatureItem icon="checkmark-circle" text="Ad-free experience" />
+        </View>
+
+        <Text style={[styles.footerText, { color: colors.textTertiary }]}>
+          Prices are in INR. Subscriptions do not auto-renew.
+        </Text>
+
+        <View style={{ height: 100 }} />
+      </ScrollView>
+
+      <View style={[styles.bottomAction, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
+        <TouchableOpacity
+          style={[
+            styles.buyButton,
+            {
+              backgroundColor: selectedTier ? (TIERS.find(t => t.id === selectedTier)?.color || colors.primary) : colors.border,
+              opacity: canCheckout ? 1 : 0.6
+            }
+          ]}
+          onPress={handlePurchase}
+          disabled={!canCheckout}
+          activeOpacity={0.8}
+        >
+          {isPurchasing ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <>
+              <Text style={styles.buyButtonText}>{isAlreadyPro ? 'Pro Active' : 'Buy Now'}</Text>
+              {selectedTier && !isAlreadyPro && canCheckout && (
+                <Text style={styles.buyButtonPrice}>
+                  ₹{TIERS.find(t => t.id === selectedTier)?.price}
+                </Text>
+              )}
+            </>
+          )}
+        </TouchableOpacity>
+
+        <View style={styles.secureBadgeInfo}>
+          <Ionicons name="shield-checkmark" size={14} color={colors.success} />
+          <Text style={[styles.secureText, { color: colors.textSecondary }]}>
+            {Platform.OS === 'android'
+              ? 'Secure Google Play Billing'
+              : 'Android billing available first'}
+          </Text>
+        </View>
+      </View>
+    </ScreenWrapper>
   );
 }
 
@@ -361,7 +360,6 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     ...typography.largeTitle,
-    fontWeight: '800',
     textAlign: 'center',
     marginBottom: spacing.xs,
   },
@@ -376,19 +374,16 @@ const styles = StyleSheet.create({
   },
   tierCard: {
     borderRadius: borderRadius.lg,
-    padding: 20, // Increased from spacing.md
+    padding: spacing.lg, // Standardized from 20
     position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    ...(Platform.OS === 'ios' ? shadows.light.md : {}), // Use standard shadow
+    elevation: shadows.light.md.elevation,
     minHeight: 100,
     backgroundColor: '#FFFFFF', // Default light bg, overridden by props
   },
   premiumCard: {
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
+    ...(Platform.OS === 'ios' ? shadows.light.lg : {}),
+    elevation: shadows.light.lg.elevation,
   },
   cardContent: {
     flexDirection: 'row',
@@ -409,22 +404,21 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6, // Increased spacing
+    marginBottom: spacing.sm, // Standardized from 6
     gap: spacing.sm,
   },
   tierTitle: {
     ...typography.headline,
-    fontWeight: '700',
   },
   tierDesc: {
     ...typography.caption1,
     fontWeight: '500',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
     lineHeight: 18, // Increased line height
     opacity: 0.9,
   },
   dailyCost: {
-    fontSize: 11,
+    ...typography.caption2,
     fontWeight: '600',
   },
   priceContainer: {
@@ -435,11 +429,11 @@ const styles = StyleSheet.create({
   currency: {
     ...typography.subhead,
     fontWeight: '600',
-    marginTop: 4,
+    marginTop: spacing.xs,
     marginRight: 2,
   },
   price: {
-    fontSize: 28,
+    ...typography.title1,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
@@ -447,13 +441,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -10,
     right: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: spacing.md, // Standardized from 10
+    paddingVertical: spacing.xs, // Standardized from 4
     borderRadius: borderRadius.full,
     zIndex: 10,
   },
   bestValueBadge: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 14, // Keep for visual balance on badge
     paddingVertical: 5,
   },
   badgeText: {
@@ -464,7 +458,7 @@ const styles = StyleSheet.create({
   },
   savingsContainer: {
     backgroundColor: '#34C759', // This is success color, but static style. Can't easy inject theme here without refactor. Keep as is or move to inline.
-    paddingHorizontal: 6,
+    paddingHorizontal: 6, // Keep small for dense tag
     paddingVertical: 2,
     borderRadius: 4,
   },
@@ -525,16 +519,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    ...(Platform.OS === 'ios' ? shadows.light.md : {}),
+    elevation: shadows.light.md.elevation,
   },
   buyButtonText: {
-    fontSize: 18,
+    ...typography.headline,
     color: '#FFFFFF',
-    fontWeight: '700',
   },
   buyButtonPrice: {
     fontSize: 18,

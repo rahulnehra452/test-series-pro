@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, SafeAreaView, Alert, ActivityIndicator, AppState } from 'react-native';
+import { StyleSheet, View, Alert, ActivityIndicator, AppState } from 'react-native';
+import { ScreenWrapper } from '../components/common/ScreenWrapper';
 import { useRoute } from '@react-navigation/native';
 import { useTestStore } from '../stores/testStore';
 import { useTheme } from '../contexts/ThemeContext';
@@ -392,7 +393,7 @@ export default function TestInterfaceScreen() {
     });
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <ScreenWrapper>
       <TestHeader
         timeRemaining={timeRemaining}
         currentIndex={currentIndex}
@@ -459,7 +460,7 @@ export default function TestInterfaceScreen() {
         isLast={isLast}
         showSubmit={isLast}
       />
-    </SafeAreaView >
+    </ScreenWrapper>
   );
 }
 

@@ -1,13 +1,16 @@
 import React from 'react';
-import { StyleSheet, View, ViewProps, ViewStyle, StyleProp } from 'react-native';
+import { StyleSheet, View, ViewProps, ViewStyle, StyleProp, TouchableOpacity } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { borderRadius, shadows, spacing } from '../../constants/theme';
+
+
 
 interface CardProps extends ViewProps {
   children: React.ReactNode;
   variant?: 'elevated' | 'outlined' | 'flat';
   style?: StyleProp<ViewStyle>;
   padding?: number;
+  onPress?: () => void;
 }
 
 export const Card: React.FC<CardProps> = ({
@@ -15,17 +18,20 @@ export const Card: React.FC<CardProps> = ({
   variant = 'elevated',
   style,
   padding = spacing.base,
+  onPress,
   ...props
 }) => {
-  const { colors, isDark } = useTheme();
+  const { colors, theme } = useTheme();
 
   const getBackgroundColor = () => {
+    if (variant === 'outlined') return 'transparent';
+    if (variant === 'flat') return colors.secondaryBackground;
     return colors.card;
   };
 
   const getShadow = () => {
     if (variant !== 'elevated') return {};
-    return isDark ? shadows.dark.sm : shadows.light.sm;
+    return theme === 'dark' ? shadows.dark.sm : shadows.light.sm;
   };
 
   const getBorder = () => {
@@ -37,18 +43,28 @@ export const Card: React.FC<CardProps> = ({
     return {};
   };
 
+  const containerStyle = [
+    styles.container,
+    {
+      backgroundColor: getBackgroundColor(),
+      padding,
+      ...getShadow(),
+      ...getBorder(),
+    },
+    style,
+  ];
+
+  if (onPress) {
+    return (
+      <TouchableOpacity onPress={onPress} style={containerStyle} activeOpacity={0.7} {...props}>
+        {children}
+      </TouchableOpacity>
+    );
+  }
+
   return (
     <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: getBackgroundColor(),
-          padding,
-          ...getShadow(),
-          ...getBorder(),
-        },
-        style,
-      ]}
+      style={containerStyle}
       {...props}
     >
       {children}

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Platform, FlatList } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
+import { ScreenWrapper } from '../components/common/ScreenWrapper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../contexts/ThemeContext';
 import { spacing, typography, borderRadius } from '../constants/theme';
@@ -9,6 +10,7 @@ import { BlurView } from 'expo-blur';
 import { useTestStore } from '../stores/testStore';
 import { Card } from '../components/common/Card';
 import { ExpandableText } from '../components/common/ExpandableText';
+import { EmptyState } from '../components/common/EmptyState';
 
 type FilterMode = 'all' | 'marked' | 'incorrect' | 'correct';
 
@@ -134,12 +136,15 @@ export default function SolutionsScreen() {
         }
         ListEmptyComponent={
           filteredQuestions.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="filter-outline" size={48} color={colors.textTertiary} />
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                No questions match this filter.
-              </Text>
-            </View>
+            filteredQuestions.length === 0 ? (
+              <EmptyState
+                title="No questions match"
+                description="Try selecting a different filter."
+                icon="filter-outline"
+                actionLabel="Clear Filters"
+                onAction={() => setFilterMode('all')}
+              />
+            ) : null
           ) : null
         }
         stickyHeaderIndices={[0]}
@@ -254,7 +259,6 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.title3,
-    fontWeight: '700',
   },
   centerContent: {
     flex: 1,
@@ -293,14 +297,13 @@ const styles = StyleSheet.create({
   },
   statusText: {
     color: '#FFFFFF',
-    fontSize: 11,
+    ...typography.caption2,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.3,
   },
   qText: {
     ...typography.body,
-    fontWeight: '500',
     lineHeight: 22,
     marginBottom: spacing.md,
   },
@@ -323,12 +326,12 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   optionLabel: {
+    ...typography.footnote,
     fontWeight: '700',
-    fontSize: 13,
   },
   optionText: {
     flex: 1,
-    fontSize: 14,
+    ...typography.subhead,
     lineHeight: 20,
   },
   explanation: {

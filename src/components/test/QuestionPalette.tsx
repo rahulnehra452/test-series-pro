@@ -6,6 +6,7 @@ import { spacing, typography, borderRadius } from '../../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
+import { EmptyState } from '../common/EmptyState';
 
 interface QuestionPaletteProps {
   isVisible: boolean;
@@ -106,6 +107,14 @@ export const QuestionPalette = ({
                   </TouchableOpacity>
                 );
               }}
+              ListEmptyComponent={
+                <EmptyState
+                  title="No questions"
+                  description="This test has no questions."
+                  icon="alert-circle-outline"
+                  variant="inline"
+                />
+              }
             />
           </View>
         </View>
