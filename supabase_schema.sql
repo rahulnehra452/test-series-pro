@@ -12,6 +12,8 @@ create table if not exists public.profiles (
   full_name text,
   avatar_url text,
   is_pro boolean default false,
+  pro_plan text,
+  pro_expires_at timestamptz,
   streak integer default 0,
   last_active_at timestamptz default now(),
   created_at timestamptz default now()

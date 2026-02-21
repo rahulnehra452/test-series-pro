@@ -10,7 +10,15 @@
     }
   },
   "include": [
-    "**/*.ts",
-    "**/*.tsx"
+    "index.ts",
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx"
+  ],
+  "exclude": [
+    "admin-panel/**",
+    "admin-panel-new/**",
+    "node_modules/**"
   ]
 }

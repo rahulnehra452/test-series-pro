@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import React, { useEffect, useMemo } from 'react';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { ScreenWrapper } from '../components/common/ScreenWrapper';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTestStore } from '../stores/testStore';
+import { useAuthStore } from '../stores/authStore';
 import { RootStackParamList } from '../types/navigationTypes';
 import { spacing, typography, borderRadius } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,21 +18,39 @@ export default function SeriesDetailsScreen() {
   const { colors } = useTheme();
   const route = useRoute<SeriesDetailsRouteProp>();
   const navigation = useNavigation<any>();
-  const { seriesId, seriesTitle } = route.params;
+  const { seriesId, seriesTitle, examId } = route.params;
 
-  // We need a way to fetch tests for a specific series.
-  // Currently, fetchTests fetches ALL tests.
-  // We should add fetchTestsBySeries to testStore, or filter the existing tests if they are already loaded nested in series.
-  // Let's assume testStore.testSeries has the tests nested from the previous screen fetch, OR we fetch them.
-  // Using the store's `testSeries` state is efficient if we just came from ExamDetails.
+  const { user } = useAuthStore();
+  const isPro = user?.isPro || false;
+  const { testSeries, fetchTestSeries, isLoadingTests, history } = useTestStore();
 
-  const { testSeries } = useTestStore();
-
-  const currentSeries = testSeries.find(s => s.id === seriesId);
+  const currentSeries = useMemo(
+    () => testSeries.find(s => s.id === seriesId),
+    [seriesId, testSeries]
+  );
   const tests = currentSeries?.tests || [];
+  const isSeriesLocked = Boolean(currentSeries && currentSeries.price !== 'Free');
 
-  const handleStartTest = (testId: string, testTitle: string, duration: number) => {
-    navigation.navigate('TestInterface', { testId, testTitle });
+  useEffect(() => {
+    // Supports direct navigation/deep link by refetching when series data is missing.
+    if (!currentSeries && examId) {
+      void fetchTestSeries(examId);
+    }
+  }, [currentSeries, examId, fetchTestSeries]);
+
+  const handleStartTest = (testId: string, testTitle: string, duration: number, isPurchased: boolean) => {
+    const activeAttempt = history.find(h => h.testId === testId && h.status === 'In Progress');
+    const canAccess =
+      isPro ||
+      (!isSeriesLocked && isPurchased) ||
+      Boolean(activeAttempt);
+
+    if (!canAccess) {
+      navigation.navigate('Pricing');
+      return;
+    }
+
+    navigation.navigate('TestInterface', { testId, testTitle, durationMinutes: duration });
   };
 
   return (
@@ -50,28 +69,43 @@ export default function SeriesDetailsScreen() {
       >
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Included Tests</Text>
 
-        {tests.length > 0 ? (
+        {isLoadingTests && !currentSeries ? (
+          [1, 2, 3].map(i => <SkeletonActivityCard key={i} />)
+        ) : tests.length > 0 ? (
           tests.map((test) => (
-            <TestCard
-              key={test.id}
-              test={{
-                id: test.id,
-                title: test.title,
-                description: test.description,
-                questions: test.totalQuestions,
-                duration: test.duration,
-                difficulty: test.difficulty,
-                category: test.category,
-                attempts: 0 // We might need to fetch attempt count separately or include it in the join
-              }}
-              onPress={() => handleStartTest(test.id, test.title, test.duration)}
-            />
+            <View key={test.id}>
+              <TestCard
+                test={{
+                  id: test.id,
+                  title: test.title,
+                  description: test.description,
+                  questions: test.totalQuestions,
+                  duration: test.duration,
+                  difficulty: test.difficulty,
+                  category: test.category,
+                  attempts: 0
+                }}
+                onPress={() => handleStartTest(test.id, test.title, test.duration, test.isPurchased)}
+              />
+              {!isPro && (isSeriesLocked || !test.isPurchased) && (
+                <View style={styles.lockHintRow}>
+                  <Ionicons name="lock-closed" size={14} color={colors.warning} />
+                  <Text style={[styles.lockHintText, { color: colors.warning }]}>
+                    Requires Pro to start this test
+                  </Text>
+                </View>
+              )}
+            </View>
           ))
         ) : (
           <EmptyState
             icon="document-text-outline"
-            title="No Tests Available"
-            description="This series doesn't have any tests yet."
+            title={currentSeries ? "No Tests Available" : "Series Not Loaded"}
+            description={
+              currentSeries
+                ? "This series doesn't have any tests yet."
+                : "Open this series from the Exam page once, or refresh to load it."
+            }
           />
         )}
       </ScrollView>
@@ -104,5 +138,17 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...typography.title3,
     marginBottom: spacing.xs,
+  },
+  lockHintRow: {
+    marginTop: -spacing.sm,
+    marginBottom: spacing.md,
+    marginLeft: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  lockHintText: {
+    ...typography.caption1,
+    fontWeight: '600',
   },
 });

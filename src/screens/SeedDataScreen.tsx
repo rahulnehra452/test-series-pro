@@ -4,17 +4,23 @@ import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { MOCK_TEST_SERIES } from '../data/mockTests';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuthStore } from '../stores/authStore';
 
 export default function SeedDataScreen() {
   const { colors } = useTheme();
   const [log, setLog] = useState<string[]>([]);
 
-  if (!__DEV__) {
+  // Allow access if dev OR if user is admin (checking via store would be ideal, but for now we trust the navigation flow)
+  // To be safe, let's fetch store state to double check
+  const { user } = useAuthStore.getState();
+  const isAdmin = user?.isAdmin;
+
+  if (!__DEV__ && !isAdmin) {
     return (
       <View style={{ flex: 1, padding: 20, backgroundColor: colors.background, justifyContent: 'center' }}>
         <Text style={{ color: colors.text, fontSize: 24, marginBottom: 12 }}>Unavailable</Text>
         <Text style={{ color: colors.textSecondary, fontSize: 16, lineHeight: 24 }}>
-          Seed tools are only available in development builds.
+          This screen is restricted to administrators.
         </Text>
       </View>
     );

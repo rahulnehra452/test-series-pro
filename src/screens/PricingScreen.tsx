@@ -197,7 +197,7 @@ export default function PricingScreen() {
         </View>
 
         <Text style={[styles.footerText, { color: colors.textTertiary }]}>
-          Prices are in INR. Subscriptions do not auto-renew.
+          Prices are in INR. Plans are time-based and do not auto-renew.
         </Text>
 
         <View style={{ height: 100 }} />

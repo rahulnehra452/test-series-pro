@@ -8,6 +8,9 @@ export interface User {
   email: string;
   avatar?: string;
   isPro: boolean;
+  proExpiresAt?: string;
+  proPlan?: string;
+  isAdmin?: boolean; // Added for admin access
   streak: number;
   lastActiveDate?: string; // ISO Date string YYYY-MM-DD
 }
@@ -18,6 +21,8 @@ export interface UserProfile {
   full_name?: string;
   avatar_url?: string;
   is_pro?: boolean;
+  pro_expires_at?: string;
+  pro_plan?: string;
   streak?: number;
   last_active_at?: string;
   created_at?: string;
@@ -64,8 +69,9 @@ export interface RemoteTest {
   totalTests: number;
   totalQuestions: number;
   duration: number; // minutes
-  price: string;
+  price?: string;
   isPurchased: boolean;
+  isActive?: boolean;
   coverImage?: string;
 }
 

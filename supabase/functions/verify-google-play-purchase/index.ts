@@ -17,6 +17,23 @@ type GoogleServiceAccount = {
   private_key: string;
 };
 
+const PLAN_DURATION_DAYS: Record<string, number> = {
+  '5days': 5,
+  '15days': 15,
+  '1month': 30,
+  '1year': 365,
+};
+
+const getPlanDurationDays = (productId: string): number => {
+  return PLAN_DURATION_DAYS[productId] ?? 30;
+};
+
+const addDays = (base: Date, days: number): Date => {
+  const next = new Date(base);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+};
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -299,10 +316,37 @@ Deno.serve(async (req) => {
       });
     }
 
+    const { data: existingProfile, error: existingProfileError } = await adminClient
+      .from('profiles')
+      .select('pro_expires_at')
+      .eq('id', userData.user.id)
+      .maybeSingle();
+
+    if (existingProfileError) {
+      return jsonResponse(500, {
+        entitled: false,
+        reason: 'Purchase verified but failed to read existing profile.',
+      });
+    }
+
+    const now = new Date();
+    const existingExpiry = existingProfile?.pro_expires_at
+      ? new Date(existingProfile.pro_expires_at)
+      : null;
+    const baseDate = existingExpiry && existingExpiry.getTime() > now.getTime()
+      ? existingExpiry
+      : now;
+    const nextExpiry = addDays(baseDate, getPlanDurationDays(productId));
+
     const { error: profileError } = await adminClient
       .from('profiles')
-      .update({ is_pro: true })
-      .eq('id', userData.user.id);
+      .upsert({
+        id: userData.user.id,
+        email: userData.user.email,
+        is_pro: true,
+        pro_plan: productId,
+        pro_expires_at: nextExpiry.toISOString(),
+      }, { onConflict: 'id' });
 
     if (profileError) {
       return jsonResponse(500, {
@@ -313,7 +357,7 @@ Deno.serve(async (req) => {
 
     return jsonResponse(200, {
       entitled: true,
-      reason: 'Purchase verified and entitlement granted.',
+      reason: `Purchase verified and entitlement granted until ${nextExpiry.toISOString()}.`,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown verification error.';

@@ -63,6 +63,14 @@ export default function ProfileScreen() {
   const navigation = useNavigation<any>();
   const [modalVisible, setModalVisible] = useState(false);
   const showNotificationsToggle = __DEV__;
+  const subscriptionStatusLabel = React.useMemo(() => {
+    if (!user?.isPro) return 'Inactive';
+    if (!user.proExpiresAt) return 'Active';
+
+    const expiresAt = new Date(user.proExpiresAt).getTime();
+    if (!Number.isFinite(expiresAt)) return 'Active';
+    return `Active till ${new Date(expiresAt).toLocaleDateString()}`;
+  }, [user?.isPro, user?.proExpiresAt]);
 
   const toggleTheme = (value: boolean) => {
     setThemePreference(value ? 'dark' : 'light');
@@ -201,13 +209,18 @@ export default function ProfileScreen() {
             <MenuItem
               icon="card-outline"
               label="Subscription"
-              value={user.isPro ? "Active" : "Inactive"}
+              value={subscriptionStatusLabel}
               onPress={() => navigation.navigate('Pricing')}
             />
             <MenuItem
               icon="help-circle-outline"
               label="Help & Support"
               onPress={handleSupportPress}
+            />
+            <MenuItem
+              icon="document-text-outline"
+              label="Privacy Policy"
+              onPress={() => Linking.openURL('https://ihvnklncvlvlhxfgfsbg.supabase.co/functions/v1/privacy-policy')}
             />
           </Card>
         </Animated.View>

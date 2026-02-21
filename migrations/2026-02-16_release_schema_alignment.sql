@@ -12,6 +12,8 @@ create table if not exists public.profiles (
   full_name text,
   avatar_url text,
   is_pro boolean default false,
+  pro_plan text,
+  pro_expires_at timestamptz,
   streak integer default 0,
   last_active_at timestamptz default now(),
   created_at timestamptz default now()
@@ -21,6 +23,8 @@ alter table public.profiles add column if not exists email text;
 alter table public.profiles add column if not exists full_name text;
 alter table public.profiles add column if not exists avatar_url text;
 alter table public.profiles add column if not exists is_pro boolean default false;
+alter table public.profiles add column if not exists pro_plan text;
+alter table public.profiles add column if not exists pro_expires_at timestamptz;
 alter table public.profiles add column if not exists streak integer default 0;
 alter table public.profiles add column if not exists last_active_at timestamptz default now();
 alter table public.profiles add column if not exists created_at timestamptz default now();

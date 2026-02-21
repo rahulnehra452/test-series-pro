@@ -166,12 +166,35 @@ const getExamFromTestId = (testId: string): string | null => {
   return examParts.length > 0 ? examParts.join(' ') : null;
 };
 
+const resolveExamContextForTestId = (
+  state: Pick<TestState, 'exams' | 'testSeries'>,
+  testId?: string | null
+): { examId?: string; examTitle?: string } => {
+  if (!testId) return {};
+
+  for (const series of state.testSeries) {
+    const hasTest = series.tests?.some(test => test.id === testId);
+    if (hasTest) {
+      const examTitle = state.exams.find(exam => exam.id === series.examId)?.title;
+      return {
+        examId: series.examId,
+        examTitle: examTitle || undefined,
+      };
+    }
+  }
+
+  return {
+    examTitle: getExamFromTestId(testId) || undefined,
+  };
+};
+
 interface RemoteTest {
   id: string;
   title: string;
   description: string;
   category: string;
   difficulty: string; // db constraints might allow text
+  is_active?: boolean;
   total_tests?: number;
   total_questions?: number;
   duration_minutes?: number;
@@ -219,7 +242,6 @@ export const useTestStore = create<TestState>()(
       totalTime: 0,
       endTime: null,
       sessionStartTime: null,
-      isPlaying: false,
       isPlaying: false,
       history: [],
       tests: [], // Kept for flat list backward compat if needed, but primary focus shifts to hierarchy
@@ -284,7 +306,9 @@ export const useTestStore = create<TestState>()(
               price: s.price ? `₹${s.price}` : 'Free',
               isActive: s.is_active,
               coverImage: s.cover_image_url,
-              tests: s.tests ? s.tests.map(mapRemoteTestToStore) : []
+              tests: s.tests
+                ? s.tests.filter((test: RemoteTest) => test.is_active !== false).map(mapRemoteTestToStore)
+                : []
             }));
             set({ testSeries: series });
           }
@@ -476,6 +500,7 @@ export const useTestStore = create<TestState>()(
         // Sync Library items (Wrong answers)
         const updatedLibrary = [...state.library];
         const newWrongItems: LibraryItem[] = [];
+        const examContext = resolveExamContextForTestId(state, state.currentTestId);
         state.questions.forEach(q => {
           const userAnswer = state.answers[q.id];
           if (userAnswer !== undefined) {
@@ -495,7 +520,8 @@ export const useTestStore = create<TestState>()(
                   questionType: q.type,
                   type: 'wrong',
                   saveTimestamp: Date.now(),
-                  exam: state.currentTestId || undefined,
+                  exam: examContext.examTitle,
+                  examId: examContext.examId,
                 };
                 updatedLibrary.unshift(wrongItem);
                 newWrongItems.push(wrongItem);
@@ -564,11 +590,13 @@ export const useTestStore = create<TestState>()(
                 user_id: userId,
                 question_id: item.questionId,
                 type: toDbBookmarkType(item.type),
+                exam_id: item.examId,
                 question_data: {
                   text: item.question,
                   subject: item.subject,
                   difficulty: item.difficulty,
                   exam: item.exam,
+                  examId: item.examId,
                   options: item.options,
                   correctAnswer: item.correctAnswer,
                   explanation: item.explanation,
@@ -611,10 +639,21 @@ export const useTestStore = create<TestState>()(
 
         set({ isLoadingTests: true });
         try {
-          const { data, error } = await supabase
+          let { data, error } = await supabase
             .from('tests')
             .select('*')
+            .eq('is_active', true)
             .order('created_at', { ascending: false });
+
+          if (error && /column .*is_active/i.test(error.message || '')) {
+            // Older schema fallback.
+            const fallback = await supabase
+              .from('tests')
+              .select('*')
+              .order('created_at', { ascending: false });
+            data = fallback.data;
+            error = fallback.error;
+          }
 
           if (error) {
             handleError(error, 'TestStore:FetchTests');
@@ -659,7 +698,7 @@ export const useTestStore = create<TestState>()(
           return data.map(q => ({
             id: q.id,
             text: q.text,
-            options: q.options,
+            options: q.options || [],
             correctAnswer: q.correct_answer,
             explanation: q.explanation,
             subject: q.subject,
@@ -896,6 +935,7 @@ export const useTestStore = create<TestState>()(
                 questionType: item.question_data?.questionType,
                 saveTimestamp: new Date(item.created_at).getTime(),
                 exam: item.question_data?.exam,
+                examId: item.exam_id || item.question_data?.examId,
               };
             });
 
@@ -1075,11 +1115,13 @@ export const useTestStore = create<TestState>()(
             user_id: session.session.user.id,
             question_id: item.questionId,
             type: dbType,
+            exam_id: item.examId,
             question_data: {
               text: item.question,
               subject: item.subject,
               difficulty: item.difficulty,
               exam: item.exam,
+              examId: item.examId,
               options: item.options,
               correctAnswer: item.correctAnswer,
               explanation: item.explanation,
@@ -1150,11 +1192,13 @@ export const useTestStore = create<TestState>()(
               user_id: userId,
               question_id: currentItem.questionId,
               type: newDbType,
+              exam_id: currentItem.examId,
               question_data: {
                 text: currentItem.question,
                 subject: currentItem.subject,
                 difficulty: currentItem.difficulty,
                 exam: currentItem.exam,
+                examId: currentItem.examId,
                 options: currentItem.options,
                 correctAnswer: currentItem.correctAnswer,
                 explanation: currentItem.explanation,

@@ -18,8 +18,8 @@ export type RootStackParamList = {
   Auth: undefined;
   Main: NavigatorScreenParams<MainTabParamList>;
   ExamDetails: { examId: string; examTitle: string };
-  SeriesDetails: { seriesId: string; seriesTitle: string };
-  TestInterface: { testId: string; testTitle: string };
+  SeriesDetails: { seriesId: string; seriesTitle: string; examId?: string };
+  TestInterface: { testId: string; testTitle?: string; durationMinutes?: number };
   Results: { attemptId?: string; result?: TestAttempt };
   Solutions: { attemptId?: string; result?: TestAttempt };
   SeedData: undefined;

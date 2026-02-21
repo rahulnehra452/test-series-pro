@@ -1,32 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
-  Alert
+  Image,
+  Dimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuthStore } from '../stores/authStore';
 import { handleError, showAlert } from '../utils/errorHandler';
-import { spacing, typography, borderRadius } from '../constants/theme';
-import { Input } from '../components/common/Input';
+import { spacing, typography, borderRadius } from '../constants/theme'; // Ensure borderRadius imported
 import { Button } from '../components/common/Button';
 import { supabase } from '../lib/supabase';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 
 WebBrowser.maybeCompleteAuthSession();
 
 const OAUTH_SCHEME = 'testkra';
+const { width } = Dimensions.get('window');
 
+// ... (OAuth helpers remain same) ...
 type OAuthCallbackParams = {
   code: string | null;
   accessToken: string | null;
@@ -56,10 +56,6 @@ const parseOAuthCallbackParams = (callbackUrl: string): OAuthCallbackParams => {
 export default function LoginScreen() {
   const { colors, isDark } = useTheme();
   const navigation = useNavigation<any>();
-  const { login } = useAuthStore();
-
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const performOAuth = async () => {
@@ -146,161 +142,164 @@ export default function LoginScreen() {
     }
   };
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      showAlert('Error', 'Please fill in all fields');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await login(email, password);
-      // Success is handled by authStore updating state
-    } catch (error: any) {
-      showAlert('Login Failed', handleError(error, 'Login:EmailAuth'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1, padding: 24, justifyContent: 'center' }}
-      >
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>Welcome Back</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Sign in to continue your progress
-          </Text>
-        </View>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Subtle Background Gradient */}
+      <LinearGradient
+        colors={isDark ? ['rgba(0,0,0,0)', 'rgba(0,0,0,0.8)'] : ['rgba(255,255,255,0)', 'rgba(240,240,245,0.5)']}
+        style={StyleSheet.absoluteFill}
+      />
 
-        <View style={styles.form}>
-          <View style={[styles.inputContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Ionicons name="mail-outline" size={20} color={colors.textSecondary} style={styles.icon} />
-            <TextInput
-              placeholder="Email"
-              placeholderTextColor={colors.textSecondary}
-              style={[styles.input, { color: colors.text }]}
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
-          </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.content}>
 
-          <View style={[styles.inputContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Ionicons name="lock-closed-outline" size={20} color={colors.textSecondary} style={styles.icon} />
-            <TextInput
-              placeholder="Password"
-              placeholderTextColor={colors.textSecondary}
-              style={[styles.input, { color: colors.text }]}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
-          </View>
-
-          <Button
-            title="Sign In"
-            onPress={handleLogin}
-            loading={loading}
-            size="lg"
-            style={styles.button}
-          />
-
-          <Button
-            title="Sign in with Google"
-            variant="outline"
-            size="lg"
-            onPress={performOAuth}
-            disabled={loading}
-            leftIcon={<Ionicons name="logo-google" size={20} color={colors.text} />}
-            style={{ marginBottom: spacing.md }}
-          />
-
-          <TouchableOpacity
-            style={styles.linkButton}
-            onPress={() => navigation.navigate('Signup')}
-          >
-            <Text style={{ color: colors.textSecondary }}>
-              Don't have an account? <Text style={{ color: colors.primary, fontWeight: '600' }}>Sign Up</Text>
+          {/* Hero Section */}
+          <Animated.View entering={FadeInUp.delay(200).springify()} style={styles.heroSection}>
+            <View style={[styles.iconContainer, { backgroundColor: isDark ? '#333' : '#F2F2F7' }]}>
+              {/* Replace with actual App Logo if available */}
+              <Ionicons name="school" size={48} color={colors.primary} />
+            </View>
+            <Text style={[styles.title, { color: colors.text }]}>TestKra</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+              Master your exams with intelligent testing.
             </Text>
-          </TouchableOpacity>
+          </Animated.View>
 
-          <Text style={[styles.footerText, { color: colors.textSecondary }]}>
-            By continuing, you agree to our{' '}
-            <Text
-              style={{ color: colors.primary }}
-              onPress={() => WebBrowser.openBrowserAsync('https://testkra.com/terms')}
-            >
-              Terms of Service
-            </Text> and{' '}
-            <Text
-              style={{ color: colors.primary }}
-              onPress={() => WebBrowser.openBrowserAsync('https://testkra.com/privacy')}
-            >
-              Privacy Policy
-            </Text>.
-          </Text>
+          {/* Auth Section */}
+          <Animated.View entering={FadeInDown.delay(400).springify()} style={styles.authSection}>
+            <View style={styles.card}>
+              <Text style={[styles.welcomeText, { color: colors.text }]}>Get Started</Text>
+
+              <Button
+                title="Continue with Google"
+                onPress={performOAuth}
+                disabled={loading}
+                loading={loading}
+                size="lg"
+                variant="primary" // Changed to primary for better visibility
+                leftIcon={<Ionicons name="logo-google" size={20} color="#FFF" />}
+                style={[styles.googleButton]}
+              />
+              <Text style={[styles.disclaimer, { color: colors.textSecondary }]}>
+                No password required. Secure and fast.
+              </Text>
+            </View>
+          </Animated.View>
+
+          {/* Footer */}
+          <Animated.View entering={FadeInDown.delay(600)} style={styles.footer}>
+            <Text style={[styles.footerText, { color: colors.textSecondary }]}>
+              By continuing, you agree to our{' '}
+              <Text
+                style={[styles.linkText, { color: colors.primary }]}
+                onPress={() => WebBrowser.openBrowserAsync('https://testkra.com/terms')}
+              >
+                Terms
+              </Text> &{' '}
+              <Text
+                style={[styles.linkText, { color: colors.primary }]}
+                onPress={() => WebBrowser.openBrowserAsync('https://testkra.com/privacy')}
+              >
+                Privacy Policy
+              </Text>.
+            </Text>
+          </Animated.View>
+
         </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    marginBottom: spacing['3xl'],
-  },
-  title: {
-    ...typography.largeTitle,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  subtitle: {
-    ...typography.subhead,
-  },
-  form: {
-    gap: spacing.base,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    paddingHorizontal: spacing.base,
-    minHeight: 56,
-  },
-  icon: {
-    marginRight: spacing.md,
-  },
-  input: {
+  container: {
     flex: 1,
-    fontSize: 16,
-    paddingVertical: 14,
   },
-  button: {
-    // height: 56, // Handled by size="lg" prop
-    // borderRadius: borderRadius.md,
+  safeArea: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
+    justifyContent: 'space-between',
+    paddingVertical: spacing.xl,
+  },
+  heroSection: {
+    alignItems: 'center',
+    marginTop: spacing['3xl'],
+    gap: spacing.sm,
+  },
+  iconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: spacing.sm,
+    marginBottom: spacing.md,
+    // Add nice shadow
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  buttonText: {
-    color: '#FFFFFF', // Provide default white for primary button text
-    fontSize: 16,
-    fontWeight: '600',
+  title: {
+    fontSize: 32,
+    fontWeight: '800', // Heavy weight for Apple feel
+    letterSpacing: -0.5,
   },
-  linkButton: {
+  subtitle: {
+    fontSize: 17,
+    fontWeight: '400',
+    textAlign: 'center',
+    lineHeight: 24,
+    maxWidth: '80%',
+  },
+  authSection: {
+    width: '100%',
+    marginBottom: spacing['2xl'],
+  },
+  card: {
+    gap: spacing.lg,
     alignItems: 'center',
-    marginTop: 16,
+  },
+  welcomeText: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: spacing.sm,
+  },
+  googleButton: {
+    width: '100%',
+    height: 56, // Taller button
+    borderRadius: 28, // Pill shape
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  disclaimer: {
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+    opacity: 0.7,
+  },
+  footer: {
+    alignItems: 'center',
+    paddingBottom: spacing.sm,
   },
   footerText: {
-    ...typography.caption1,
+    fontSize: 12,
     textAlign: 'center',
     lineHeight: 18,
-    marginTop: spacing.xl,
+  },
+  linkText: {
+    fontWeight: '600',
   }
 });

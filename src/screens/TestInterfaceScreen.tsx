@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { StyleSheet, View, Alert, ActivityIndicator, AppState } from 'react-native';
 import { ScreenWrapper } from '../components/common/ScreenWrapper';
 import { useRoute } from '@react-navigation/native';
@@ -40,7 +40,7 @@ export default function TestInterfaceScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
-  const { testId, testTitle } = (route.params as { testId: string; testTitle?: string }) || {};
+  const { testId, testTitle, durationMinutes } = (route.params as { testId: string; testTitle?: string; durationMinutes?: number }) || {};
 
   const { showToast } = useToastStore();
   const {
@@ -69,6 +69,17 @@ export default function TestInterfaceScreen() {
   const [isPaletteVisible, setPaletteVisible] = useState(false);
   const [direction, setDirection] = useState<'next' | 'prev' | null>(null);
   const [loading, setLoading] = useState(false);
+  const examContext = useMemo(() => {
+    const state = useTestStore.getState();
+    for (const series of state.testSeries) {
+      if (series.tests?.some(test => test.id === testId)) {
+        const exam = state.exams.find(item => item.id === series.examId);
+        return { examId: series.examId, examTitle: exam?.title };
+      }
+    }
+
+    return { examId: undefined as string | undefined, examTitle: undefined as string | undefined };
+  }, [testId]);
 
   useEffect(() => {
     async function initTest() {
@@ -85,15 +96,26 @@ export default function TestInterfaceScreen() {
       if (currentTestId !== testId) {
         setLoading(true);
         try {
-          // Find test metadata for duration
-          const testMeta = useTestStore.getState().tests.find(t => t.id === testId);
-          const duration = testMeta?.duration || 120; // Default to 120 if missing
+          const storeState = useTestStore.getState();
+          const flatTestMeta = storeState.tests.find(t => t.id === testId);
+          const nestedSeries = storeState.testSeries.find(series => series.tests?.some(test => test.id === testId));
+          const nestedTestMeta = nestedSeries?.tests?.find(test => test.id === testId);
+          const resolvedDuration =
+            durationMinutes ||
+            nestedTestMeta?.duration ||
+            flatTestMeta?.duration ||
+            120;
+          const resolvedTitle =
+            testTitle ||
+            nestedTestMeta?.title ||
+            flatTestMeta?.title ||
+            'TestKra. Practice';
 
           // Fetch real questions from Supabase
           const fetchedQuestions = await useTestStore.getState().fetchQuestions(testId);
 
           if (fetchedQuestions.length > 0) {
-            startTest(testId, testTitle || 'TestKra. Practice', fetchedQuestions, duration);
+            startTest(testId, resolvedTitle, fetchedQuestions, resolvedDuration);
           } else if (runtimeConfig.features.allowMockFallback) {
             const mockQuestions = getQuestionsForTest(testId);
             if (mockQuestions.length === 0) {
@@ -101,7 +123,7 @@ export default function TestInterfaceScreen() {
               navigation.goBack();
               return;
             }
-            startTest(testId, testTitle || 'TestKra. Practice', mockQuestions, duration);
+            startTest(testId, resolvedTitle, mockQuestions, resolvedDuration);
           } else {
             Alert.alert(
               "Notice",
@@ -268,7 +290,8 @@ export default function TestInterfaceScreen() {
         explanation: currentQuestion.explanation,
         questionType: currentQuestion.type,
         type: 'saved',
-        exam: testId // Storing Test ID as Exam for now
+        exam: examContext.examTitle,
+        examId: examContext.examId,
       });
       showToast('Saved to Library', 'success');
     }
@@ -290,7 +313,8 @@ export default function TestInterfaceScreen() {
         explanation: currentQuestion.explanation,
         questionType: currentQuestion.type,
         type: 'learn',
-        exam: testId // Storing Test ID as Exam for now
+        exam: examContext.examTitle,
+        examId: examContext.examId,
       });
       showToast('Marked for Revision', 'success');
     }
@@ -436,7 +460,7 @@ export default function TestInterfaceScreen() {
 
           {/* Options */}
           <View style={styles.optionsContainer}>
-            {currentQuestion.options.map((option, idx) => (
+            {(currentQuestion.options || []).map((option, idx) => (
               <OptionButton
                 key={idx}
                 label={String.fromCharCode(65 + idx)}

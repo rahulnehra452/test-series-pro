@@ -33,6 +33,26 @@ const LOGIN_TIMEOUT_MS = 15000;
 const SESSION_TIMEOUT_MS = 10000;
 const PROFILE_TIMEOUT_MS = 8000;
 
+const toTimestamp = (value?: string | null): number | null => {
+  if (!value) return null;
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
+};
+
+const getProStateFromProfile = (profile: UserProfile | null | undefined) => {
+  const expiresAt = profile?.pro_expires_at;
+  const expiryTimestamp = toTimestamp(expiresAt);
+  const hasExpired = expiryTimestamp !== null && expiryTimestamp <= Date.now();
+  const isPro = Boolean(profile?.is_pro) && !hasExpired;
+
+  return {
+    isPro,
+    proExpiresAt: expiresAt,
+    proPlan: profile?.pro_plan,
+    hasExpired,
+  };
+};
+
 const withTimeout = <T>(
   promise: Promise<T> | PromiseLike<T>,
   timeoutMs: number,
@@ -104,11 +124,14 @@ export const useAuthStore = create<AuthState>()(
               );
 
               if (profile) {
+                const proState = getProStateFromProfile(profile);
                 set(state => ({
                   user: state.user ? {
                     ...state.user,
                     name: profile.full_name || state.user.name,
-                    isPro: profile.is_pro || false,
+                    isPro: proState.isPro,
+                    proExpiresAt: proState.proExpiresAt,
+                    proPlan: proState.proPlan,
                     streak: profile.streak || 0,
                     lastActiveDate: profile.last_active_at,
                   } : null
@@ -159,11 +182,14 @@ export const useAuthStore = create<AuthState>()(
               .single<UserProfile>();
 
             if (profile) {
+              const proState = getProStateFromProfile(profile);
               set(state => ({
                 user: state.user ? {
                   ...state.user,
                   name: profile.full_name || state.user.name,
-                  isPro: profile.is_pro || false,
+                  isPro: proState.isPro,
+                  proExpiresAt: proState.proExpiresAt,
+                  proPlan: proState.proPlan,
                   streak: profile.streak || 0,
                 } : null
               }));
@@ -221,11 +247,37 @@ export const useAuthStore = create<AuthState>()(
               'Profile restore timed out.'
             );
 
+            // Check if user is admin
+            const { data: adminData } = await supabase
+              .from('admin_users')
+              .select('role')
+              .eq('user_id', data.session.user.id)
+              .eq('is_active', true)
+              .maybeSingle();
+
+            const isAdmin = !!adminData;
+            const proState = getProStateFromProfile(profile);
+
+            if (proState.hasExpired && profile?.is_pro) {
+              void supabase
+                .from('profiles')
+                .update({ is_pro: false })
+                .eq('id', data.session.user.id)
+                .then(({ error: expireError }) => {
+                  if (expireError) {
+                    handleError(expireError, 'Auth:ExpirePro');
+                  }
+                });
+            }
+
             const user: User = {
               id: data.session.user.id,
               email: data.session.user.email!,
               name: profile?.full_name || 'Student',
-              isPro: profile?.is_pro || false,
+              isPro: proState.isPro,
+              proExpiresAt: proState.proExpiresAt,
+              proPlan: proState.proPlan,
+              isAdmin,
               streak: profile?.streak || 0,
               lastActiveDate: profile?.last_active_at,
               avatar: data.session.user.user_metadata?.avatar_url || data.session.user.user_metadata?.picture,
@@ -310,47 +362,28 @@ export const useAuthStore = create<AuthState>()(
       },
 
       activatePro: async () => {
-        const state = get();
-        if (!state.user) {
-          throw new Error('Please log in to activate Pro.');
-        }
-        if (state.user.isPro) {
-          return;
-        }
-
-        const { error } = await supabase
-          .from('profiles')
-          .update({ is_pro: true })
-          .eq('id', state.user.id);
-
-        if (error) {
-          throw error;
-        }
-
-        set({
-          user: {
-            ...state.user,
-            isPro: true,
-          }
-        });
+        // Pro is activated server-side by the verify-google-play-purchase Edge Function.
+        // This method simply refreshes the session to pick up the updated profile.
+        await get().checkSession();
       },
 
       deleteAccount: async () => {
         const state = get();
         if (!state.user) return;
 
-        // 1. Delete user profile and data (cascades)
-        // Note: For full auth deletion, an edge function is usually needed.
-        // This deletes the public profile and user data.
-        const { error } = await supabase
-          .from('profiles')
-          .delete()
-          .eq('id', state.user.id);
+        // Call the Edge Function that deletes all user data AND the auth user
+        const { data, error } = await supabase.functions.invoke('delete-user');
 
-        if (error) throw error;
+        if (error) {
+          throw new Error(error.message || 'Failed to delete account. Please contact support.');
+        }
 
-        // 2. Sign out
-        await get().logout();
+        if (data && !data.success) {
+          throw new Error(data.error || 'Account deletion failed.');
+        }
+
+        // Sign out locally
+        set({ user: null, isAuthenticated: false, isLoading: false });
       },
     }),
     {

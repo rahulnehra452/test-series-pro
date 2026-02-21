@@ -56,7 +56,7 @@ export default function ExamDetailsScreen() {
             <TouchableOpacity
               key={series.id}
               style={[styles.seriesCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => navigation.navigate('SeriesDetails', { seriesId: series.id, seriesTitle: series.title })}
+              onPress={() => navigation.navigate('SeriesDetails', { seriesId: series.id, seriesTitle: series.title, examId })}
             >
               <View style={styles.seriesImageContainer}>
                 {series.coverImage ? (

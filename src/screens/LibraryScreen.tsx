@@ -150,16 +150,23 @@ export default function LibraryScreen() {
     fetchExams();
   }, [fetchExams]);
 
+  const matchesSelectedExam = React.useCallback((item: LibraryItem) => {
+    if (selectedExam === 'All Exams') return true;
+
+    if (item.examId) {
+      const exactExamTitle = exams.find(exam => exam.id === item.examId)?.title;
+      if (exactExamTitle === selectedExam) return true;
+    }
+
+    if (item.exam && item.exam === selectedExam) return true;
+    return getExamCategory(item.exam) === selectedExam;
+  }, [selectedExam, exams]);
+
   const filteredItems = useMemo(() => {
     // First filter by criteria
     const filtered = library.filter(item => {
-      const itemCategory = getExamCategory(item.exam);
-
       const matchesSubject = selectedSubject === 'All' || item.subject.toLowerCase() === selectedSubject.toLowerCase() || item.subject.toLowerCase().includes(selectedSubject.toLowerCase());
-      const matchesExam = selectedExam === 'All Exams' ||
-        (item.exam && item.exam === selectedExam) ||
-        (item.examId && exams.find(e => e.id === item.examId)?.title === selectedExam) ||
-        getExamCategory(item.exam) === selectedExam; // Fallback to old category logic
+      const matchesExam = matchesSelectedExam(item);
       const matchesType = !selectedType || item.type.toLowerCase() === selectedType;
       const matchesSearch = item.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -174,19 +181,19 @@ export default function LibraryScreen() {
       seen.add(item.questionId);
       return true;
     });
-  }, [selectedSubject, selectedType, searchQuery, selectedExam, library]);
+  }, [selectedSubject, selectedType, searchQuery, library, matchesSelectedExam]);
 
   const stats = useMemo(() => {
     const relevantItems = selectedExam === 'All Exams'
       ? library
-      : library.filter(i => getExamCategory(i.exam) === selectedExam);
+      : library.filter(matchesSelectedExam);
 
     return {
       saved: relevantItems.filter(i => i.type === 'saved').length,
       wrong: relevantItems.filter(i => i.type === 'wrong').length,
       learn: relevantItems.filter(i => i.type === 'learn').length,
     };
-  }, [library, selectedExam]);
+  }, [library, selectedExam, matchesSelectedExam]);
 
   // Helper function removed in favor of getSubjectDetails utility
 
