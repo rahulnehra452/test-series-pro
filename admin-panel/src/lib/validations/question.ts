@@ -13,9 +13,9 @@ export const questionSchema = z.object({
   negative_marks: z.number().min(0).optional().default(0),
   explanation: z.string().optional(),
   options: z.array(optionSchema).min(2, "At least 2 options are required").refine(
-    (options) => options.some((opt) => opt.is_correct),
+    (options) => options.filter((opt) => opt.is_correct).length === 1,
     {
-      message: "At least one option must be marked as correct.",
+      message: "Exactly one option must be marked as correct.",
     }
   ),
 })

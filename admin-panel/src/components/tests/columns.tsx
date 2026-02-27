@@ -2,19 +2,22 @@
 
 import { ColumnDef } from "@tanstack/react-table"
 import { TestFormValues } from "@/lib/validations/test"
-import { MoreHorizontal, Pencil, Trash } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import { MoreHorizontal, Pencil, Trash, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { deleteTest } from "@/actions/test-actions"
+import { deleteTest, duplicateTest } from "@/actions/test-actions"
 import { toast } from "sonner"
 import { TestDialog } from "./test-dialog"
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 
 export type Test = TestFormValues & {
   id: string
@@ -22,6 +25,7 @@ export type Test = TestFormValues & {
 }
 
 const TestActions = ({ test, seriesList }: { test: Test, seriesList: { id: string; title: string }[] }) => {
+  const router = useRouter()
   const [showEdit, setShowEdit] = useState(false)
 
   const handleDelete = async () => {
@@ -32,6 +36,21 @@ const TestActions = ({ test, seriesList }: { test: Test, seriesList: { id: strin
       } else {
         toast.success("Test deleted successfully")
       }
+    }
+  }
+
+  const handleDuplicate = async () => {
+    const includeQuestions = confirm("Include questions in the duplicate?")
+    toast.loading("Duplicating test…")
+    const res = await duplicateTest(test.id, includeQuestions)
+    toast.dismiss()
+    if (res.error) {
+      toast.error(res.error)
+    } else {
+      toast.success("Test duplicated!", {
+        description: includeQuestions ? "Questions were copied too." : "Created without questions.",
+      })
+      router.refresh()
     }
   }
 
@@ -57,10 +76,15 @@ const TestActions = ({ test, seriesList }: { test: Test, seriesList: { id: strin
             <Pencil className="mr-2 h-4 w-4" />
             Edit
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => window.location.href = `/dashboard/tests/${test.id}/builder`} className="text-blue-600 focus:text-blue-600">
+          <DropdownMenuItem onClick={() => router.push(`/dashboard/tests/${test.id}/builder`)} className="text-blue-600 focus:text-blue-600">
             <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" /><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" /><path d="M7 21h10" /><path d="M12 3v18" /><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" /></svg>
             Section Builder
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleDuplicate}>
+            <Copy className="mr-2 h-4 w-4" />
+            Duplicate
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleDelete} className="text-red-600 focus:text-red-600">
             <Trash className="mr-2 h-4 w-4" />
             Delete
@@ -72,6 +96,30 @@ const TestActions = ({ test, seriesList }: { test: Test, seriesList: { id: strin
 }
 
 export const createColumns = (seriesList: { id: string; title: string }[]): ColumnDef<Test>[] => [
+  {
+    id: "select",
+    header: ({ table }) => (
+      <Checkbox
+        checked={
+          table.getIsAllPageRowsSelected() ||
+          (table.getIsSomePageRowsSelected() && "indeterminate")
+        }
+        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+        aria-label="Select all"
+        className="translate-y-[2px]"
+      />
+    ),
+    cell: ({ row }) => (
+      <Checkbox
+        checked={row.getIsSelected()}
+        onCheckedChange={(value) => row.toggleSelected(!!value)}
+        aria-label="Select row"
+        className="translate-y-[2px]"
+      />
+    ),
+    enableSorting: false,
+    enableHiding: false,
+  },
   {
     accessorKey: "title",
     header: "Title",

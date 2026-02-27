@@ -44,10 +44,12 @@
 ## Backend Verification
 
 1. Deploy edge function: `supabase/functions/verify-google-play-purchase/index.ts`.
-2. Set secrets:
+2. Deploy edge function: `supabase/functions/delete-user/index.ts`.
+3. Set secrets:
    - `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`
    - `GOOGLE_PLAY_PACKAGE_NAME`
-3. Run SQL migrations in order:
+4. Run SQL migrations in order:
    - `migrations/2026-02-16_release_schema_alignment.sql`
    - `migrations/2026-02-16_billing_receipts.sql`
+   - `migrations/2026-02-26_secure_question_access.sql`
    - `migrations/verify_release_schema.sql`

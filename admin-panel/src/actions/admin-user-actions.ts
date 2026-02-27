@@ -1,8 +1,8 @@
 "use server"
 
-import { createAdminClient } from "@/lib/supabase/admin"
 import { adminUserSchema, AdminUserFormValues } from "@/lib/validations/admin-user"
 import { revalidatePath } from "next/cache"
+import { requireSuperAdmin } from "@/lib/auth/admin"
 
 // Note: Creating a new user in Supabase Auth requires using the service_role key to bypass "signup" restrictions if we want to add admins directly.
 // OR we can use the `supabase.auth.admin.createUser` API if we have the service role client.
@@ -35,6 +35,8 @@ export async function createAdminUser(data: AdminUserFormValues) {
   }
 
   try {
+    await requireSuperAdmin()
+
     // 1. Create Auth User
     const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
@@ -69,19 +71,14 @@ export async function createAdminUser(data: AdminUserFormValues) {
 }
 
 export async function updateAdminUser(id: string, data: AdminUserFormValues) {
-  // id here is the admin_users.id (UUID), but we might need user_id (Auth UUID) to update email/password
-  // Let's first fetch the user_id from admin_users
-  const supabase = createAdminClient()
-
-  // Check if current user is super_admin
-  // (RLS handles this but good to have a check)
-
   const result = adminUserSchema.safeParse(data)
   if (!result.success) {
     return { error: "Invalid input data" }
   }
 
   try {
+    const { supabase } = await requireSuperAdmin()
+
     const { data: adminUser, error: fetchError } = await supabase
       .from('admin_users')
       .select('user_id')
@@ -128,9 +125,9 @@ export async function deleteAdminUser(id: string) {
     return { error: "Server configuration error: Service Role Key missing." }
   }
 
-  const supabase = createAdminClient()
-
   try {
+    const { supabase, user } = await requireSuperAdmin()
+
     // Get auth user id
     const { data: adminUser, error: fetchError } = await supabase
       .from('admin_users')
@@ -139,6 +136,10 @@ export async function deleteAdminUser(id: string) {
       .single()
 
     if (fetchError || !adminUser) throw new Error("Admin user not found")
+
+    if (adminUser.user_id === user.id) {
+      return { error: "You cannot delete your own super admin account." }
+    }
 
     // Delete from Auth
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(adminUser.user_id)

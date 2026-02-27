@@ -27,6 +27,7 @@ import { toast } from "sonner"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useState } from "react"
 import { Loader2 } from "lucide-react"
+import { HelpTooltip } from "@/components/ui/help-tooltip"
 
 interface TestFormProps {
   initialData?: TestFormValues & { id: string }
@@ -134,7 +135,10 @@ export function TestForm({ initialData, seriesList, onSuccess }: TestFormProps) 
             name="duration_minutes"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Duration (Min)</FormLabel>
+                <FormLabel>
+                  Duration (Min)
+                  <HelpTooltip text="Total time allowed for the test in minutes" />
+                </FormLabel>
                 <FormControl>
                   <Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
                 </FormControl>
@@ -147,7 +151,10 @@ export function TestForm({ initialData, seriesList, onSuccess }: TestFormProps) 
             name="total_marks"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Total Marks</FormLabel>
+                <FormLabel>
+                  Total Marks
+                  <HelpTooltip text="Maximum possible score for this test" />
+                </FormLabel>
                 <FormControl>
                   <Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
                 </FormControl>
@@ -160,7 +167,10 @@ export function TestForm({ initialData, seriesList, onSuccess }: TestFormProps) 
             name="pass_marks"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Pass Marks</FormLabel>
+                <FormLabel>
+                  Pass Marks
+                  <HelpTooltip text="Minimum score required to pass" />
+                </FormLabel>
                 <FormControl>
                   <Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
                 </FormControl>

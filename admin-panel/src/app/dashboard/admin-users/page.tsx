@@ -1,8 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requireAdminRole } from "@/lib/auth/admin"
 import { AdminUsersClient } from "@/components/admin-users/client"
 import type { AdminUser } from "@/components/admin-users/columns"
 
 export default async function AdminUsersPage() {
+  await requireAdminRole(["super_admin"])
   const supabase = createAdminClient()
 
   const { data: usersData, error } = await supabase

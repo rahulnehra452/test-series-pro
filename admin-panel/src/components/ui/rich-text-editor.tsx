@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -24,6 +25,7 @@ export function RichTextEditor({ value = "", onChange, placeholder = "Enter text
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const quillRef = useRef<any>(null);
   const isInitializing = useRef(true);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     const currentContainer = containerRef.current;
@@ -48,10 +50,10 @@ export function RichTextEditor({ value = "", onChange, placeholder = "Enter text
       const toolbarOptions = [
         ['bold', 'italic', 'underline', 'strike'],        // toggled buttons
         ['blockquote', 'code-block'],
+        [{ 'header': [1, 2, 3, 4, 5, 6, false] }],         // H1-H6
         [{ 'list': 'ordered' }, { 'list': 'bullet' }],
         [{ 'script': 'sub' }, { 'script': 'super' }],      // superscript/subscript
         [{ 'indent': '-1' }, { 'indent': '+1' }],          // outdent/indent
-        [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
         [{ 'color': [] }, { 'background': [] }],          // dropdown with defaults from theme
         [{ 'align': [] }],
         ['formula'],                                      // formula needs katex
@@ -126,12 +128,29 @@ export function RichTextEditor({ value = "", onChange, placeholder = "Enter text
 
   return (
     <div
-      className={`bg-white dark:bg-neutral-900 rounded-md shadow-sm border border-neutral-200 dark:border-neutral-800 [&_.ql-toolbar]:rounded-t-md [&_.ql-container]:rounded-b-md [&_.ql-toolbar]:border-neutral-200 dark:[&_.ql-toolbar]:border-neutral-800 [&_.ql-container]:border-neutral-200 dark:[&_.ql-container]:border-neutral-800 [&_.ql-editor]:text-neutral-900 dark:[&_.ql-editor]:text-neutral-100 dark:[&_.ql-picker-options]:bg-neutral-900 dark:[&_.ql-picker-item]:text-neutral-100 ${className}`}
+      className={`relative bg-white dark:bg-neutral-900 rounded-md shadow-sm border border-neutral-200 dark:border-neutral-800 [&_.ql-toolbar]:rounded-t-md [&_.ql-container]:rounded-b-md [&_.ql-toolbar]:border-neutral-200 dark:[&_.ql-toolbar]:border-neutral-800 [&_.ql-container]:border-neutral-200 dark:[&_.ql-container]:border-neutral-800 [&_.ql-editor]:text-neutral-900 dark:[&_.ql-editor]:text-neutral-100 dark:[&_.ql-picker-options]:bg-neutral-900 dark:[&_.ql-picker-item]:text-neutral-100 ${!isExpanded ? 'quill-compact' : ''} ${className}`}
       style={{ '--ql-editor-min-height': minHeight } as React.CSSProperties}
     >
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="absolute top-[8px] right-[8px] z-10 p-1 rounded-md text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+        title={isExpanded ? "Show basic formatting" : "Show all formatting"}
+      >
+        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      </button>
+
       <style dangerouslySetInnerHTML={{
         __html: `
         .rich-editor-wrapper-${minHeight.replace(/[^a-zA-Z0-9]/g, '')} .ql-editor { min-height: ${minHeight}; }
+        /* When compact, hide all toolbar formats starting from the 4th format group (i.e. lists onwards) */
+        .quill-compact .ql-toolbar .ql-formats:nth-child(n+4) {
+          display: none;
+        }
+        /* Add right padding to toolbar so it doesn't overlap the toggle button */
+        .ql-toolbar {
+          padding-right: 40px !important;
+        }
       `}} />
       <div className={`rich-editor-wrapper-${minHeight.replace(/[^a-zA-Z0-9]/g, '')}`} ref={containerRef} />
     </div>

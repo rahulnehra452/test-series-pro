@@ -1,5 +1,0 @@
-Question,OptionA,OptionB,OptionC,OptionD,CorrectOption,Marks,NegativeMarks,Explanation
-"What is the capital of France?","London","Berlin","Paris","Madrid","C",2,0.5,"Paris is the capital of France."
-"Which planet is known as the Red Planet?","Earth","Mars","Jupiter","Venus","B",1,0.25,"Mars appears red due to iron oxide on its surface."
-"Solve: 5 + 3 * 2","16","11","10","13","B",1,0,"According to order of operations, 3*2=6, then 5+6=11."
-"What is the chemical symbol for Gold?","Ag","Au","Pb","Fe","B",1,0,"Au comes from the Latin word for gold, aurum."

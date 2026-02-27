@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils"
+import { cn, htmlToPlainText } from "@/lib/utils"
 
 interface MobileSimulatorProps {
   questionText: string
@@ -15,6 +15,8 @@ export function MobileSimulator({
   negativeMarks = 0,
   subject = "Subject",
 }: MobileSimulatorProps) {
+  const plainQuestionText = htmlToPlainText(questionText)
+
   return (
     <div className="flex items-center justify-center p-6 bg-slate-50 dark:bg-[#1C1C1E]/50 rounded-2xl border border-black/5 dark:border-white/5 h-full min-h-[600px]">
       {/* iPhone Device Frame */}
@@ -50,8 +52,10 @@ export function MobileSimulator({
           <div className="flex-1 overflow-y-auto hide-scrollbar p-5 space-y-6">
             {/* Question Text */}
             <div className="space-y-4">
-              {questionText ? (
-                <div className="text-base font-semibold leading-snug text-[#1D1D1F] dark:text-white [&_p]:mb-2 [&_p:last-child]:mb-0 [&_.ql-formula]:bg-neutral-100 dark:[&_.ql-formula]:bg-neutral-800 [&_.ql-formula]:px-1 [&_.ql-formula]:rounded" dangerouslySetInnerHTML={{ __html: questionText }} />
+              {plainQuestionText ? (
+                <div className="text-base font-semibold leading-snug text-[#1D1D1F] dark:text-white whitespace-pre-wrap">
+                  {plainQuestionText}
+                </div>
               ) : (
                 <p className="text-base font-semibold leading-snug text-[#1D1D1F] dark:text-white">
                   Start typing to see your question here...
@@ -64,6 +68,7 @@ export function MobileSimulator({
               {options.map((opt, idx) => {
                 const isSelected = false // We can mock selection state if we want
                 const label = String.fromCharCode(65 + idx)
+                const optionText = htmlToPlainText(opt.text) || `Option ${label}`
                 return (
                   <div
                     key={idx}
@@ -86,11 +91,12 @@ export function MobileSimulator({
                     </div>
                     <div
                       className={cn(
-                        "text-sm font-medium flex-1 [&_p]:m-0 [&_.ql-formula]:bg-neutral-100 dark:[&_.ql-formula]:bg-neutral-800 [&_.ql-formula]:px-1 [&_.ql-formula]:rounded",
+                        "text-sm font-medium flex-1 whitespace-pre-wrap",
                         isSelected ? "text-[#0066CC] dark:text-[#5AC8FA]" : "text-[#4b4b4d] dark:text-[#A1A1A6]"
                       )}
-                      dangerouslySetInnerHTML={{ __html: opt.text || `Option ${label}` }}
-                    />
+                    >
+                      {optionText}
+                    </div>
                   </div>
                 )
               })}

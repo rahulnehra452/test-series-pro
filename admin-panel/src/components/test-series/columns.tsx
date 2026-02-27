@@ -2,19 +2,21 @@
 
 import { ColumnDef } from "@tanstack/react-table"
 import { TestSeriesFormValues } from "@/lib/validations/test-series"
-import { MoreHorizontal, Pencil, Trash } from "lucide-react"
+import { MoreHorizontal, Pencil, Trash, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { deleteTestSeries } from "@/actions/test-series-actions"
+import { deleteTestSeries, duplicateTestSeries } from "@/actions/test-series-actions"
 import { toast } from "sonner"
 import { TestSeriesDialog } from "./test-series-dialog"
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 
 export type TestSeries = TestSeriesFormValues & {
   id: string
@@ -22,6 +24,7 @@ export type TestSeries = TestSeriesFormValues & {
 }
 
 const TestSeriesActions = ({ series, exams }: { series: TestSeries, exams: { id: string; title: string }[] }) => {
+  const router = useRouter()
   const [showEdit, setShowEdit] = useState(false)
 
   const handleDelete = async () => {
@@ -32,6 +35,18 @@ const TestSeriesActions = ({ series, exams }: { series: TestSeries, exams: { id:
       } else {
         toast.success("Test Series deleted successfully")
       }
+    }
+  }
+
+  const handleDuplicate = async () => {
+    toast.loading("Duplicating series…")
+    const res = await duplicateTestSeries(series.id)
+    toast.dismiss()
+    if (res.error) {
+      toast.error(res.error)
+    } else {
+      toast.success("Test series duplicated!")
+      router.refresh()
     }
   }
 
@@ -57,6 +72,11 @@ const TestSeriesActions = ({ series, exams }: { series: TestSeries, exams: { id:
             <Pencil className="mr-2 h-4 w-4" />
             Edit
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleDuplicate}>
+            <Copy className="mr-2 h-4 w-4" />
+            Duplicate
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleDelete} className="text-red-600 focus:text-red-600">
             <Trash className="mr-2 h-4 w-4" />
             Delete

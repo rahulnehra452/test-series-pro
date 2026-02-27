@@ -1,0 +1,78 @@
+0 verbose cli /usr/local/bin/node /usr/local/bin/npm
+1 info using npm@10.9.3
+2 info using node@v22.19.0
+3 silly config load:file:/usr/local/lib/node_modules/npm/npmrc
+4 silly config load:file:/Users/rahulnehra/antigravity/mobile test app new/admin-panel/.npmrc
+5 silly config load:file:/Users/rahulnehra/.npmrc
+6 silly config load:file:/usr/local/etc/npmrc
+7 verbose title npm install cmdk@^1.0.0
+8 verbose argv "install" "cmdk@^1.0.0" "--cache" "/Users/rahulnehra/antigravity/mobile test app new/admin-panel/.npm"
+9 verbose logfile logs-max:10 dir:/Users/rahulnehra/antigravity/mobile test app new/admin-panel/.npm/_logs/2026-02-26T10_59_01_960Z-
+10 verbose logfile /Users/rahulnehra/antigravity/mobile test app new/admin-panel/.npm/_logs/2026-02-26T10_59_01_960Z-debug-0.log
+11 silly logfile done cleaning log files
+12 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+13 silly idealTree buildDeps
+14 silly fetch manifest cmdk@^1.0.0
+15 silly packumentCache full:https://registry.npmjs.org/cmdk cache-miss
+16 verbose shrinkwrap failed to load node_modules/.package-lock.json EPERM: operation not permitted, stat '/Users/rahulnehra/antigravity/mobile test app new/admin-panel/node_modules'
+17 http fetch GET 200 https://registry.npmjs.org/cmdk 280ms (cache miss)
+18 silly packumentCache full:https://registry.npmjs.org/cmdk set size:undefined disposed:false
+19 silly fetch manifest react@19.2.3
+20 silly packumentCache full:https://registry.npmjs.org/react cache-miss
+21 http fetch GET 200 https://registry.npmjs.org/react 421ms (cache miss)
+22 silly packumentCache full:https://registry.npmjs.org/react set size:undefined disposed:false
+23 silly fetch manifest react-dom@19.2.3
+24 silly packumentCache full:https://registry.npmjs.org/react-dom cache-miss
+25 http fetch GET 200 https://registry.npmjs.org/react-dom 295ms (cache miss)
+26 silly packumentCache full:https://registry.npmjs.org/react-dom set size:undefined disposed:false
+27 silly placeDep ROOT cmdk@1.1.1 OK for: admin-panel@0.1.0 want: ^1.0.0
+28 silly reify moves {}
+29 verbose reify failed optional dependency /Users/rahulnehra/antigravity/mobile test app new/admin-panel/node_modules/@tailwindcss/oxide-wasm32-wasi
+30 silly reify mark deleted [
+30 silly reify   '/Users/rahulnehra/antigravity/mobile test app new/admin-panel/node_modules/@tailwindcss/oxide-wasm32-wasi'
+30 silly reify ]
+31 verbose stack Error: EPERM: operation not permitted, lstat '/Users/rahulnehra/antigravity/mobile test app new/admin-panel/node_modules'
+31 verbose stack     at async lstat (node:internal/fs/promises:1030:18)
+31 verbose stack     at async #loadActual (/usr/local/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/load-actual.js:129:15)
+31 verbose stack     at async /usr/local/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/reify.js:931:11
+31 verbose stack     at async Promise.allSettled (index 0)
+31 verbose stack     at async [reifyPackages] (/usr/local/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/reify.js:325:11)
+31 verbose stack     at async Arborist.reify (/usr/local/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/reify.js:142:5)
+31 verbose stack     at async Install.exec (/usr/local/lib/node_modules/npm/lib/commands/install.js:150:5)
+31 verbose stack     at async Npm.exec (/usr/local/lib/node_modules/npm/lib/npm.js:207:9)
+31 verbose stack     at async module.exports (/usr/local/lib/node_modules/npm/lib/cli/entry.js:74:5)
+32 error code EPERM
+33 error syscall lstat
+34 error path /Users/rahulnehra/antigravity/mobile test app new/admin-panel/node_modules
+35 error errno -1
+36 error Error: EPERM: operation not permitted, lstat '/Users/rahulnehra/antigravity/mobile test app new/admin-panel/node_modules'
+36 error     at async lstat (node:internal/fs/promises:1030:18)
+36 error     at async #loadActual (/usr/local/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/load-actual.js:129:15)
+36 error     at async /usr/local/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/reify.js:931:11
+36 error     at async Promise.allSettled (index 0)
+36 error     at async [reifyPackages] (/usr/local/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/reify.js:325:11)
+36 error     at async Arborist.reify (/usr/local/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/reify.js:142:5)
+36 error     at async Install.exec (/usr/local/lib/node_modules/npm/lib/commands/install.js:150:5)
+36 error     at async Npm.exec (/usr/local/lib/node_modules/npm/lib/npm.js:207:9)
+36 error     at async module.exports (/usr/local/lib/node_modules/npm/lib/cli/entry.js:74:5) {
+36 error   errno: -1,
+36 error   code: 'EPERM',
+36 error   syscall: 'lstat',
+36 error   path: '/Users/rahulnehra/antigravity/mobile test app new/admin-panel/node_modules'
+36 error }
+37 error
+37 error The operation was rejected by your operating system.
+37 error It is likely you do not have the permissions to access this file as the current user
+37 error
+37 error If you believe this might be a permissions issue, please double-check the
+37 error permissions of the file and its containing directories, or try running
+37 error the command again as root/Administrator.
+38 silly unfinished npm timer reify 1772103542248
+39 silly unfinished npm timer reify:loadBundles 1772103543455
+40 verbose cwd /Users/rahulnehra/antigravity/mobile test app new/admin-panel
+41 verbose os Darwin 24.6.0
+42 verbose node v22.19.0
+43 verbose npm  v10.9.3
+44 verbose exit -1
+45 verbose code -1
+46 error A complete log of this run can be found in: /Users/rahulnehra/antigravity/mobile test app new/admin-panel/.npm/_logs/2026-02-26T10_59_01_960Z-debug-0.log

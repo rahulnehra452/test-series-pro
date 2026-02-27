@@ -1,8 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requireAdminRole } from "@/lib/auth/admin"
 import { TrendingUp, Users, Target, BarChart3 } from "lucide-react"
+import { InteractiveBarChart } from "@/components/analytics/interactive-charts"
 
 export default async function AnalyticsPage() {
+  await requireAdminRole(["super_admin", "moderator"])
   // eslint-disable-next-line
   const now = Date.now()
   const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString()
@@ -115,33 +118,25 @@ export default async function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             {completedAttempts && completedAttempts.length > 0 ? (
-              <div className="space-y-3">
+              <div className="pt-4">
                 {(() => {
-                  // Bucket scores into ranges
-                  const buckets = { 'Excellent (80%+)': 0, 'Good (60-80%)': 0, 'Average (40-60%)': 0, 'Below Average (<40%)': 0 }
+                  const buckets = { 'Excellent': 0, 'Good': 0, 'Average': 0, 'Poor': 0 }
                   completedAttempts.forEach(a => {
                     const pct = ((Number(a.score) || 0) / (Number(a.total_marks) || 1)) * 100
-                    if (pct >= 80) buckets['Excellent (80%+)']++
-                    else if (pct >= 60) buckets['Good (60-80%)']++
-                    else if (pct >= 40) buckets['Average (40-60%)']++
-                    else buckets['Below Average (<40%)']++
+                    if (pct >= 80) buckets['Excellent']++
+                    else if (pct >= 60) buckets['Good']++
+                    else if (pct >= 40) buckets['Average']++
+                    else buckets['Poor']++
                   })
-                  const total = completedAttempts.length
-                  const colors = ['bg-green-500', 'bg-blue-500', 'bg-yellow-500', 'bg-red-500']
-                  return Object.entries(buckets).map(([label, count], i) => (
-                    <div key={label} className="space-y-1">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">{label}</span>
-                        <span className="font-medium">{count} ({Math.round((count / total) * 100)}%)</span>
-                      </div>
-                      <div className="h-2 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${colors[i]}`}
-                          style={{ width: `${(count / total) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))
+
+                  const chartData = [
+                    { label: 'Excellent', value: buckets['Excellent'], color: 'bg-green-500' },
+                    { label: 'Good', value: buckets['Good'], color: 'bg-blue-500' },
+                    { label: 'Average', value: buckets['Average'], color: 'bg-yellow-500' },
+                    { label: 'Poor', value: buckets['Poor'], color: 'bg-red-500' }
+                  ]
+
+                  return <InteractiveBarChart data={chartData} />
                 })()}
               </div>
             ) : (

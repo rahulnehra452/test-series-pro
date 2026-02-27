@@ -63,6 +63,11 @@ const getExamCategory = (examStr: string | undefined): string => {
   return 'Other';
 };
 
+const toSafeSubject = (value: unknown): string => {
+  const subject = String(value || '').trim();
+  return subject || 'Unknown';
+};
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const isUuid = (value: string): boolean => UUID_PATTERN.test(value);
@@ -165,12 +170,17 @@ export default function LibraryScreen() {
   const filteredItems = useMemo(() => {
     // First filter by criteria
     const filtered = library.filter(item => {
-      const matchesSubject = selectedSubject === 'All' || item.subject.toLowerCase() === selectedSubject.toLowerCase() || item.subject.toLowerCase().includes(selectedSubject.toLowerCase());
+      const itemSubject = String((item as any).subject || '');
+      const itemExam = String(item.exam || '');
+      const matchesSubject =
+        selectedSubject === 'All' ||
+        itemSubject.toLowerCase() === selectedSubject.toLowerCase() ||
+        itemSubject.toLowerCase().includes(selectedSubject.toLowerCase());
       const matchesExam = matchesSelectedExam(item);
       const matchesType = !selectedType || item.type.toLowerCase() === selectedType;
       const matchesSearch = item.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.exam && item.exam.toLowerCase().includes(searchQuery.toLowerCase()));
+        itemSubject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        itemExam.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesSubject && matchesType && matchesSearch && matchesExam;
     });
 
@@ -216,7 +226,7 @@ export default function LibraryScreen() {
   };
 
   // Helper: Format type label
-  const getTypeLabel = (type: string) => {
+const getTypeLabel = (type: string) => {
     switch (type) {
       case 'wrong': return 'Incorrect';
       case 'saved': return 'Saved';
@@ -300,7 +310,7 @@ export default function LibraryScreen() {
     options: item.options || [],
     correctAnswer: item.correctAnswer,
     explanation: item.explanation,
-    subject: item.subject,
+    subject: toSafeSubject((item as any).subject),
     difficulty: item.difficulty,
     type: item.questionType || 'MCQ',
   });
@@ -324,7 +334,7 @@ export default function LibraryScreen() {
       options: Array.isArray(data.options) ? data.options : [],
       correctAnswer: Number.isInteger(data.correct_answer) ? data.correct_answer : undefined,
       explanation: data.explanation || undefined,
-      subject: data.subject || 'General',
+      subject: toSafeSubject(data.subject),
       difficulty: data.difficulty || 'Medium',
       type: data.type || 'MCQ',
     };
@@ -371,7 +381,8 @@ export default function LibraryScreen() {
   };
 
   const renderItem = ({ item, index }: { item: LibraryItem, index: number }) => {
-    const subjectDetails = getSubjectDetails(item.subject);
+    const safeSubject = toSafeSubject((item as any).subject);
+    const subjectDetails = getSubjectDetails(safeSubject);
 
     // Status styling
     const statusConfig = {
@@ -397,7 +408,7 @@ export default function LibraryScreen() {
                 <View style={[styles.subjectBadge, { backgroundColor: subjectDetails.color + '18' }]}>
                   <Ionicons name={subjectDetails.icon} size={14} color={subjectDetails.color} />
                   <Text style={[styles.subjectBadgeText, { color: subjectDetails.color }]}>
-                    {item.subject.toUpperCase()}
+                    {safeSubject.toUpperCase()}
                   </Text>
                 </View>
                 <Text style={[styles.cardDate, { color: colors.textTertiary }]}>

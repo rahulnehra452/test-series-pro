@@ -78,7 +78,7 @@ export const columns: ColumnDef<AdminUser>[] = [
     accessorKey: "role",
     header: "Role",
     cell: ({ row }) => (
-      <span className="capitalize">{row.original.role.replace('_', ' ')}</span>
+      <span className="font-medium">{row.original.role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
     )
   },
   {

@@ -1,7 +1,9 @@
 "use server"
 
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requireAdminRole } from "@/lib/auth/admin"
 import { revalidatePath } from "next/cache"
+import { logAdminAction } from "@/actions/user-actions"
 
 export type PlatformSettings = {
   id: string
@@ -15,6 +17,7 @@ export type PlatformSettings = {
 
 export async function updatePlatformSettings(data: Partial<PlatformSettings>) {
   try {
+    await requireAdminRole(["super_admin"])
     const supabase = createAdminClient()
 
     // As we have a single row constraint, we can just update without specific ID or match on the first row
@@ -29,6 +32,7 @@ export async function updatePlatformSettings(data: Partial<PlatformSettings>) {
 
     if (res.error) throw new Error(res.error.message)
 
+    await logAdminAction('config.update', 'platform_settings', data as Record<string, unknown>)
     revalidatePath("/dashboard/config")
     return { error: null }
   } catch (error: unknown) {

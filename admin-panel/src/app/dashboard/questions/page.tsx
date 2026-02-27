@@ -1,7 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requireAdminRole } from "@/lib/auth/admin"
 import { QuestionsClient } from "@/components/questions/client"
+import { parseQuestionOptions } from "@/lib/question-options"
 
 export default async function QuestionsPage() {
+  await requireAdminRole(["super_admin", "content_manager"])
   const supabase = createAdminClient()
 
   const { data: questions, error } = await supabase
@@ -31,8 +34,7 @@ export default async function QuestionsPage() {
 
   // Transform DB schema to form values shape
   const data = (questions || []).map((q) => {
-    let options = typeof q.options === 'string' ? JSON.parse(q.options) : q.options
-    if (!Array.isArray(options)) options = []
+    const options = parseQuestionOptions(q.options)
 
     const formOptions = options.map((optText: string, idx: number) => ({
       text: optText,

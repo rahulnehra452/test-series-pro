@@ -19,6 +19,8 @@ import { toast } from "sonner"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useState } from "react"
 import { Loader2 } from "lucide-react"
+import { IconPicker } from "@/components/ui/icon-picker"
+import { HelpTooltip } from "@/components/ui/help-tooltip"
 
 interface ExamFormProps {
   initialData?: ExamFormValues & { id: string }
@@ -79,7 +81,10 @@ export function ExamForm({ initialData, onSuccess }: ExamFormProps) {
           name="slug"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Slug</FormLabel>
+              <FormLabel>
+                Slug
+                <HelpTooltip text="Unique URL identifier. e.g. for 'UPSC Civil Services' use 'upsc-cse'." />
+              </FormLabel>
               <FormControl>
                 <Input placeholder="e.g. upsc-cse" {...field} />
               </FormControl>
@@ -93,10 +98,14 @@ export function ExamForm({ initialData, onSuccess }: ExamFormProps) {
           name="icon_url"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Icon Name (Ionicons)</FormLabel>
+              <FormLabel>
+                Icon Name (Ionicons)
+                <HelpTooltip text="The icon displayed on the mobile app home screen." />
+              </FormLabel>
               <FormControl>
-                <Input placeholder="e.g. school" {...field} />
+                <IconPicker value={field.value || ''} onChange={field.onChange} />
               </FormControl>
+              <FormDescription>Browse or type an Ionicons name for the mobile app.</FormDescription>
               <FormMessage />
             </FormItem>
           )}

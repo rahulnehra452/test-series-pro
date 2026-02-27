@@ -1,7 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requireAdminRole } from "@/lib/auth/admin"
 import { TestsClient } from "@/components/tests/client"
 
 export default async function TestsPage() {
+  await requireAdminRole(["super_admin", "content_manager"])
   const supabase = createAdminClient()
 
   const { data: tests, error } = await supabase

@@ -4,12 +4,151 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { createQuestion } from '@/actions/question-actions'
+import { bulkCreateQuestions } from '@/actions/question-actions'
 import { QuestionFormValues } from '@/lib/validations/question'
 
 interface BulkUploadProps {
   tests: { id: string; title: string }[]
   onSuccess: () => void
+}
+
+type UploadRow = Record<string, unknown>
+
+function toNumberOrFallback(value: unknown, fallback: number) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return fallback
+}
+
+function getTextValue(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim()
+    }
+  }
+  return ''
+}
+
+function parseCorrectIndex(value: unknown, optionCount = 4): number {
+  if (typeof value === 'number' && Number.isInteger(value)) {
+    if (value >= 0 && value < optionCount) return value
+    if (value >= 1 && value <= optionCount) return value - 1
+    return -1
+  }
+
+  if (typeof value !== 'string') return -1
+
+  const normalized = value.trim().toUpperCase()
+  if (!normalized) return -1
+
+  if (normalized === 'A') return 0
+  if (normalized === 'B') return 1
+  if (normalized === 'C') return 2
+  if (normalized === 'D') return 3
+
+  const numeric = Number(normalized)
+  if (Number.isInteger(numeric)) {
+    if (numeric >= 0 && numeric < optionCount) return numeric
+    if (numeric >= 1 && numeric <= optionCount) return numeric - 1
+  }
+
+  return -1
+}
+
+function normalizeOptionsFromArray(row: UploadRow) {
+  if (!Array.isArray(row.options)) return null
+
+  if (row.options.length < 2) {
+    return { error: 'At least 2 options are required.' }
+  }
+
+  if (typeof row.options[0] === 'string') {
+    const texts = row.options
+      .map((opt) => (typeof opt === 'string' ? opt.trim() : ''))
+      .filter(Boolean)
+
+    if (texts.length < 2) {
+      return { error: 'At least 2 non-empty option texts are required.' }
+    }
+
+    const correctIndex = parseCorrectIndex(
+      row.correct_answer ?? row.correctAnswer ?? row.CorrectOption ?? row.correctOption,
+      texts.length
+    )
+
+    if (correctIndex < 0 || correctIndex >= texts.length) {
+      return { error: 'Invalid correct answer index/label for options array.' }
+    }
+
+    return {
+      options: texts.map((text, idx) => ({
+        text,
+        is_correct: idx === correctIndex,
+      })),
+    }
+  }
+
+  if (typeof row.options[0] === 'object' && row.options[0] !== null) {
+    const optionObjects = row.options as UploadRow[]
+    const normalized = optionObjects.map((opt) => ({
+      text: getTextValue(opt.text, opt.option, opt.value),
+      is_correct: Boolean(opt.is_correct ?? opt.isCorrect),
+    }))
+
+    if (normalized.some((opt) => !opt.text)) {
+      return { error: 'Option object is missing text.' }
+    }
+
+    const correctCount = normalized.filter((opt) => opt.is_correct).length
+    if (correctCount !== 1) {
+      return { error: 'Exactly one option must be marked as correct.' }
+    }
+
+    return { options: normalized }
+  }
+
+  return { error: 'Unsupported options format in JSON.' }
+}
+
+function normalizeOptionsFromLegacyColumns(row: UploadRow) {
+  const optionA = getTextValue(row.OptionA, row.optionA)
+  const optionB = getTextValue(row.OptionB, row.optionB)
+  const optionC = getTextValue(row.OptionC, row.optionC)
+  const optionD = getTextValue(row.OptionD, row.optionD)
+
+  if (!optionA || !optionB || !optionC || !optionD) return null
+
+  const correctIndex = parseCorrectIndex(
+    row.CorrectOption ?? row.correctOption ?? row.correct_answer ?? row.correctAnswer,
+    4
+  )
+
+  if (correctIndex < 0 || correctIndex > 3) {
+    return { error: 'Invalid CorrectOption. Use A/B/C/D or 1-4 (or 0-3).' }
+  }
+
+  const options = [optionA, optionB, optionC, optionD].map((text, idx) => ({
+    text,
+    is_correct: idx === correctIndex,
+  }))
+
+  return { options }
+}
+
+function normalizeJsonRows(payload: unknown): UploadRow[] | null {
+  if (Array.isArray(payload)) return payload as UploadRow[]
+  if (
+    payload &&
+    typeof payload === 'object' &&
+    'questions' in payload &&
+    Array.isArray((payload as { questions: unknown }).questions)
+  ) {
+    return (payload as { questions: UploadRow[] }).questions
+  }
+  return null
 }
 
 declare global {
@@ -24,8 +163,7 @@ declare global {
 export function BulkUploadDialog({ tests, onSuccess }: BulkUploadProps) {
   const [open, setOpen] = useState(false)
   const [testId, setTestId] = useState<string>('')
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [parsedData, setParsedData] = useState<any[]>([])
+  const [parsedData, setParsedData] = useState<QuestionFormValues[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [errors, setErrors] = useState<{ row: number, msg: string }[]>([])
   const [isDragActive, setIsDragActive] = useState(false)
@@ -36,7 +174,17 @@ export function BulkUploadDialog({ tests, onSuccess }: BulkUploadProps) {
       return
     }
 
-    if (!window.Papa || !window.XLSX) {
+    const fileName = file.name.toLowerCase()
+    const isCsv = fileName.endsWith('.csv')
+    const isXlsx = fileName.endsWith('.xlsx')
+    const isJson = fileName.endsWith('.json')
+
+    if (!isCsv && !isXlsx && !isJson) {
+      toast.error("Unsupported file type. Use CSV, XLSX, or JSON.")
+      return
+    }
+
+    if ((isCsv || isXlsx) && (!window.Papa || !window.XLSX)) {
       toast.error("Required libraries are still loading, please wait and try again.")
       return
     }
@@ -46,16 +194,23 @@ export function BulkUploadDialog({ tests, onSuccess }: BulkUploadProps) {
     fileReader.onload = async (e) => {
       try {
         const data = e.target?.result
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let rawJson: any[] = []
+        let rawJson: UploadRow[] = []
 
-        if (file.name.endsWith('.csv')) {
+        if (isCsv) {
           const csvResult = window.Papa.parse(data as string, { header: true, skipEmptyLines: true })
           rawJson = csvResult.data
-        } else if (file.name.endsWith('.xlsx')) {
+        } else if (isXlsx) {
           const workbook = window.XLSX.read(data, { type: 'binary' })
           const sheetName = workbook.SheetNames[0]
           rawJson = window.XLSX.utils.sheet_to_json(workbook.Sheets[sheetName])
+        } else if (isJson) {
+          const parsed = JSON.parse(data as string) as unknown
+          const rows = normalizeJsonRows(parsed)
+          if (!rows) {
+            toast.error("Invalid JSON. Use an array of rows or an object with a 'questions' array.")
+            return
+          }
+          rawJson = rows
         } else {
           toast.error("Unsupported file type")
           return
@@ -68,49 +223,59 @@ export function BulkUploadDialog({ tests, onSuccess }: BulkUploadProps) {
       }
     }
 
-    if (file.name.endsWith('.csv')) {
+    if (isCsv || isJson) {
       fileReader.readAsText(file)
     } else {
       fileReader.readAsBinaryString(file)
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const validateAndFormatData = (data: any[]) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const formatted: any[] = []
+  const validateAndFormatData = (data: UploadRow[]) => {
+    const formatted: QuestionFormValues[] = []
     const errs: { row: number, msg: string }[] = []
 
     data.forEach((row, index) => {
-      if (!row.Question || !row.OptionA || !row.OptionB || !row.OptionC || !row.OptionD || !row.CorrectOption) {
-        errs.push({ row: index + 1, msg: "Missing required columns (Question, Options A-D, or CorrectOption)" })
+      const rowNum = index + 1
+      if (!row || typeof row !== 'object') {
+        errs.push({ row: rowNum, msg: "Row is not a valid object." })
         return
       }
 
-      const correctChar = String(row.CorrectOption).trim().toUpperCase()
-      let correctIndex = -1
-      if (correctChar === 'A') correctIndex = 0
-      if (correctChar === 'B') correctIndex = 1
-      if (correctChar === 'C') correctIndex = 2
-      if (correctChar === 'D') correctIndex = 3
+      const questionText = getTextValue(
+        row.Question,
+        row.question,
+        row.question_text,
+        row.questionText,
+      )
+      if (!questionText) {
+        errs.push({ row: rowNum, msg: "Missing question text (Question/question_text)." })
+        return
+      }
 
-      if (correctIndex === -1) {
-        errs.push({ row: index + 1, msg: `Invalid CorrectOption: ${correctChar}. Must be A, B, C, or D.` })
+      const normalizedFromOptions = normalizeOptionsFromArray(row)
+      const normalizedFromColumns = normalizeOptionsFromLegacyColumns(row)
+      const normalizedOptions = normalizedFromOptions ?? normalizedFromColumns
+
+      if (!normalizedOptions) {
+        errs.push({
+          row: rowNum,
+          msg: "Missing options. Provide 'options' array or OptionA/OptionB/OptionC/OptionD.",
+        })
+        return
+      }
+
+      if ('error' in normalizedOptions) {
+        errs.push({ row: rowNum, msg: normalizedOptions.error || "Invalid options format." })
         return
       }
 
       formatted.push({
         test_id: testId,
-        question_text: row.Question,
-        marks: Number(row.Marks) || 1,
-        negative_marks: Number(row.NegativeMarks) || 0,
-        explanation: row.Explanation || "",
-        options: [
-          { text: row.OptionA, is_correct: correctIndex === 0 },
-          { text: row.OptionB, is_correct: correctIndex === 1 },
-          { text: row.OptionC, is_correct: correctIndex === 2 },
-          { text: row.OptionD, is_correct: correctIndex === 3 },
-        ]
+        question_text: questionText,
+        marks: toNumberOrFallback(row.Marks ?? row.marks, 1),
+        negative_marks: toNumberOrFallback(row.NegativeMarks ?? row.negative_marks, 0),
+        explanation: getTextValue(row.Explanation, row.explanation),
+        options: normalizedOptions.options,
       })
     })
 
@@ -158,21 +323,37 @@ export function BulkUploadDialog({ tests, onSuccess }: BulkUploadProps) {
     setIsUploading(true)
 
     try {
-      let successCount = 0
-      for (const q of parsedData) {
-        const res = await createQuestion(q as QuestionFormValues)
-        if (!res.error) successCount++
+      const res = await bulkCreateQuestions(parsedData as QuestionFormValues[])
+
+      if (res.error) {
+        toast.error(res.error)
       }
 
-      toast.success(`Successfully uploaded ${successCount} questions`)
-      setOpen(false)
-      onSuccess()
+      if (Array.isArray(res.rowIssues) && res.rowIssues.length > 0) {
+        setErrors(res.rowIssues.map((issue) => ({
+          row: issue.row,
+          msg: issue.msg,
+        })))
+      }
+
+      const inserted = typeof res.inserted === 'number' ? res.inserted : 0
+      const skipped = typeof res.skipped === 'number' ? res.skipped : 0
+
+      if (inserted > 0) {
+        toast.success(
+          skipped > 0
+            ? `Uploaded ${inserted} questions. Skipped ${skipped}.`
+            : `Uploaded ${inserted} questions successfully.`
+        )
+        setOpen(false)
+        onSuccess()
+      } else if (!res.error) {
+        toast.error("No questions were uploaded.")
+      }
     } catch {
       toast.error("An error occurred during bulk upload")
     } finally {
       setIsUploading(false)
-      setParsedData([])
-      setErrors([])
     }
   }
 
@@ -214,7 +395,7 @@ export function BulkUploadDialog({ tests, onSuccess }: BulkUploadProps) {
           {/* Step 2: Dropzone */}
           {parsedData.length === 0 ? (
             <div className="space-y-2">
-              <label className="text-sm font-semibold">2. Upload File (.csv, .xlsx)</label>
+              <label className="text-sm font-semibold">2. Upload File (.csv, .xlsx, .json)</label>
               <div
                 onDragEnter={handleDragEnter}
                 onDragLeave={handleDragLeave}
@@ -223,20 +404,20 @@ export function BulkUploadDialog({ tests, onSuccess }: BulkUploadProps) {
                 onClick={() => document.getElementById('file-upload')?.click()}
                 className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center cursor-pointer transition-colors ${isDragActive ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/10' : 'border-gray-200 dark:border-gray-800 hover:border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'} ${!testId && 'opacity-50 pointer-events-none'}`}
               >
-                <input
-                  id="file-upload"
-                  type="file"
-                  title="Upload CSV or XLSX file"
-                  accept=".csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                  className="hidden"
-                  onChange={handleFileInput}
-                />
+                  <input
+                    id="file-upload"
+                    type="file"
+                    title="Upload CSV, XLSX, or JSON file"
+                    accept=".csv,.xlsx,.json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/json"
+                    className="hidden"
+                    onChange={handleFileInput}
+                  />
                 <FileType className="h-10 w-10 text-muted-foreground mb-4" />
                 <p className="text-sm font-medium text-center">
                   Drag & drop your file here, or click to select
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Supports CSV and XLSX
+                  Supports CSV, XLSX, and JSON
                 </p>
               </div>
             </div>

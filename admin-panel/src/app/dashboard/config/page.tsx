@@ -1,8 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requireAdminRole } from "@/lib/auth/admin"
 import { ConfigClient } from "./client"
 import type { PlatformSettings } from "@/actions/config-actions"
 
 export default async function ConfigPage() {
+  await requireAdminRole(["super_admin"])
   const supabase = createAdminClient()
 
   const { data: config } = await supabase

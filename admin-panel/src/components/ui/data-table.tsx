@@ -30,6 +30,7 @@ interface DataTableProps<TData, TValue> {
   data: TData[]
   filterKey?: string
   onRowClick?: (row: TData) => void
+  toolbar?: (table: ReturnType<typeof useReactTable<TData>>) => React.ReactNode
 }
 
 export function DataTable<TData, TValue>({
@@ -37,9 +38,11 @@ export function DataTable<TData, TValue>({
   data,
   filterKey,
   onRowClick,
+  toolbar,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [rowSelection, setRowSelection] = useState({})
 
   const table = useReactTable({
     data,
@@ -50,16 +53,18 @@ export function DataTable<TData, TValue>({
     getSortedRowModel: getSortedRowModel(),
     onColumnFiltersChange: setColumnFilters,
     getFilteredRowModel: getFilteredRowModel(),
+    onRowSelectionChange: setRowSelection,
     state: {
       sorting,
       columnFilters,
+      rowSelection,
     },
   })
 
   return (
     <div>
-      {filterKey && (
-        <div className="flex items-center py-4">
+      <div className="flex items-center justify-between py-4">
+        {filterKey && (
           <Input
             placeholder="Filter..."
             value={(table.getColumn(filterKey)?.getFilterValue() as string) ?? ""}
@@ -68,8 +73,9 @@ export function DataTable<TData, TValue>({
             }
             className="max-w-sm"
           />
-        </div>
-      )}
+        )}
+        {toolbar && toolbar(table)}
+      </div>
       <div className="rounded-md border">
         <Table>
           <TableHeader>

@@ -13,6 +13,7 @@ import { Plus } from "lucide-react"
 import { QuestionForm } from "./question-form"
 import { useState } from "react"
 import { QuestionFormValues } from "@/lib/validations/question"
+import { useRouter } from "next/navigation"
 
 interface QuestionDialogProps {
   initialData?: QuestionFormValues & { id: string }
@@ -23,6 +24,7 @@ interface QuestionDialogProps {
 }
 
 export function QuestionDialog({ initialData, tests, trigger, open, onOpenChange }: QuestionDialogProps) {
+  const router = useRouter()
   const [internalOpen, setInternalOpen] = useState(false)
 
   const isControlled = open !== undefined
@@ -31,6 +33,7 @@ export function QuestionDialog({ initialData, tests, trigger, open, onOpenChange
 
   const handleSuccess = () => {
     setIsOpen?.(false)
+    router.refresh()
   }
 
   return (

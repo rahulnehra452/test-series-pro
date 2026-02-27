@@ -39,6 +39,15 @@ const toTimestamp = (value?: string | null): number | null => {
   return Number.isFinite(timestamp) ? timestamp : null;
 };
 
+const toLocalDateKey = (value: string | Date): string => {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  if (!Number.isFinite(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const getProStateFromProfile = (profile: UserProfile | null | undefined) => {
   const expiresAt = profile?.pro_expires_at;
   const expiryTimestamp = toTimestamp(expiresAt);
@@ -300,15 +309,15 @@ export const useAuthStore = create<AuthState>()(
         const state = get();
         if (!state.user || !state.isAuthenticated) return;
 
-        const today = new Date().toISOString().split('T')[0];
-        const lastActiveDateStr = state.user.lastActiveDate ? new Date(state.user.lastActiveDate).toISOString().split('T')[0] : null;
+        const today = toLocalDateKey(new Date());
+        const lastActiveDateStr = state.user.lastActiveDate ? toLocalDateKey(state.user.lastActiveDate) : null;
 
         if (lastActiveDateStr === today) return;
 
         const now = new Date();
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        const yesterdayStr = toLocalDateKey(yesterday);
 
         let newStreak = 1;
         if (lastActiveDateStr === yesterdayStr) {

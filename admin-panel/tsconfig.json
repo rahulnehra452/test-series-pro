@@ -42,6 +42,10 @@
     "**/*.mts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "src/lib/**/tests/**",
+    "src/lib/**/__tests__/**",
+    "src/lib/react-dropzone/examples/**",
+    "src/lib/react-dropzone/typings/tests/**"
   ]
 }

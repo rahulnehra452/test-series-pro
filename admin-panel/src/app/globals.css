@@ -131,11 +131,40 @@
 @layer utilities {
   .hide-scrollbar {
     -ms-overflow-style: none;
-    /* IE and Edge */
+    scrollbar-width: none;
+    /* IE, Edge, Firefox */
   }
 
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
     /* Chrome, Safari and Opera */
+  }
+
+  /* Responsive table wrapper for mobile */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Smooth scrolling globally */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Better touch targets on mobile */
+@media (max-width: 1023px) {
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+  }
+
+  /* Reduce padding on mobile cards */
+  .card-compact {
+    padding: 0.75rem;
   }
 }

@@ -14,7 +14,7 @@ const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
       <button
         type="button"
         role="switch"
-        aria-checked={checked ? "true" : "false"}
+        aria-checked={checked || false}
         ref={ref}
         onClick={() => onCheckedChange?.(!checked)}
         className={cn(

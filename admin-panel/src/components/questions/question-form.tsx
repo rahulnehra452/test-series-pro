@@ -24,7 +24,7 @@ import { createQuestion, updateQuestion } from "@/actions/question-actions"
 import { toast } from "sonner"
 import { RichTextEditor } from "@/components/ui/rich-text-editor"
 import { Checkbox } from "@/components/ui/checkbox"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Loader2, Plus, Trash2 } from "lucide-react"
 
 interface QuestionFormProps {
@@ -38,15 +38,29 @@ import { MobileSimulator } from "./mobile-simulator"
 
 export function QuestionForm({ initialData, tests, onSuccess }: QuestionFormProps) {
   const [loading, setLoading] = useState(false)
+  const MIN_OPTIONS = 2
+
+  // Retrieve sticky defaults and draft from local storage
+  const stickyTestId = typeof window !== 'undefined' ? localStorage.getItem('stickyTestId') || "" : ""
+  const stickyMarks = typeof window !== 'undefined' ? Number(localStorage.getItem('stickyMarks')) || 1 : 1
+  const stickyNegMarks = typeof window !== 'undefined' ? Number(localStorage.getItem('stickyNegMarks')) || 0 : 0
+
+  const savedDraft = typeof window !== 'undefined' ? localStorage.getItem('questionDraft') : null
+  let defaultDraftValues = null
+  if (savedDraft && (!initialData || initialData.id === "")) {
+    try {
+      defaultDraftValues = JSON.parse(savedDraft)
+    } catch { /* ignore parse errors */ }
+  }
 
   const form = useForm<QuestionFormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(questionSchema) as any,
-    defaultValues: {
-      test_id: initialData?.test_id || "",
+    defaultValues: defaultDraftValues || {
+      test_id: initialData?.test_id || stickyTestId,
       question_text: initialData?.question_text || "",
-      marks: initialData?.marks || 1,
-      negative_marks: initialData?.negative_marks || 0,
+      marks: initialData?.marks || stickyMarks,
+      negative_marks: initialData?.negative_marks || stickyNegMarks,
       explanation: initialData?.explanation || "",
       options: initialData?.options || [
         { text: "", is_correct: false },
@@ -57,13 +71,66 @@ export function QuestionForm({ initialData, tests, onSuccess }: QuestionFormProp
     },
   })
 
-  // Watch form values for the simulator
+  // Watch form values for the simulator and auto-save
   const watchedValues = useWatch({ control: form.control })
 
-  const { fields, append, remove } = useFieldArray({
+  // Auto-save draft to localStorage whenever fields change (only for new questions)
+  useEffect(() => {
+    if (!initialData || initialData.id === "") {
+      const timeoutId = setTimeout(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if (watchedValues.question_text || watchedValues.explanation || watchedValues.options?.some((o: any) => o?.text)) {
+          localStorage.setItem('questionDraft', JSON.stringify(watchedValues))
+        }
+      }, 1000)
+      return () => clearTimeout(timeoutId)
+    }
+  }, [watchedValues, initialData])
+
+  const { fields, append, replace } = useFieldArray({
     control: form.control,
     name: "options",
   })
+
+  const setSingleCorrectOption = (correctIndex: number, isChecked: boolean) => {
+    const currentOptions = form.getValues("options")
+
+    if (!isChecked && currentOptions[correctIndex]?.is_correct) {
+      const correctCount = currentOptions.filter((opt) => opt.is_correct).length
+      if (correctCount <= 1) {
+        toast.info("Exactly one correct option is required.")
+        return
+      }
+    }
+
+    const nextOptions = currentOptions.map((opt, idx) => ({
+      ...opt,
+      is_correct: isChecked ? idx === correctIndex : idx === correctIndex ? false : opt.is_correct,
+    }))
+
+    form.setValue("options", nextOptions, {
+      shouldDirty: true,
+      shouldValidate: true,
+    })
+  }
+
+  const handleRemoveOption = (removeIndex: number) => {
+    const currentOptions = form.getValues("options")
+    if (currentOptions.length <= MIN_OPTIONS) {
+      toast.info(`At least ${MIN_OPTIONS} options are required.`)
+      return
+    }
+
+    const nextOptions = currentOptions.filter((_, idx) => idx !== removeIndex)
+    const hasCorrectOption = nextOptions.some((opt) => opt.is_correct)
+
+    if (!hasCorrectOption && nextOptions.length > 0) {
+      nextOptions[0] = { ...nextOptions[0], is_correct: true }
+    }
+
+    replace(nextOptions)
+    form.trigger("options")
+  }
 
   async function onSubmit(data: QuestionFormValues) {
     setLoading(true)
@@ -76,6 +143,16 @@ export function QuestionForm({ initialData, tests, onSuccess }: QuestionFormProp
         const res = await createQuestion(data)
         if (res.error) throw new Error(res.error)
         toast.success("Question created successfully")
+
+        // Save sticky defaults
+        try {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('stickyTestId', data.test_id)
+            localStorage.setItem('stickyMarks', data.marks.toString())
+            localStorage.setItem('stickyNegMarks', data.negative_marks.toString())
+            localStorage.removeItem('questionDraft')
+          }
+        } catch { /* ignore */ }
       }
       onSuccess()
     } catch (error: unknown) {
@@ -96,7 +173,7 @@ export function QuestionForm({ initialData, tests, onSuccess }: QuestionFormProp
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Select Test</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a test" />
@@ -179,9 +256,9 @@ export function QuestionForm({ initialData, tests, onSuccess }: QuestionFormProp
                     <FormItem className="pt-3">
                       <FormControl>
                         <Checkbox
-                          checked={field.value}
+                          checked={Boolean(field.value)}
                           onCheckedChange={(checked) => {
-                            field.onChange(checked)
+                            setSingleCorrectOption(index, checked === true)
                           }}
                         />
                       </FormControl>
@@ -206,7 +283,8 @@ export function QuestionForm({ initialData, tests, onSuccess }: QuestionFormProp
                   type="button"
                   variant="ghost"
                   size="icon"
-                  onClick={() => remove(index)}
+                  onClick={() => handleRemoveOption(index)}
+                  disabled={fields.length <= MIN_OPTIONS}
                   className="text-red-500 hover:text-red-600"
                 >
                   <Trash2 className="h-4 w-4" />

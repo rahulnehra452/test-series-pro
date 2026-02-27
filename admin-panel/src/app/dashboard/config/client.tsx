@@ -6,10 +6,10 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { toast } from "sonner"
 import { updatePlatformSettings, type PlatformSettings } from "@/actions/config-actions"
-import { Loader2 } from "lucide-react"
+import { Loader2, AlertCircle } from "lucide-react"
 
 interface ConfigClientProps {
   initialData: PlatformSettings | null
@@ -25,6 +25,19 @@ export function ConfigClient({ initialData }: ConfigClientProps) {
     ios_version_code: initialData?.ios_version_code ?? 1,
     global_announcement: initialData?.global_announcement ?? "",
   })
+
+  // Improvement 5: Track dirty state
+  const isDirty = useMemo(() => {
+    if (!initialData) return Object.values(formData).some(v => v !== false && v !== true && v !== 1 && v !== '')
+    return (
+      formData.maintenance_mode !== initialData.maintenance_mode ||
+      formData.mock_fallbacks_enabled !== initialData.mock_fallbacks_enabled ||
+      formData.payment_gateway_active !== initialData.payment_gateway_active ||
+      formData.android_version_code !== initialData.android_version_code ||
+      formData.ios_version_code !== initialData.ios_version_code ||
+      formData.global_announcement !== (initialData.global_announcement ?? "")
+    )
+  }, [formData, initialData])
 
   const handleChange = (key: keyof PlatformSettings, value: unknown) => {
     setFormData((prev) => ({ ...prev, [key]: value }))
@@ -147,8 +160,16 @@ export function ConfigClient({ initialData }: ConfigClientProps) {
           </p>
         </div>
 
-        <div className="flex justify-start">
-          <Button onClick={handleSave} disabled={loading} size="lg" className="w-full sm:w-auto">
+        <div className={`sticky bottom-0 -mx-8 -mb-8 px-8 py-4 border-t border-black/5 dark:border-white/5 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl flex items-center justify-between transition-all ${isDirty ? 'opacity-100' : 'opacity-60'}`}>
+          <div className="flex items-center gap-2">
+            {isDirty && (
+              <>
+                <AlertCircle className="h-4 w-4 text-amber-500" />
+                <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Unsaved changes</span>
+              </>
+            )}
+          </div>
+          <Button onClick={handleSave} disabled={loading || !isDirty} size="lg" className="w-auto">
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save Configuration Settings
           </Button>

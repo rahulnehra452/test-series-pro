@@ -1,1 +1,1 @@
-export * from '@/lib/types.d.ts'
+export * from 'lucide-react';

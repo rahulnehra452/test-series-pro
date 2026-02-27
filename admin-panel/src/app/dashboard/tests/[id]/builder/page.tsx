@@ -1,8 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requireAdminRole } from "@/lib/auth/admin"
 import { notFound } from "next/navigation"
 import { BuilderClient } from "./client"
 
 export default async function BuilderPage(props: { params: Promise<{ id: string }> }) {
+  await requireAdminRole(["super_admin", "content_manager"])
   const params = await props.params;
   const testId = params.id
   const supabase = createAdminClient()
