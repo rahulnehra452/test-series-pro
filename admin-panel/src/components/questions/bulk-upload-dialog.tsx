@@ -1,8 +1,10 @@
 import React, { useState, useCallback } from 'react'
-import { UploadCloud, FileType, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react'
+import { UploadCloud, FileType, CheckCircle, AlertTriangle, Loader2, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { bulkCreateQuestions } from '@/actions/question-actions'
 import { QuestionFormValues } from '@/lib/validations/question'
@@ -167,6 +169,36 @@ export function BulkUploadDialog({ tests, onSuccess }: BulkUploadProps) {
   const [isUploading, setIsUploading] = useState(false)
   const [errors, setErrors] = useState<{ row: number, msg: string }[]>([])
   const [isDragActive, setIsDragActive] = useState(false)
+  const [inputMode, setInputMode] = useState<'file' | 'json'>('file')
+  const [rawJsonText, setRawJsonText] = useState('')
+  const [needsReview, setNeedsReview] = useState(false)
+  const [tagInput, setTagInput] = useState('')
+
+  const handleParseRawJson = () => {
+    if (!testId) {
+      toast.error("Please select a test first")
+      return
+    }
+    if (!rawJsonText.trim()) {
+      toast.error("Please paste JSON data")
+      return
+    }
+    try {
+      const cleanedText = rawJsonText.trim()
+        .replace(/^```(?:json)?\s*/i, '')
+        .replace(/\s*```$/i, '')
+        .trim()
+      const parsed = JSON.parse(cleanedText)
+      const rows = normalizeJsonRows(parsed)
+      if (!rows) {
+        toast.error("Invalid JSON format. Expecting an array of questions.")
+        return
+      }
+      validateAndFormatData(rows)
+    } catch {
+      toast.error("Invalid JSON syntax. Please check for trailing commas or missing quotes.")
+    }
+  }
 
   const processFile = (file: File) => {
     if (!testId) {
@@ -269,6 +301,11 @@ export function BulkUploadDialog({ tests, onSuccess }: BulkUploadProps) {
         return
       }
 
+      // Parse custom tags
+      const userTags = tagInput.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
+      if (needsReview) userTags.push("needs_review")
+      const combinedTags = Array.from(new Set(userTags))
+
       formatted.push({
         test_id: testId,
         question_text: questionText,
@@ -276,6 +313,7 @@ export function BulkUploadDialog({ tests, onSuccess }: BulkUploadProps) {
         negative_marks: toNumberOrFallback(row.NegativeMarks ?? row.negative_marks, 0),
         explanation: getTextValue(row.Explanation, row.explanation),
         options: normalizedOptions.options,
+        tags: combinedTags,
       })
     })
 
@@ -360,7 +398,7 @@ export function BulkUploadDialog({ tests, onSuccess }: BulkUploadProps) {
   return (
     <Dialog open={open} onOpenChange={(v) => {
       setOpen(v)
-      if (!v) { setParsedData([]); setErrors([]) }
+      if (!v) { setParsedData([]); setErrors([]); setRawJsonText(''); }
     }}>
       <DialogTrigger asChild>
         <Button variant={"outline"} className="border-[#0066CC] text-[#0066CC] hover:bg-[#0066CC]/5">
@@ -372,7 +410,7 @@ export function BulkUploadDialog({ tests, onSuccess }: BulkUploadProps) {
         <DialogHeader>
           <DialogTitle className="text-xl">Bulk Upload Questions</DialogTitle>
           <DialogDescription>
-            Download the <a href="/template.csv" download className="text-blue-500 underline font-medium hover:text-blue-600 transition-colors">template CSV</a> and upload it here.
+            Download the <a href="data:text/csv;charset=utf-8,Question,Marks,NegativeMarks,Explanation,OptionA,OptionB,OptionC,OptionD,CorrectOption%0AWhat%20is%20the%20capital%20of%20France%3F,1,0.25,Paris%20is%20the%20capital.,London,Paris,Berlin,Rome,B" download="Questions_Template.csv" className="text-blue-500 underline font-medium hover:text-blue-600 transition-colors">Template CSV</a> and upload questions.
           </DialogDescription>
         </DialogHeader>
 
@@ -392,18 +430,55 @@ export function BulkUploadDialog({ tests, onSuccess }: BulkUploadProps) {
             </Select>
           </div>
 
-          {/* Step 2: Dropzone */}
+          {/* Optional Details Settings */}
+          <div className="space-y-3 bg-black/5 dark:bg-white/5 p-3 rounded-xl border border-black/5 dark:border-white/5">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Optional Upload Settings</h4>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="flex-1 min-w-0">
+                <label className="text-[10px] font-bold uppercase tracking-wider mb-1 block">Assign Tags (comma separated)</label>
+                <Input
+                  value={tagInput}
+                  onChange={e => setTagInput(e.target.value)}
+                  placeholder="e.g. history, mock_test, difficult"
+                  className="h-8 text-xs bg-white dark:bg-[#1C1C1E] shadow-sm border-black/10 dark:border-white/10"
+                />
+              </div>
+              <div className="flex items-center gap-2 mt-2 sm:mt-5 shrink-0 bg-white dark:bg-[#1C1C1E] px-3 h-8 rounded-md border border-black/10 dark:border-white/10 shadow-sm cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors" onClick={() => setNeedsReview(!needsReview)}>
+                <input
+                  id="needs_review_checkbox"
+                  type="checkbox"
+                  checked={needsReview}
+                  onChange={e => setNeedsReview(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-gray-300 pointer-events-none"
+                  aria-label="Flag as needs review"
+                />
+                <label htmlFor="needs_review_checkbox" className="text-[11px] font-semibold cursor-pointer">
+                  Flag as &quot;Needs Review&quot;
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Step 2: Input Method */}
           {parsedData.length === 0 ? (
-            <div className="space-y-2">
-              <label className="text-sm font-semibold">2. Upload File (.csv, .xlsx, .json)</label>
-              <div
-                onDragEnter={handleDragEnter}
-                onDragLeave={handleDragLeave}
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
-                onClick={() => document.getElementById('file-upload')?.click()}
-                className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center cursor-pointer transition-colors ${isDragActive ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/10' : 'border-gray-200 dark:border-gray-800 hover:border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'} ${!testId && 'opacity-50 pointer-events-none'}`}
-              >
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-semibold">2. Provide Data</label>
+                <div className="bg-muted/50 p-1 rounded-lg flex items-center border border-black/5 dark:border-white/5">
+                  <button onClick={() => setInputMode('file')} className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${inputMode === 'file' ? 'bg-white dark:bg-[#2C2C2E] shadow-sm text-[#1D1D1F] dark:text-white' : 'text-muted-foreground hover:text-[#1D1D1F] dark:hover:text-white'}`}>File Upload</button>
+                  <button onClick={() => setInputMode('json')} className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${inputMode === 'json' ? 'bg-white dark:bg-[#2C2C2E] shadow-sm text-[#1D1D1F] dark:text-white' : 'text-muted-foreground hover:text-[#1D1D1F] dark:hover:text-white'}`}>Raw JSON Prompt</button>
+                </div>
+              </div>
+
+              {inputMode === 'file' ? (
+                <div
+                  onDragEnter={handleDragEnter}
+                  onDragLeave={handleDragLeave}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                  onClick={() => document.getElementById('file-upload')?.click()}
+                  className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center cursor-pointer transition-colors ${isDragActive ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/10' : 'border-gray-200 dark:border-gray-800 hover:border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'} ${!testId && 'opacity-50 pointer-events-none'}`}
+                >
                   <input
                     id="file-upload"
                     type="file"
@@ -412,17 +487,50 @@ export function BulkUploadDialog({ tests, onSuccess }: BulkUploadProps) {
                     className="hidden"
                     onChange={handleFileInput}
                   />
-                <FileType className="h-10 w-10 text-muted-foreground mb-4" />
-                <p className="text-sm font-medium text-center">
-                  Drag & drop your file here, or click to select
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Supports CSV, XLSX, and JSON
-                </p>
-              </div>
+                  <FileType className="h-10 w-10 text-muted-foreground mb-4" />
+                  <p className="text-sm font-medium text-center">
+                    Drag & drop your file here, or click to select
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Supports CSV, XLSX, and JSON
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">Paste JSON output from ChatGPT/Claude:</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-6 text-[10px] gap-1 px-2 font-bold bg-white dark:bg-black shadow-sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(`Generate 10 multiple-choice questions about [TOPIC]. Return STRICTLY a JSON array matching this exact schema:\n[{"question_text": "...", "marks": 1, "negative_marks": 0.25, "explanation": "...", "options": [{"text": "...", "is_correct": true}, {"text": "...", "is_correct": false}, {"text": "...", "is_correct": false}, {"text": "...", "is_correct": false}]}]`);
+                        toast.success("Prompt copied to clipboard!");
+                      }}
+                    >
+                      <Copy className="h-3 w-3" /> Copy LLM Prompt
+                    </Button>
+                  </div>
+                  <Textarea
+                    value={rawJsonText}
+                    onChange={(e) => setRawJsonText(e.target.value)}
+                    placeholder="Paste your JSON array from LLM prompts here..."
+                    className="h-44 font-mono text-xs dark:bg-black/20 resize-none border-black/10 dark:border-white/10"
+                    spellCheck={false}
+                  />
+                  <Button
+                    onClick={handleParseRawJson}
+                    disabled={!testId || !rawJsonText.trim()}
+                    variant="secondary"
+                    className="w-full font-bold bg-[#0066CC]/10 text-[#0066CC] hover:bg-[#0066CC]/20 dark:bg-[#0066CC]/20 dark:text-[#5AC8FA] dark:hover:bg-[#0066CC]/30 border-none"
+                  >
+                    Parse JSON Data
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4 animate-in slide-in-from-right-2 duration-300">
               {/* Preview Section */}
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-sm flex items-center">

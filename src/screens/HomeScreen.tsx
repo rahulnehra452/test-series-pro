@@ -22,12 +22,7 @@ import { RootStackParamList } from '../types/navigationTypes';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-const MOCK_PROGESS = {
-  title: 'UPSC Prelims 2024',
-  progress: 0,
-  totalTests: 30,
-  completedTests: 0,
-};
+
 
 // ... types and previous imports
 import { useAuthStore } from '../stores/authStore';
@@ -169,17 +164,15 @@ export default function HomeScreen() {
         <ProgressGrid />
 
         {/* Continue Learning */}
-        <ContinueLearning
-          title={currentAttempt ? currentAttempt.testTitle : MOCK_PROGESS.title}
-          subtitle={currentAttempt
-            ? `Question ${(currentAttempt.currentIndex || 0) + 1} of ${currentAttempt.questions.length || '?'} • Resume`
-            : `${MOCK_PROGESS.completedTests} of ${MOCK_PROGESS.totalTests} tests completed`}
-          progress={currentAttempt
-            ? ((currentAttempt.currentIndex || 0) / (currentAttempt.questions.length || 1))
-            : MOCK_PROGESS.progress}
-          buttonText={currentAttempt ? "Resume Test" : "Continue Series"}
-          onPress={handleContinue}
-        />
+        {currentAttempt && (
+          <ContinueLearning
+            title={currentAttempt.testTitle}
+            subtitle={`Question ${(currentAttempt.currentIndex || 0) + 1} of ${currentAttempt.questions.length || '?'} • Resume`}
+            progress={(currentAttempt.currentIndex || 0) / (currentAttempt.questions.length || 1)}
+            buttonText="Resume Test"
+            onPress={handleContinue}
+          />
+        )}
 
         {/* Recent Activity */}
         <View style={styles.sectionHeader}>

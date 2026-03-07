@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard,
   Library,
@@ -33,37 +34,41 @@ interface CommandItem {
   action?: () => void
   group: string
   keywords?: string[]
+  roles?: AdminRole[]
 }
+
+type AdminRole = 'super_admin' | 'content_manager' | 'moderator' | 'support_agent'
 
 /* ------------------------------------------------------------------ */
 /* Static items                                                        */
 /* ------------------------------------------------------------------ */
 
 const navigationItems: CommandItem[] = [
-  { id: 'nav-dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard', group: 'Navigation', keywords: ['home', 'overview'] },
-  { id: 'nav-exams', label: 'Exam Categories', icon: GraduationCap, href: '/dashboard/exams', group: 'Navigation', keywords: ['exam', 'category'] },
-  { id: 'nav-series', label: 'Test Series', icon: Library, href: '/dashboard/series', group: 'Navigation', keywords: ['series'] },
-  { id: 'nav-tests', label: 'Tests', icon: FileText, href: '/dashboard/tests', group: 'Navigation', keywords: ['test'] },
-  { id: 'nav-questions', label: 'Question Bank', icon: Database, href: '/dashboard/questions', group: 'Navigation', keywords: ['question', 'bank'] },
-  { id: 'nav-bulk', label: 'Bulk Question Manager', icon: Database, href: '/dashboard/questions/bulk', group: 'Navigation', keywords: ['bulk', 'spreadsheet', 'manager'] },
-  { id: 'nav-users', label: 'Users', icon: Users, href: '/dashboard/users', group: 'Navigation', keywords: ['user', 'student'] },
-  { id: 'nav-analytics', label: 'Analytics', icon: BarChart3, href: '/dashboard/analytics', group: 'Navigation', keywords: ['analytics', 'stats', 'chart'] },
-  { id: 'nav-config', label: 'Configuration', icon: Settings, href: '/dashboard/config', group: 'Navigation', keywords: ['config', 'settings'] },
-  { id: 'nav-admin', label: 'Admin Settings', icon: ShieldAlert, href: '/dashboard/admin-users', group: 'Navigation', keywords: ['admin', 'user', 'role'] },
-  { id: 'nav-tags', label: 'Tag Manager', icon: Tag, href: '/dashboard/tags', group: 'Navigation', keywords: ['tag'] },
-  { id: 'nav-calendar', label: 'Publishing Calendar', icon: Calendar, href: '/dashboard/calendar', group: 'Navigation', keywords: ['calendar', 'schedule'] },
-  { id: 'nav-reports', label: 'Reported Questions', icon: AlertTriangle, href: '/dashboard/reports', group: 'Navigation', keywords: ['report', 'flag'] },
-  { id: 'nav-difficulty', label: 'Difficulty Analytics', icon: PieChart, href: '/dashboard/difficulty', group: 'Navigation', keywords: ['difficulty', 'distribution'] },
-  { id: 'nav-subscriptions', label: 'Subscriptions', icon: BarChart3, href: '/dashboard/subscriptions', group: 'Navigation', keywords: ['subscription', 'payment', 'revenue', 'pro'] },
-  { id: 'nav-audit', label: 'Audit Log', icon: ShieldAlert, href: '/dashboard/audit', group: 'Navigation', keywords: ['audit', 'log', 'history', 'activity'] },
-  { id: 'nav-ai', label: 'AI Question Generator', icon: GraduationCap, href: '/dashboard/ai-generator', group: 'Navigation', keywords: ['ai', 'generate', 'auto', 'artificial', 'intelligence'] },
+  { id: 'nav-dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard', group: 'Navigation', keywords: ['home', 'overview'], roles: ['super_admin', 'content_manager', 'moderator', 'support_agent'] },
+  { id: 'nav-exams', label: 'Exam Categories', icon: GraduationCap, href: '/dashboard/exams', group: 'Navigation', keywords: ['exam', 'category'], roles: ['super_admin', 'content_manager'] },
+  { id: 'nav-series', label: 'Test Series', icon: Library, href: '/dashboard/series', group: 'Navigation', keywords: ['series'], roles: ['super_admin', 'content_manager'] },
+  { id: 'nav-tests', label: 'Tests', icon: FileText, href: '/dashboard/tests', group: 'Navigation', keywords: ['test'], roles: ['super_admin', 'content_manager'] },
+  { id: 'nav-questions', label: 'Question Bank', icon: Database, href: '/dashboard/questions', group: 'Navigation', keywords: ['question', 'bank'], roles: ['super_admin', 'content_manager'] },
+  { id: 'nav-bulk', label: 'Bulk Question Manager', icon: Database, href: '/dashboard/questions/bulk', group: 'Navigation', keywords: ['bulk', 'spreadsheet', 'manager'], roles: ['super_admin', 'content_manager'] },
+  { id: 'nav-upload', label: 'Bulk Upload', icon: Database, href: '/dashboard/questions/upload', group: 'Navigation', keywords: ['upload', 'import', 'csv', 'json', 'xlsx', 'bulk'], roles: ['super_admin', 'content_manager'] },
+  { id: 'nav-users', label: 'Users', icon: Users, href: '/dashboard/users', group: 'Navigation', keywords: ['user', 'student'], roles: ['super_admin', 'moderator', 'support_agent'] },
+  { id: 'nav-analytics', label: 'Analytics', icon: BarChart3, href: '/dashboard/analytics', group: 'Navigation', keywords: ['analytics', 'stats', 'chart'], roles: ['super_admin', 'moderator'] },
+  { id: 'nav-config', label: 'Configuration', icon: Settings, href: '/dashboard/config', group: 'Navigation', keywords: ['config', 'settings'], roles: ['super_admin'] },
+  { id: 'nav-admin', label: 'Admin Settings', icon: ShieldAlert, href: '/dashboard/admin-users', group: 'Navigation', keywords: ['admin', 'user', 'role'], roles: ['super_admin'] },
+  { id: 'nav-tags', label: 'Tag Manager', icon: Tag, href: '/dashboard/tags', group: 'Navigation', keywords: ['tag'], roles: ['super_admin', 'content_manager'] },
+  { id: 'nav-calendar', label: 'Publishing Calendar', icon: Calendar, href: '/dashboard/calendar', group: 'Navigation', keywords: ['calendar', 'schedule'], roles: ['super_admin', 'content_manager'] },
+  { id: 'nav-reports', label: 'Reported Questions', icon: AlertTriangle, href: '/dashboard/reports', group: 'Navigation', keywords: ['report', 'flag'], roles: ['super_admin', 'moderator'] },
+  { id: 'nav-difficulty', label: 'Difficulty Analytics', icon: PieChart, href: '/dashboard/difficulty', group: 'Navigation', keywords: ['difficulty', 'distribution'], roles: ['super_admin'] },
+  { id: 'nav-subscriptions', label: 'Subscriptions', icon: BarChart3, href: '/dashboard/subscriptions', group: 'Navigation', keywords: ['subscription', 'payment', 'revenue', 'pro'], roles: ['super_admin', 'moderator'] },
+  { id: 'nav-audit', label: 'Audit Log', icon: ShieldAlert, href: '/dashboard/audit', group: 'Navigation', keywords: ['audit', 'log', 'history', 'activity'], roles: ['super_admin'] },
+  { id: 'nav-ai', label: 'AI Question Generator', icon: GraduationCap, href: '/dashboard/ai-generator', group: 'Navigation', keywords: ['ai', 'generate', 'auto', 'artificial', 'intelligence'], roles: ['super_admin', 'content_manager'] },
 ]
 
 const quickActions: CommandItem[] = [
-  { id: 'action-create-exam', label: 'Create Exam Category', icon: Plus, href: '/dashboard/exams?action=create', group: 'Quick Actions', keywords: ['new', 'add', 'exam'] },
-  { id: 'action-create-series', label: 'Create Test Series', icon: Plus, href: '/dashboard/series?action=create', group: 'Quick Actions', keywords: ['new', 'add', 'series'] },
-  { id: 'action-create-test', label: 'Create Test', icon: Plus, href: '/dashboard/tests?action=create', group: 'Quick Actions', keywords: ['new', 'add', 'test'] },
-  { id: 'action-create-question', label: 'Create Question', icon: Plus, href: '/dashboard/questions?action=create', group: 'Quick Actions', keywords: ['new', 'add', 'question'] },
+  { id: 'action-create-exam', label: 'Create Exam Category', icon: Plus, href: '/dashboard/exams?action=create', group: 'Quick Actions', keywords: ['new', 'add', 'exam'], roles: ['super_admin', 'content_manager'] },
+  { id: 'action-create-series', label: 'Create Test Series', icon: Plus, href: '/dashboard/series?action=create', group: 'Quick Actions', keywords: ['new', 'add', 'series'], roles: ['super_admin', 'content_manager'] },
+  { id: 'action-create-test', label: 'Create Test', icon: Plus, href: '/dashboard/tests?action=create', group: 'Quick Actions', keywords: ['new', 'add', 'test'], roles: ['super_admin', 'content_manager'] },
+  { id: 'action-create-question', label: 'Create Question', icon: Plus, href: '/dashboard/questions?action=create', group: 'Quick Actions', keywords: ['new', 'add', 'question'], roles: ['super_admin', 'content_manager'] },
 ]
 
 const allItems = [...navigationItems, ...quickActions]
@@ -76,9 +81,25 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
+  const [role, setRole] = useState<AdminRole | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
+
+  useEffect(() => {
+    async function loadRole() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data } = await supabase
+        .from('admin_users')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (data?.role) setRole(data.role as AdminRole)
+    }
+    loadRole()
+  }, [])
 
   // ⌘K / Ctrl+K to open
   useEffect(() => {
@@ -113,7 +134,11 @@ export function CommandPalette() {
   }, [open])
 
   // Filter items
-  const filtered = allItems.filter((item) => {
+  const visibleItems = role
+    ? allItems.filter((item) => !item.roles || item.roles.includes(role))
+    : allItems.filter((item) => item.href === '/dashboard')
+
+  const filtered = visibleItems.filter((item) => {
     if (!query) return true
     const q = query.toLowerCase()
     return (

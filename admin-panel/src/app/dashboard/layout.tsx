@@ -1,7 +1,7 @@
 import { Sidebar } from '@/components/layout/sidebar'
 import { CommandPalette } from '@/components/command-palette'
 import { MobileNav } from '@/components/layout/mobile-nav'
-import { LoadingBar } from '@/components/ui/loading-bar'
+import LoadingBar from '@/components/ui/loading-bar'
 import { SearchTrigger } from '@/components/layout/search-trigger'
 import { getCurrentAdmin } from '@/lib/auth/admin'
 import { redirect } from 'next/navigation'

@@ -34,7 +34,6 @@ export function useInAppUpdates() {
         }
       } catch (error) {
         // Fail silently in production, valid updates usually work
-        console.log('Error checking for updates:', error);
       }
     }
 

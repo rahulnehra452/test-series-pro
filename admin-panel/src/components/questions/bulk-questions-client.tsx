@@ -84,7 +84,7 @@ interface Section { id: string; name: string; test_id: string }
 interface QuestionRow {
   id: string
   text: string
-  options?: any[] | null
+  options?: unknown[] | null
   explanation?: string | null
   correct_answer: number
   marks: number
@@ -175,6 +175,14 @@ export function BulkQuestionsClient({
 
   // Custom expansion
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
+
+  const [expandedEditId, setExpandedEditId] = useState<string | null>(null)
+  const [expandedForm, setExpandedForm] = useState<{
+    text: string
+    explanation: string
+    correct_answer: number
+    options: string[]
+  } | null>(null)
 
   // Advanced features
   const [showFindReplace, setShowFindReplace] = useState(false)
@@ -313,6 +321,45 @@ export function BulkQuestionsClient({
   }
 
   const cancelEdit = () => setEditingCell(null)
+
+  const startExpandedEdit = (q: QuestionRow) => {
+    setExpandedEditId(q.id)
+    setExpandedForm({
+      text: q.text || '',
+      explanation: q.explanation || '',
+      correct_answer: q.correct_answer ?? 0,
+      options: Array.isArray(q.options)
+        ? q.options.map(opt => typeof opt === 'string' ? opt : (typeof opt === 'object' && opt !== null && 'text' in opt ? String((opt as { text?: unknown }).text) : ''))
+        : ['', '', '', '']
+    })
+  }
+
+  const saveExpandedEdit = async (qId: string) => {
+    if (!expandedForm) return
+    startTransition(async () => {
+      // Need an array of objects for the DB since that's what question-actions defaults to or JSON array 
+      const optionsPayload = expandedForm.options.map(opt => ({ text: opt }))
+
+      const res1 = await inlineUpdateQuestion(qId, 'text', expandedForm.text)
+      const res2 = await inlineUpdateQuestion(qId, 'explanation', expandedForm.explanation)
+      const res3 = await inlineUpdateQuestion(qId, 'correct_answer', expandedForm.correct_answer)
+      const res4 = await inlineUpdateQuestion(qId, 'options', optionsPayload)
+
+      if (res1.error || res2.error || res3.error || res4.error) {
+        toast.error('Failed to update some fields')
+      } else {
+        toast.success('Question details updated')
+        setQuestions(prev => prev.map(q => q.id === qId ? {
+          ...q,
+          text: expandedForm.text,
+          explanation: expandedForm.explanation,
+          correct_answer: expandedForm.correct_answer,
+          options: optionsPayload as unknown[]
+        } : q))
+        setExpandedEditId(null)
+      }
+    })
+  }
 
   // Bulk actions
   const handleBulkDelete = async () => {
@@ -643,17 +690,20 @@ export function BulkQuestionsClient({
           <div className="rounded-2xl border border-green-200/50 dark:border-green-800/30 p-3 bg-green-50/50 dark:bg-green-950/10">
             <p className="text-[9px] font-bold uppercase tracking-wider text-green-700 dark:text-green-400">Easy</p>
             <p className="text-xl font-bold text-green-700 dark:text-green-400">{stats.easy}</p>
-            <div className="h-1 bg-green-200 dark:bg-green-800 rounded-full mt-1"><div className="h-full bg-green-500 rounded-full" style={{ width: `${stats.total ? (stats.easy / stats.total) * 100 : 0}%` }} /></div>
+            {/* noinspection CssInlineStyles */}
+            <div className="h-1 bg-green-200 dark:bg-green-800 rounded-full mt-1"><div className="h-full bg-green-500 rounded-full" style={({ width: `${stats.total ? (stats.easy / stats.total) * 100 : 0}%` }) as React.CSSProperties} /></div>
           </div>
           <div className="rounded-2xl border border-yellow-200/50 dark:border-yellow-800/30 p-3 bg-yellow-50/50 dark:bg-yellow-950/10">
             <p className="text-[9px] font-bold uppercase tracking-wider text-yellow-700 dark:text-yellow-400">Medium</p>
             <p className="text-xl font-bold text-yellow-700 dark:text-yellow-400">{stats.medium}</p>
-            <div className="h-1 bg-yellow-200 dark:bg-yellow-800 rounded-full mt-1"><div className="h-full bg-yellow-500 rounded-full" style={{ width: `${stats.total ? (stats.medium / stats.total) * 100 : 0}%` }} /></div>
+            {/* noinspection CssInlineStyles */}
+            <div className="h-1 bg-yellow-200 dark:bg-yellow-800 rounded-full mt-1"><div className="h-full bg-yellow-500 rounded-full" style={({ width: `${stats.total ? (stats.medium / stats.total) * 100 : 0}%` }) as React.CSSProperties} /></div>
           </div>
           <div className="rounded-2xl border border-red-200/50 dark:border-red-800/30 p-3 bg-red-50/50 dark:bg-red-950/10">
             <p className="text-[9px] font-bold uppercase tracking-wider text-red-700 dark:text-red-400">Hard</p>
             <p className="text-xl font-bold text-red-700 dark:text-red-400">{stats.hard}</p>
-            <div className="h-1 bg-red-200 dark:bg-red-800 rounded-full mt-1"><div className="h-full bg-red-500 rounded-full" style={{ width: `${stats.total ? (stats.hard / stats.total) * 100 : 0}%` }} /></div>
+            {/* noinspection CssInlineStyles */}
+            <div className="h-1 bg-red-200 dark:bg-red-800 rounded-full mt-1"><div className="h-full bg-red-500 rounded-full" style={({ width: `${stats.total ? (stats.hard / stats.total) * 100 : 0}%` }) as React.CSSProperties} /></div>
           </div>
           <div className="rounded-2xl border border-gray-200/50 dark:border-gray-700/30 p-3 bg-gray-50/50 dark:bg-gray-900/20">
             <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Unset</p>
@@ -1097,40 +1147,116 @@ export function BulkQuestionsClient({
                   {expandedRow === q.id && (
                     <tr className="bg-secondary/10 border-b border-black/[0.03] dark:border-white/[0.03]">
                       <td colSpan={10} className="p-4" onClick={(e) => e.stopPropagation()}>
-                        <div className="space-y-4 max-w-4xl animate-in slide-in-from-top-2 ml-10">
-                          <div>
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Question Text</p>
-                            <p className="text-sm font-medium text-[#1D1D1F] dark:text-white bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-black/5 dark:border-white/5">
-                              {q.text || 'No text content'}
-                            </p>
-                          </div>
-
-                          {q.options && Array.isArray(q.options) && q.options.length > 0 && (
-                            <div>
-                              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Options</p>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                {q.options.map((opt: Record<string, unknown> | string, optIdx: number) => {
-                                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                  const optObj = opt as any;
-                                  const optText = typeof opt === 'string' ? opt : (optObj?.text || '—')
-                                  return (
-                                    <div key={optIdx} className={`p-2.5 rounded-xl border text-xs flex items-start gap-2 ${q.correct_answer === optIdx ? 'bg-green-500/10 border-green-500/20 text-green-700 dark:text-green-400 font-medium' : 'bg-white dark:bg-[#1C1C1E] border-black/5 dark:border-white/5 text-muted-foreground'}`}>
-                                      <span className="shrink-0 inline-flex items-center justify-center h-5 w-5 rounded-full bg-secondary text-[10px] font-bold">{String.fromCharCode(65 + optIdx)}</span>
-                                      <span className="pt-0.5">{String(optText)}</span>
-                                      {q.correct_answer === optIdx && <CheckCircle2 className="h-3.5 w-3.5 ml-auto text-green-500 shrink-0 mt-0.5" />}
+                        <div className="max-w-4xl animate-in slide-in-from-top-2 ml-10">
+                          {expandedEditId === q.id && expandedForm ? (
+                            <div className="space-y-4 bg-white dark:bg-[#1C1C1E] p-5 rounded-2xl shadow-sm border border-black/5 dark:border-white/5 relative">
+                              <div>
+                                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block">Question Text</label>
+                                <Textarea
+                                  value={expandedForm.text}
+                                  onChange={e => setExpandedForm({ ...expandedForm, text: e.target.value })}
+                                  className="text-sm bg-black/5 dark:bg-white/5 min-h-[80px]"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex justify-between items-center">
+                                  <span>Options & Correct Answer</span>
+                                  <span className="text-[10px] font-medium opacity-60 normal-case">Select radio to set answer</span>
+                                </label>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  {expandedForm.options.map((opt, idx) => (
+                                    <div key={idx} className={`flex items-start gap-2 p-2 rounded-xl border ${expandedForm.correct_answer === idx ? 'border-green-500 bg-green-50/50 dark:bg-green-900/10' : 'border-black/10 dark:border-white/10'}`}>
+                                      <div className="pt-2 pl-1 shrink-0 cursor-pointer" onClick={() => setExpandedForm({ ...expandedForm, correct_answer: idx })}>
+                                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${expandedForm.correct_answer === idx ? 'border-green-500 bg-green-500' : 'border-neutral-400'}`}>
+                                          {expandedForm.correct_answer === idx && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                                        </div>
+                                      </div>
+                                      <span className="shrink-0 flex items-center justify-center h-8 w-8 rounded-lg bg-black/5 dark:bg-white/5 text-[11px] font-bold">
+                                        {String.fromCharCode(65 + idx)}
+                                      </span>
+                                      <Input
+                                        value={opt}
+                                        onChange={e => {
+                                          const newOpts = [...expandedForm.options]
+                                          newOpts[idx] = e.target.value
+                                          setExpandedForm({ ...expandedForm, options: newOpts })
+                                        }}
+                                        className="h-8 text-xs bg-transparent border-0 shadow-none px-1"
+                                        placeholder={`Option ${String.fromCharCode(65 + idx)}`}
+                                      />
                                     </div>
-                                  )
-                                })}
+                                  ))}
+                                  <Button
+                                    variant="outline" size="sm"
+                                    className="h-full min-h-[48px] border-dashed text-xs text-muted-foreground"
+                                    onClick={() => setExpandedForm({ ...expandedForm, options: [...expandedForm.options, ''] })}
+                                  >
+                                    + Add Option
+                                  </Button>
+                                </div>
+                              </div>
+                              <div>
+                                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block">Explanation</label>
+                                <Textarea
+                                  value={expandedForm.explanation}
+                                  onChange={e => setExpandedForm({ ...expandedForm, explanation: e.target.value })}
+                                  className="text-sm bg-black/5 dark:bg-white/5 min-h-[80px]"
+                                  placeholder="Explanation for the correct answer..."
+                                />
+                              </div>
+                              <div className="pt-2 flex justify-end gap-2">
+                                <Button variant="ghost" size="sm" onClick={() => setExpandedEditId(null)}>Cancel</Button>
+                                <Button size="sm" onClick={() => saveExpandedEdit(q.id)} disabled={isPending}>
+                                  {isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                                  Save Changes
+                                </Button>
                               </div>
                             </div>
-                          )}
-
-                          {q.explanation && (
-                            <div>
-                              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Explanation</p>
-                              <div className="text-xs text-muted-foreground bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-black/5 dark:border-white/5">
-                                {q.explanation}
+                          ) : (
+                            <div className="space-y-4">
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1 pr-4">
+                                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Question Text</p>
+                                  <p className="text-sm font-medium text-[#1D1D1F] dark:text-white bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-black/5 dark:border-white/5">
+                                    {q.text || 'No text content'}
+                                  </p>
+                                </div>
+                                <Button variant="outline" size="sm" onClick={() => startExpandedEdit(q)} className="h-8 rounded-lg shrink-0 border-[#0066CC]/20 text-[#0066CC] hover:bg-[#0066CC]/5">
+                                  <Pencil className="w-3.5 h-3.5 mr-2" /> Quick Edit Details
+                                </Button>
                               </div>
+
+                              {q.options && Array.isArray(q.options) && q.options.length > 0 && (
+                                <div>
+                                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Options</p>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {q.options.map((opt, optIdx: number) => {
+                                      const optText =
+                                        typeof opt === 'string'
+                                          ? opt
+                                          : typeof opt === 'object' && opt !== null && 'text' in opt
+                                            ? String((opt as { text?: unknown }).text ?? '—')
+                                            : '—'
+                                      return (
+                                        <div key={optIdx} className={`p-2.5 rounded-xl border text-xs flex items-start gap-2 ${q.correct_answer === optIdx ? 'bg-green-500/10 border-green-500/20 text-green-700 dark:text-green-400 font-medium' : 'bg-white dark:bg-[#1C1C1E] border-black/5 dark:border-white/5 text-muted-foreground'}`}>
+                                          <span className="shrink-0 inline-flex items-center justify-center h-5 w-5 rounded-full bg-secondary text-[10px] font-bold">{String.fromCharCode(65 + optIdx)}</span>
+                                          <span className="pt-0.5">{String(optText)}</span>
+                                          {q.correct_answer === optIdx && <CheckCircle2 className="h-3.5 w-3.5 ml-auto text-green-500 shrink-0 mt-0.5" />}
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+
+                              {q.explanation && (
+                                <div>
+                                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Explanation</p>
+                                  <div className="text-xs text-muted-foreground bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-black/5 dark:border-white/5">
+                                    {q.explanation}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>

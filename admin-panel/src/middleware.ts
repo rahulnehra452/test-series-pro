@@ -8,8 +8,6 @@ export async function middleware(request: NextRequest) {
     },
   })
 
-  console.log('Middleware running checking env:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'URL Found' : 'URL Missing')
-
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
@@ -68,6 +66,18 @@ export async function middleware(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
+  let hasActiveAdminRole = false
+
+  if (user) {
+    const { data: adminUser } = await supabase
+      .from("admin_users")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("is_active", true)
+      .maybeSingle()
+
+    hasActiveAdminRole = !!adminUser
+  }
 
   // 1. Protect /dashboard route
   if (request.nextUrl.pathname.startsWith('/dashboard')) {
@@ -75,11 +85,13 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
 
-    // Optional: Check if user has admin role in DB (skip for now to avoid db call in middleware, do in layout)
+    if (!hasActiveAdminRole) {
+      return NextResponse.redirect(new URL('/login?error=admin-required', request.url))
+    }
   }
 
   // 2. Redirect authenticated users away from /login
-  if (request.nextUrl.pathname === '/login' && user) {
+  if (request.nextUrl.pathname === '/login' && user && hasActiveAdminRole) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 

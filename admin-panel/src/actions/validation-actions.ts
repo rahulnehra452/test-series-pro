@@ -91,7 +91,7 @@ export async function runQuestionValidation(): Promise<{ error?: string, report?
             issues.push({ questionId: q.id, testId: q.test_id, issueType: "empty_option", severity: "error", message: "Question contains empty or blank options" })
           }
         }
-      } catch (e) {
+      } catch {
         issues.push({ questionId: q.id, testId: q.test_id, issueType: "empty_option", severity: "error", message: "Failed to parse options array" })
       }
 
@@ -119,7 +119,7 @@ export async function runQuestionValidation(): Promise<{ error?: string, report?
     await Promise.allSettled(urlCheckPromises)
 
     // Process duplicates
-    textsSeen.forEach((ids, text) => {
+    textsSeen.forEach((ids) => {
       if (ids.length > 1) {
         ids.forEach(id => {
           // find the test id for this question

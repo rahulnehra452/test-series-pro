@@ -5,7 +5,7 @@ import { columns, Exam } from "./columns"
 import { ExamDialog } from "./exam-dialog"
 import { Button } from "@/components/ui/button"
 import { CheckCircle, XCircle, Trash2, Loader2 } from "lucide-react"
-import { useState, useTransition } from "react"
+import { useTransition } from "react"
 import { batchToggleExams, batchDeleteExams } from "@/actions/exam-actions"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
@@ -14,15 +14,21 @@ interface ExamsClientProps {
   data: Exam[]
 }
 
+type TableRow = { original: { id: string } }
+type TableLike = {
+  getFilteredSelectedRowModel: () => { rows: TableRow[] }
+  toggleAllRowsSelected: (selected: boolean) => void
+}
+
 export function ExamsClient({ data }: ExamsClientProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
   const handleBulkAction = (
-    table: any,
+    table: TableLike,
     action: 'activate' | 'deactivate' | 'delete'
   ) => {
-    const selectedIds = table.getFilteredSelectedRowModel().rows.map((row: any) => row.original.id as string)
+    const selectedIds = table.getFilteredSelectedRowModel().rows.map((row) => row.original.id)
     if (selectedIds.length === 0) return
 
     if (action === 'delete' && !confirm(`Delete ${selectedIds.length} categories? This cannot be undone.`)) return

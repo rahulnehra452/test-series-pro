@@ -16,6 +16,13 @@ export async function getReports(status?: string) {
         questions (
           id,
           text,
+          options,
+          correct_answer,
+          explanation,
+          marks,
+          negative_marks,
+          type,
+          tags,
           test_id,
           tests ( title )
         ),

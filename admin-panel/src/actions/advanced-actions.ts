@@ -10,10 +10,27 @@ import { logAdminAction } from "@/actions/user-actions"
 export async function reorderTests(seriesId: string, orderedIds: string[]) {
   await requireAdminRole(["super_admin", "content_manager"])
   const supabase = createAdminClient()
-  const updates = orderedIds.map((id, i) =>
-    supabase.from('tests').update({ sort_order: i }).eq('id', id)
-  )
-  await Promise.all(updates)
+  const updates = orderedIds.map(async (id, i) => {
+    const { error } = await supabase
+      .from('tests')
+      .update({ sort_order: i })
+      .eq('id', id)
+      .eq('series_id', seriesId)
+    return { id, error }
+  })
+  const results = await Promise.all(updates)
+  const failed = results.find((r) => r.error)
+  if (failed?.error) {
+    return { error: failed.error.message || "Failed to reorder tests" }
+  }
+  const { count } = await supabase
+    .from('tests')
+    .select('*', { count: 'exact', head: true })
+    .eq('series_id', seriesId)
+    .in('id', orderedIds)
+  if ((count ?? 0) !== orderedIds.length) {
+    return { error: "Some tests were not reordered. Please refresh and try again." }
+  }
   revalidatePath('/dashboard/tests')
   return { success: true }
 }
@@ -21,10 +38,27 @@ export async function reorderTests(seriesId: string, orderedIds: string[]) {
 export async function reorderSeries(examId: string, orderedIds: string[]) {
   await requireAdminRole(["super_admin", "content_manager"])
   const supabase = createAdminClient()
-  const updates = orderedIds.map((id, i) =>
-    supabase.from('test_series').update({ sort_order: i }).eq('id', id)
-  )
-  await Promise.all(updates)
+  const updates = orderedIds.map(async (id, i) => {
+    const { error } = await supabase
+      .from('test_series')
+      .update({ sort_order: i })
+      .eq('id', id)
+      .eq('exam_id', examId)
+    return { id, error }
+  })
+  const results = await Promise.all(updates)
+  const failed = results.find((r) => r.error)
+  if (failed?.error) {
+    return { error: failed.error.message || "Failed to reorder series" }
+  }
+  const { count } = await supabase
+    .from('test_series')
+    .select('*', { count: 'exact', head: true })
+    .eq('exam_id', examId)
+    .in('id', orderedIds)
+  if ((count ?? 0) !== orderedIds.length) {
+    return { error: "Some series were not reordered. Please refresh and try again." }
+  }
   revalidatePath('/dashboard/series')
   return { success: true }
 }

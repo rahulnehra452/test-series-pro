@@ -16,10 +16,6 @@ import { useEffect } from 'react';
 import { SkeletonTestCard } from '../components/tests/SkeletonTestCard';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { ScaleButton } from '../components/common/ScaleButton';
-import { runtimeConfig } from '../config/runtimeConfig';
-import { CATEGORIES, MOCK_TEST_SERIES } from '../data/mockTests';
-
-// Mock Data Handled via Import
 
 export default function TestsScreen() {
   const { colors } = useTheme();
@@ -30,17 +26,17 @@ export default function TestsScreen() {
 
   const {
     history,
-    tests,
+    testSeries,
     isLoadingTests,
-    fetchTests
+    fetchTestSeries
   } = useTestStore();
 
   const { user } = useAuthStore();
   const isPro = user?.isPro || false;
 
   useEffect(() => {
-    fetchTests();
-  }, [fetchTests]);
+    fetchTestSeries();
+  }, [fetchTestSeries]);
 
   /* Search Debounce */
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -53,27 +49,32 @@ export default function TestsScreen() {
   }, [searchQuery]);
 
   const onRefresh = React.useCallback(() => {
-    fetchTests(true);
-  }, [fetchTests]);
+    fetchTestSeries();
+  }, [fetchTestSeries]);
 
-  const shouldUseMockFallback = runtimeConfig.features.allowMockFallback;
-  const displayTests = tests.length > 0
-    ? tests
-    : (shouldUseMockFallback ? MOCK_TEST_SERIES : []);
-  const isInitialLoading = isLoadingTests && tests.length === 0;
+  const displaySeries = testSeries.length > 0
+    ? testSeries
+    : [];
+  const isInitialLoading = isLoadingTests && testSeries.length === 0;
 
-  const filteredTests = displayTests.filter((test) => {
-    const matchesCategory = selectedCategory === 'All' || test.category === selectedCategory;
-    const matchesSearch = test.title.toLowerCase().includes(debouncedSearch.toLowerCase());
+  const dynamicCategories = React.useMemo(() => {
+    const cats = new Set<string>();
+    testSeries.forEach(series => {
+      series.tests?.forEach(t => {
+        if (t.category) cats.add(t.category);
+      });
+    });
+    return ['All', ...Array.from(cats)];
+  }, [testSeries]);
+
+  const filteredSeries = displaySeries.filter((series) => {
+    const matchesCategory = selectedCategory === 'All' || series.tests?.some(t => t.category === selectedCategory);
+    const matchesSearch = series.title.toLowerCase().includes(debouncedSearch.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
-  const handleTestPress = (id: string, title: string, canAccess: boolean) => {
-    if (!canAccess) {
-      navigation.navigate('Pricing');
-      return;
-    }
-    navigation.navigate('TestInterface', { testId: id, testTitle: title });
+  const handleTestPress = (id: string, title: string, examId: string) => {
+    navigation.navigate('SeriesDetails', { seriesId: id, seriesTitle: title, examId: examId || '' });
   };
 
   return (
@@ -90,7 +91,7 @@ export default function TestsScreen() {
 
         <FlatList
           horizontal
-          data={CATEGORIES}
+          data={dynamicCategories}
           keyExtractor={(item) => item}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoriesList}
@@ -105,7 +106,7 @@ export default function TestsScreen() {
       </View>
 
       <FlatList
-        data={filteredTests}
+        data={filteredSeries}
         keyExtractor={(item) => item.id}
         refreshing={!!isLoadingTests}
         onRefresh={onRefresh}
@@ -130,23 +131,23 @@ export default function TestsScreen() {
           ) : null
         }
         renderItem={({ item, index }) => {
-          const activeAttempt = history.find(h => h.testId === item.id && h.status === 'In Progress');
-          const canAccess = isPro || item.isPurchased || Boolean(activeAttempt);
+          const isPurchased = isPro || item.price === 'Free';
+          const totalQuestions = item.tests?.reduce((sum, t) => sum + (t.totalQuestions || 0), 0) || 0;
+          const duration = item.tests?.reduce((sum, t) => sum + (t.duration || 0), 0) || 0;
 
           return (
             <Animated.View entering={FadeInDown.delay(index * 100).springify()}>
               <TestSeriesCard
                 title={item.title}
                 description={item.description}
-                category={item.category}
-                difficulty={item.difficulty}
-                totalTests={item.totalTests}
-                totalQuestions={item.totalQuestions}
-                duration={item.duration}
-                isPurchased={isPro || item.isPurchased}
-                price={item.price}
-                onPress={() => handleTestPress(item.id, item.title, canAccess)}
-                activeAttempt={activeAttempt}
+                category="Series"
+                difficulty="Medium"
+                totalTests={item.tests?.length || 0}
+                totalQuestions={totalQuestions}
+                duration={duration}
+                isPurchased={isPurchased}
+                price={item.price !== 'Free' ? item.price : undefined}
+                onPress={() => handleTestPress(item.id, item.title, item.examId || '')}
               />
             </Animated.View>
           );

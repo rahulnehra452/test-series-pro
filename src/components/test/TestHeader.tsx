@@ -15,6 +15,7 @@ interface TestHeaderProps {
   isBookmarked?: boolean;
   onLearn?: () => void;
   isLearn?: boolean;
+  onReport?: () => void;
 }
 
 export const TestHeader: React.FC<TestHeaderProps> = ({
@@ -27,6 +28,7 @@ export const TestHeader: React.FC<TestHeaderProps> = ({
   isBookmarked,
   onLearn,
   isLearn,
+  onReport,
 }) => {
   const { colors } = useTheme();
   const isLowTime = timeRemaining < 300; // 5 mins
@@ -75,6 +77,11 @@ export const TestHeader: React.FC<TestHeaderProps> = ({
         <TouchableOpacity onPress={onOpenPalette} style={styles.menuButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="grid-outline" size={24} color={colors.text} />
         </TouchableOpacity>
+        {onReport && (
+          <TouchableOpacity onPress={onReport} style={styles.menuButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Ionicons name="flag-outline" size={24} color={colors.text} />
+          </TouchableOpacity>
+        )}
         <TouchableOpacity onPress={onPause} style={styles.menuButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="pause-circle-outline" size={26} color={colors.text} />
         </TouchableOpacity>

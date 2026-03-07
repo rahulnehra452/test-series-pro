@@ -6,15 +6,18 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { AlertTriangle, CheckCircle, XCircle, Clock, MessageSquare } from "lucide-react"
+import { AlertTriangle, CheckCircle, XCircle, Clock, MessageSquare, Pencil } from "lucide-react"
 import { resolveReport } from "@/actions/report-actions"
 import { toast } from "sonner"
 import { htmlToPlainText } from "@/lib/utils"
+import { QuestionDialog } from "@/components/questions/question-dialog"
+import { QuestionFormValues } from "@/lib/validations/question"
 
 interface Report {
   id: string
   question_id: string
   question_text: string
+  full_question?: QuestionFormValues & { id: string; tests?: { title: string } }
   reason: string
   details: string | null
   status: string
@@ -34,6 +37,7 @@ interface Stats {
 interface ReportsClientProps {
   reports: Report[]
   stats: Stats
+  tests: { id: string; title: string }[]
 }
 
 const statusTabs = [
@@ -51,10 +55,11 @@ const statusColors: Record<string, string> = {
   dismissed: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400',
 }
 
-export function ReportsClient({ reports, stats }: ReportsClientProps) {
+export function ReportsClient({ reports, stats, tests }: ReportsClientProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('all')
   const [expandedReport, setExpandedReport] = useState<string | null>(null)
+  const [editingReport, setEditingReport] = useState<string | null>(null)
   const [adminNotesByReport, setAdminNotesByReport] = useState<Record<string, string>>({})
   const [isPending, startTransition] = useTransition()
 
@@ -161,7 +166,57 @@ export function ReportsClient({ reports, stats }: ReportsClientProps) {
                 </div>
 
                 {expandedReport === report.id && (
-                  <div className="mt-4 pt-4 border-t space-y-3">
+                  <div className="mt-4 pt-4 border-t space-y-4">
+
+                    {/* Full Question Detail View */}
+                    {report.full_question && (
+                      <div className="bg-neutral-50 dark:bg-neutral-900 rounded-lg p-4 border dark:border-neutral-800">
+                        <div className="flex justify-between items-center mb-4">
+                          <h4 className="font-semibold text-sm">Question Details</h4>
+                          <QuestionDialog
+                            initialData={report.full_question}
+                            tests={tests}
+                            open={editingReport === report.id}
+                            onOpenChange={(open) => setEditingReport(open ? report.id : null)}
+                            trigger={
+                              <Button variant="outline" size="sm" className="h-8 bg-white dark:bg-[#1C1C1E]">
+                                <Pencil className="w-3 h-3 mr-2" />
+                                Edit Question
+                              </Button>
+                            }
+                          />
+                        </div>
+                        <div className="space-y-4">
+                          <div className="text-sm">
+                            <div className="font-medium mb-1">Text:</div>
+                            <div className="text-muted-foreground bg-white dark:bg-[#1C1C1E] p-3 rounded-md border dark:border-neutral-800 whitespace-pre-wrap">{htmlToPlainText(report.full_question.question_text)}</div>
+                          </div>
+                          <div className="text-sm">
+                            <div className="font-medium mb-2">Options:</div>
+                            <ul className="space-y-2">
+                              {report.full_question.options.map((opt, i) => (
+                                <li key={i} className={`flex items-start p-3 rounded-md border ${opt.is_correct ? 'bg-green-50/50 border-green-200 text-green-900 dark:bg-green-900/10 dark:border-green-900/30 dark:text-green-300' : 'bg-white dark:bg-[#1C1C1E] dark:border-neutral-800'}`}>
+                                  <span className="w-6 h-6 shrink-0 flex items-center justify-center rounded-full bg-black/5 dark:bg-white/10 mr-3 text-xs font-medium">{String.fromCharCode(65 + i)}</span>
+                                  <span className="flex-1 mt-[2px]">{opt.text}</span>
+                                  {opt.is_correct && <CheckCircle className="w-4 h-4 ml-2 mt-[2px] text-green-500 shrink-0" />}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                          {report.full_question.explanation && (
+                            <div className="text-sm">
+                              <div className="font-medium mb-1">Explanation:</div>
+                              <div className="text-muted-foreground bg-white dark:bg-[#1C1C1E] p-3 rounded-md border dark:border-neutral-800">{report.full_question.explanation}</div>
+                            </div>
+                          )}
+                          <div className="flex gap-4 text-sm text-muted-foreground">
+                            <div><span className="font-medium text-foreground">Marks:</span> {report.full_question.marks}</div>
+                            {report.full_question.negative_marks > 0 && <div><span className="font-medium text-foreground">Negative:</span> {report.full_question.negative_marks}</div>}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     <Textarea
                       placeholder="Add admin notes (optional)..."
                       value={adminNotesByReport[report.id] || ""}

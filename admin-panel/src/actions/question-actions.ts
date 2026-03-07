@@ -29,7 +29,7 @@ export async function createQuestion(data: QuestionFormValues) {
       marks: data.marks,
       negative_marks: data.negative_marks,
       explanation: data.explanation,
-      options: JSON.stringify(data.options.map(o => o.text)), // Simple array of strings for options
+      options: data.options.map(o => o.text), // Array will be automatically converted to jsonb by Supabase
       correct_answer: data.options.findIndex(o => o.is_correct), // Index of correct answer
       type: 'MCQ'
     }).select().single()
@@ -70,7 +70,7 @@ export async function updateQuestion(id: string, data: QuestionFormValues) {
       marks: data.marks,
       negative_marks: data.negative_marks,
       explanation: data.explanation,
-      options: JSON.stringify(data.options.map(o => o.text)),
+      options: data.options.map(o => o.text),
       correct_answer: data.options.findIndex(o => o.is_correct),
     }).eq('id', id)
 
@@ -159,6 +159,8 @@ export async function bulkCreateQuestions(rows: QuestionFormValues[]) {
       options: string
       correct_answer: number
       type: "MCQ"
+      tags?: string[]
+      difficulty?: string
     }
   }
 
@@ -204,6 +206,8 @@ export async function bulkCreateQuestions(rows: QuestionFormValues[]) {
           options: JSON.stringify(parsedData.options.map((option) => option.text)),
           correct_answer: correctAnswer,
           type: "MCQ",
+          tags: parsedData.tags || [],
+          difficulty: parsedData.difficulty || undefined,
         },
       })
     })

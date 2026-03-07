@@ -18,6 +18,8 @@ export const questionSchema = z.object({
       message: "Exactly one option must be marked as correct.",
     }
   ),
+  tags: z.array(z.string()).optional(),
+  difficulty: z.string().optional(),
 })
 
 export type QuestionFormValues = z.infer<typeof questionSchema>

@@ -16,7 +16,6 @@ import { Card } from '../components/common/Card';
 import { Ionicons } from '@expo/vector-icons';
 import { useTestStore } from '../stores/testStore';
 import { TestAttempt } from '../types';
-import { getQuestionsForTest } from '../data/mockQuestions';
 import { CircularProgress } from '../components/common/CircularProgress';
 import { AnimatedCounter } from '../components/common/AnimatedCounter';
 import { ScaleButton } from '../components/common/ScaleButton';
@@ -36,7 +35,7 @@ export default function ResultsScreen() {
   const questions = useMemo(() => {
     if (!attempt) return [];
     if (attempt.questions && attempt.questions.length > 0) return attempt.questions;
-    return getQuestionsForTest(attempt.testId);
+    return [];
   }, [attempt]);
 
   const stats = useMemo(() => {

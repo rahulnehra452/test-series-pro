@@ -33,35 +33,10 @@ import { LibraryItem, LibraryItemType } from '../types';
 
 // Mock Data
 import { useTestStore } from '../stores/testStore';
-import { getQuestionById } from '../data/mockQuestions';
 import { supabase } from '../lib/supabase';
 import { runtimeConfig } from '../config/runtimeConfig';
 
-// Mock Data - Removed in favor of store
-// Mock Data - Removed in favor of store
 const SUBJECTS = ['All', 'Polity', 'History', 'Economy', 'Geography', 'Quant', 'Current Affairs'];
-// const EXAMS = ['All Exams', 'UPSC Prelims 2025', 'CSAT 2025', 'History Daily Quiz', 'Mains 2024'];
-import { CATEGORIES, MOCK_TEST_SERIES } from '../data/mockTests';
-const EXAM_FILTERS = ['All Exams', ...CATEGORIES.filter(c => c !== 'All')];
-
-const getExamCategory = (examStr: string | undefined): string => {
-  if (!examStr) return 'Other';
-  // If the exam string IS a category
-  if (CATEGORIES.includes(examStr)) return examStr;
-
-  // Try to find a test with this ID
-  const test = MOCK_TEST_SERIES.find(t => t.id === examStr || t.title === examStr);
-  if (test) return test.category;
-
-  // Fallback heuristics
-  const lower = examStr.toLowerCase();
-  if (lower.includes('upsc')) return 'UPSC';
-  if (lower.includes('ssc')) return 'SSC';
-  if (lower.includes('banking') || lower.includes('sbi') || lower.includes('ibps')) return 'Banking';
-  if (lower.includes('railway') || lower.includes('rrb') || lower.includes('ntpc')) return 'Railways';
-
-  return 'Other';
-};
 
 const toSafeSubject = (value: unknown): string => {
   const subject = String(value || '').trim();
@@ -164,7 +139,7 @@ export default function LibraryScreen() {
     }
 
     if (item.exam && item.exam === selectedExam) return true;
-    return getExamCategory(item.exam) === selectedExam;
+    return false;
   }, [selectedExam, exams]);
 
   const filteredItems = useMemo(() => {
@@ -226,7 +201,7 @@ export default function LibraryScreen() {
   };
 
   // Helper: Format type label
-const getTypeLabel = (type: string) => {
+  const getTypeLabel = (type: string) => {
     switch (type) {
       case 'wrong': return 'Incorrect';
       case 'saved': return 'Saved';
@@ -353,21 +328,7 @@ const getTypeLabel = (type: string) => {
         detail = await fetchCloudQuestionDetail(item.questionId);
       }
 
-      if (!detail && runtimeConfig.features.allowMockFallback) {
-        const mockQuestion = getQuestionById(item.questionId);
-        if (mockQuestion) {
-          detail = {
-            id: mockQuestion.id,
-            text: mockQuestion.text,
-            options: mockQuestion.options,
-            correctAnswer: mockQuestion.correctAnswer,
-            explanation: mockQuestion.explanation,
-            subject: mockQuestion.subject,
-            difficulty: mockQuestion.difficulty,
-            type: mockQuestion.type,
-          };
-        }
-      }
+
 
       if (!detail) {
         detail = toDetailFromLibraryItem(item);

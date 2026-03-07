@@ -15,14 +15,14 @@ export async function createTestSeries(data: TestSeriesFormValues) {
       return { error: "Invalid input data" }
     }
 
-    const { error } = await supabase.from('test_series').insert({
+    const { data: insertedData, error } = await supabase.from('test_series').insert({
       title: data.title,
       description: data.description,
       exam_id: data.exam_id,
       price: data.price,
       cover_image_url: data.cover_image_url,
       is_active: data.is_active ?? true,
-    })
+    }).select('id').single()
 
     if (error) {
       console.error("Supabase Error:", error)
@@ -30,7 +30,7 @@ export async function createTestSeries(data: TestSeriesFormValues) {
     }
 
     revalidatePath('/dashboard/series')
-    return { success: true }
+    return { success: true, id: insertedData.id }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to create test series"
     return { error: message }
@@ -71,6 +71,17 @@ export async function deleteTestSeries(id: string) {
 
   try {
     await requireAdminRole(["super_admin", "content_manager"])
+
+    // Safety Check: Prevent deletion if series contains tests
+    const { count: testCount } = await supabase
+      .from('tests')
+      .select('*', { count: 'exact', head: true })
+      .eq('series_id', id)
+
+    if (testCount && testCount > 0) {
+      return { error: `Cannot delete series because it contains ${testCount} test(s). Please delete or move the tests first, or toggle the series to Inactive.` }
+    }
+
     const { error } = await supabase.from('test_series').delete().eq('id', id)
 
     if (error) throw error

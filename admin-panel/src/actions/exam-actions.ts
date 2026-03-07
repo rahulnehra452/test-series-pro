@@ -17,18 +17,18 @@ export async function createExam(data: ExamFormValues) {
       return { error: "Invalid input data" }
     }
 
-    const { error } = await supabase.from('exams').insert({
+    const { data: insertedData, error } = await supabase.from('exams').insert({
       title: data.title,
       slug: data.slug,
       icon_url: data.icon_url,
       is_active: data.is_active,
-    })
+    }).select('id').single()
 
     if (error) throw error
 
     await logAdminAction('exam.create', data.slug, { title: data.title })
     revalidatePath('/dashboard/exams')
-    return { success: true }
+    return { success: true, id: insertedData.id }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to create exam"
     return { error: message }
@@ -71,6 +71,17 @@ export async function deleteExam(id: string) {
 
   try {
     await requireAdminRole(["super_admin", "content_manager"])
+
+    // Safety Check: Prevent deletion if exam contains test series
+    const { count: seriesCount } = await supabase
+      .from('test_series')
+      .select('*', { count: 'exact', head: true })
+      .eq('exam_id', id)
+
+    if (seriesCount && seriesCount > 0) {
+      return { error: `Cannot delete exam because it contains ${seriesCount} test series. Please delete them first, or toggle the exam to Inactive.` }
+    }
+
     const { error } = await supabase.from('exams').delete().eq('id', id)
 
     if (error) throw error

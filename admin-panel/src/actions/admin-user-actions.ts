@@ -36,11 +36,15 @@ export async function createAdminUser(data: AdminUserFormValues) {
 
   try {
     await requireSuperAdmin()
+    const password = data.password?.trim()
+    if (!password || password.length < 6) {
+      return { error: "Password is required and must be at least 6 characters." }
+    }
 
     // 1. Create Auth User
     const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
-      password: data.password || "TempPass123!", // Default temp password if not provided
+      password,
       email_confirm: true,
       user_metadata: { full_name: data.full_name }
     })

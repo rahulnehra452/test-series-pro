@@ -11,6 +11,7 @@ import { useTestStore } from '../stores/testStore';
 import { Card } from '../components/common/Card';
 import { ExpandableText } from '../components/common/ExpandableText';
 import { EmptyState } from '../components/common/EmptyState';
+import { ReportQuestionModal } from '../components/common/ReportQuestionModal';
 
 type FilterMode = 'all' | 'marked' | 'incorrect' | 'correct';
 
@@ -22,6 +23,7 @@ export default function SolutionsScreen() {
   const { attemptId } = (route.params as { attemptId?: string }) || {};
   const { history } = useTestStore();
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
+  const [reportingQuestionId, setReportingQuestionId] = useState<string | null>(null);
 
   const attempt = history.find(h => h.id === attemptId);
 
@@ -98,6 +100,12 @@ export default function SolutionsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      <ReportQuestionModal
+        visible={reportingQuestionId !== null}
+        onClose={() => setReportingQuestionId(null)}
+        questionId={reportingQuestionId}
+      />
+
       <FlatList
         data={filteredQuestions}
         keyExtractor={(item) => item.id}
@@ -167,6 +175,9 @@ export default function SolutionsScreen() {
                     {isCorrect ? 'Correct' : isSkipped ? 'Skipped' : 'Incorrect'}
                   </Text>
                 </View>
+                <TouchableOpacity onPress={() => setReportingQuestionId(q.id)} style={{ padding: 4, marginLeft: 8 }}>
+                  <Ionicons name="flag-outline" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
               </View>
 
               {/* Question Text */}
@@ -174,47 +185,61 @@ export default function SolutionsScreen() {
 
               {/* Options */}
               <View style={styles.optionsList}>
-                {q.options.map((opt: string, optIdx: number) => {
-                  const isSelected = userAnswerIdx === optIdx;
-                  const isAnswer = q.correctAnswer === optIdx;
-
-                  let optionBg = isDark ? 'rgba(255,255,255,0.04)' : colors.secondaryBackground;
-                  let borderColor = isDark ? 'rgba(255,255,255,0.1)' : colors.border;
-                  let textColor = colors.text;
-                  let iconName: 'checkmark-circle' | 'close-circle' | 'checkmark-circle-outline' | null = null;
-                  let iconColor = colors.text;
-
-                  if (isAnswer) {
-                    optionBg = colors.success + '18';
-                    borderColor = colors.success;
-                    textColor = colors.success;
-                    iconName = isSelected ? 'checkmark-circle' : 'checkmark-circle-outline';
-                    iconColor = colors.success;
-                  } else if (isSelected) {
-                    optionBg = colors.error + '18';
-                    borderColor = colors.error;
-                    textColor = colors.error;
-                    iconName = 'close-circle';
-                    iconColor = colors.error;
+                {(() => {
+                  let safeOptions: string[] = [];
+                  if (Array.isArray(q.options)) {
+                    safeOptions = q.options as string[];
+                  } else if (typeof q.options === 'string') {
+                    try {
+                      const parsed = JSON.parse(q.options as string);
+                      if (Array.isArray(parsed)) safeOptions = parsed as string[];
+                    } catch (e) {
+                      console.warn("Could not parse options JSON:", q.options);
+                    }
                   }
 
-                  return (
-                    <View key={optIdx} style={[
-                      styles.option,
-                      { backgroundColor: optionBg, borderColor: borderColor }
-                    ]}>
-                      <View style={[styles.optionLabelBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' }]}>
-                        <Text style={[styles.optionLabel, { color: textColor }]}>
-                          {String.fromCharCode(65 + optIdx)}
-                        </Text>
+                  return safeOptions.map((opt: string, optIdx: number) => {
+                    const isSelected = userAnswerIdx === optIdx;
+                    const isAnswer = q.correctAnswer === optIdx;
+
+                    let optionBg = isDark ? 'rgba(255,255,255,0.04)' : colors.secondaryBackground;
+                    let borderColor = isDark ? 'rgba(255,255,255,0.1)' : colors.border;
+                    let textColor = colors.text;
+                    let iconName: 'checkmark-circle' | 'close-circle' | 'checkmark-circle-outline' | null = null;
+                    let iconColor = colors.text;
+
+                    if (isAnswer) {
+                      optionBg = colors.success + '18';
+                      borderColor = colors.success;
+                      textColor = colors.success;
+                      iconName = isSelected ? 'checkmark-circle' : 'checkmark-circle-outline';
+                      iconColor = colors.success;
+                    } else if (isSelected) {
+                      optionBg = colors.error + '18';
+                      borderColor = colors.error;
+                      textColor = colors.error;
+                      iconName = 'close-circle';
+                      iconColor = colors.error;
+                    }
+
+                    return (
+                      <View key={optIdx} style={[
+                        styles.option,
+                        { backgroundColor: optionBg, borderColor: borderColor }
+                      ]}>
+                        <View style={[styles.optionLabelBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' }]}>
+                          <Text style={[styles.optionLabel, { color: textColor }]}>
+                            {String.fromCharCode(65 + optIdx)}
+                          </Text>
+                        </View>
+                        <Text style={[styles.optionText, { color: textColor }]}>{opt}</Text>
+                        {iconName && (
+                          <Ionicons name={iconName} size={22} color={iconColor} />
+                        )}
                       </View>
-                      <Text style={[styles.optionText, { color: textColor }]}>{opt}</Text>
-                      {iconName && (
-                        <Ionicons name={iconName} size={22} color={iconColor} />
-                      )}
-                    </View>
-                  );
-                })}
+                    );
+                  })
+                })()}
               </View>
 
               {/* Explanation */}

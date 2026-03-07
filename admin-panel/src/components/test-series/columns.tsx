@@ -106,14 +106,13 @@ export const createColumns = (exams: { id: string; title: string }[]): ColumnDef
   },
   {
     accessorKey: "price",
-    header: "Price",
+    header: "Access Tier",
     cell: ({ row }) => {
       const price = parseFloat(`${row.original.price}`)
-      const formatted = new Intl.NumberFormat("en-IN", {
-        style: "currency",
-        currency: "INR",
-      }).format(price)
-      return price === 0 ? "Free" : formatted
+      if (price === 0) {
+        return <span className="text-xs font-semibold px-2 py-1 rounded-md bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">Free</span>
+      }
+      return <span className="text-xs font-extrabold px-2 py-1 rounded-md bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">PRO</span>
     }
   },
   {

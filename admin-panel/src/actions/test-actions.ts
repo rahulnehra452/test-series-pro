@@ -17,7 +17,7 @@ export async function createTest(data: TestFormValues) {
       return { error: "Invalid input data" }
     }
 
-    const { error } = await supabase.from('tests').insert({
+    const { data: insertedData, error } = await supabase.from('tests').insert({
       title: data.title,
       series_id: data.series_id,
       description: data.description,
@@ -25,16 +25,16 @@ export async function createTest(data: TestFormValues) {
       total_marks: data.total_marks,
       pass_marks: data.pass_marks,
       is_active: data.is_active ?? true,
-    })
+    }).select('id').single()
 
     if (error) {
       console.error("Supabase Error:", error)
       throw error
     }
 
-    await logAdminAction('test.create', data.title, { title: data.title, series_id: data.series_id })
     revalidatePath('/dashboard/tests')
-    return { success: true }
+    // Optionally trigger a webhook or async background worker to create tags/categories/etc.
+    return { success: true, id: insertedData.id }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to create test"
     return { error: message }
@@ -77,6 +77,17 @@ export async function deleteTest(id: string) {
 
   try {
     await requireAdminRole(["super_admin", "content_manager"])
+
+    // Safety Check: Prevent deletion if users have attempted this test
+    const { count: attemptCount } = await supabase
+      .from('attempts')
+      .select('*', { count: 'exact', head: true })
+      .eq('test_id', id)
+
+    if (attemptCount && attemptCount > 0) {
+      return { error: `Cannot delete test because ${attemptCount} user(s) have attempted it. Please toggle it to Inactive instead to preserve analytics.` }
+    }
+
     const { error } = await supabase.from('tests').delete().eq('id', id)
 
     if (error) throw error
@@ -239,5 +250,29 @@ export async function preFlightCheck(testId: string): Promise<PreFlightResult> {
       detail: message,
     })
     return { passed: false, checks }
+  }
+}
+
+export async function getWizardData() {
+  const supabase = createAdminClient()
+  try {
+    await requireAdminRole(["super_admin", "content_manager"])
+
+    // Fetch all exams and test series without requiring client-side RLS
+    const [examsResult, seriesResult] = await Promise.all([
+      supabase.from('exams').select('id, title').order('title'),
+      supabase.from('test_series').select('id, title, exam_id').order('title'),
+    ])
+
+    if (examsResult.error) console.error("Wizard Data Exams Error:", examsResult.error)
+    if (seriesResult.error) console.error("Wizard Data Series Error:", seriesResult.error)
+
+    return {
+      exams: examsResult.data || [],
+      series: seriesResult.data || []
+    }
+  } catch (error) {
+    console.error("Wizard Data Fetch Error:", error)
+    return { error: "Failed to load data for quick test creation" }
   }
 }

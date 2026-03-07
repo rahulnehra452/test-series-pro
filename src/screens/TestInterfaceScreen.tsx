@@ -31,9 +31,9 @@ import { QuestionDisplay } from '../components/test/QuestionDisplay';
 import { OptionButton } from '../components/test/OptionButton';
 import { ActionBar } from '../components/test/ActionBar';
 import { QuestionPalette } from '../components/test/QuestionPalette';
+import { ReportQuestionModal } from '../components/common/ReportQuestionModal';
 
 // ... imports
-import { getQuestionsForTest } from '../data/mockQuestions';
 import { runtimeConfig } from '../config/runtimeConfig';
 
 export default function TestInterfaceScreen() {
@@ -67,6 +67,7 @@ export default function TestInterfaceScreen() {
   } = useTestStore();
 
   const [isPaletteVisible, setPaletteVisible] = useState(false);
+  const [isReportModalVisible, setIsReportModalVisible] = useState(false);
   const [direction, setDirection] = useState<'next' | 'prev' | null>(null);
   const [loading, setLoading] = useState(false);
   const examContext = useMemo(() => {
@@ -116,14 +117,6 @@ export default function TestInterfaceScreen() {
 
           if (fetchedQuestions.length > 0) {
             startTest(testId, resolvedTitle, fetchedQuestions, resolvedDuration);
-          } else if (runtimeConfig.features.allowMockFallback) {
-            const mockQuestions = getQuestionsForTest(testId);
-            if (mockQuestions.length === 0) {
-              Alert.alert("Notice", "This test doesn't have any questions yet.");
-              navigation.goBack();
-              return;
-            }
-            startTest(testId, resolvedTitle, mockQuestions, resolvedDuration);
           } else {
             Alert.alert(
               "Notice",
@@ -428,6 +421,13 @@ export default function TestInterfaceScreen() {
         isBookmarked={isBookmarked}
         onLearn={handleLearn}
         isLearn={isLearn}
+        onReport={() => setIsReportModalVisible(true)}
+      />
+
+      <ReportQuestionModal
+        visible={isReportModalVisible}
+        onClose={() => setIsReportModalVisible(false)}
+        questionId={currentQuestion?.id || null}
       />
 
       <QuestionPalette
@@ -460,15 +460,28 @@ export default function TestInterfaceScreen() {
 
           {/* Options */}
           <View style={styles.optionsContainer}>
-            {(currentQuestion.options || []).map((option, idx) => (
-              <OptionButton
-                key={idx}
-                label={String.fromCharCode(65 + idx)}
-                text={option}
-                isSelected={selectedOption === idx}
-                onPress={() => handleOptionSelect(idx)}
-              />
-            ))}
+            {(() => {
+              let safeOptions: string[] = [];
+              if (Array.isArray(currentQuestion.options)) {
+                safeOptions = currentQuestion.options as string[];
+              } else if (typeof currentQuestion.options === 'string') {
+                try {
+                  const parsed = JSON.parse(currentQuestion.options as string);
+                  if (Array.isArray(parsed)) safeOptions = parsed as string[];
+                } catch (e) {
+                  console.warn("Could not parse options JSON:", currentQuestion.options);
+                }
+              }
+              return safeOptions.map((option, idx) => (
+                <OptionButton
+                  key={idx}
+                  label={String.fromCharCode(65 + idx)}
+                  text={option}
+                  isSelected={selectedOption === idx}
+                  onPress={() => handleOptionSelect(idx)}
+                />
+              ));
+            })()}
           </View>
         </View>
       </GestureDetector>

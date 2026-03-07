@@ -1,3 +1,4 @@
+/* noinspection CssInlineStyles */
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -115,9 +116,10 @@ export function SubscriptionsClient({ stats, events = [] }: { stats: Stats, even
                     <div className="flex items-center gap-3">
                       <span className="text-sm font-bold">{count}</span>
                       <div className="w-24 h-2 bg-secondary rounded-full overflow-hidden">
+                        {/* noinspection CssInlineStyles */}
                         <div
                           className="h-full bg-purple-500 rounded-full"
-                          style={{ width: `${(count / stats.proUsers) * 100}%` }}
+                          style={({ width: `${(count / stats.proUsers) * 100}%` }) as React.CSSProperties}
                         />
                       </div>
                     </div>

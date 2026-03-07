@@ -10,8 +10,9 @@ export function InteractiveBarChart({ data }: { data: { label: string; value: nu
   const maxValue = Math.max(...data.map(d => d.value), 1)
   const height = 200
 
+  // noinspection CssInlineStyles
   return (
-    <div className="relative w-full" style={{ height: `${height}px` }}>
+    <div className="relative w-full" style={({ height: `${height}px` }) as React.CSSProperties}>
       <div className="absolute inset-x-0 bottom-6 top-0 flex flex-col justify-between text-[10px] text-muted-foreground">
         <div className="flex border-b border-black/5 dark:border-white/5 pb-1">{maxValue.toLocaleString()}</div>
         <div className="flex border-b border-black/5 dark:border-white/5 pb-1">{Math.floor(maxValue / 2).toLocaleString()}</div>
@@ -30,9 +31,10 @@ export function InteractiveBarChart({ data }: { data: { label: string; value: nu
               onMouseEnter={() => setHoveredIndex(i)}
               onMouseLeave={() => setHoveredIndex(null)}
             >
+              {/* noinspection CssInlineStyles */}
               <div
                 className={`w-full max-w-[40px] rounded-t-sm transition-all duration-300 ${item.color || 'bg-[#0066CC]'} ${isHovered ? 'brightness-110 filter' : 'opacity-80'}`}
-                style={{ height: `${heightPct}%` }}
+                style={({ height: `${heightPct}%` }) as React.CSSProperties}
               />
 
               <div className="absolute -bottom-6 w-full text-center text-[10px] text-muted-foreground font-medium truncate px-1">

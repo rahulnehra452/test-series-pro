@@ -23,6 +23,7 @@ import {
   Sparkles,
   ChevronDown,
   HelpCircle,
+  UploadCloud,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { QuickCreateWizard } from '@/components/tests/quick-create-wizard'
@@ -60,6 +61,7 @@ const sidebarItems: SidebarGroup[] = [
       { name: 'Tests', href: '/dashboard/tests', icon: FileText, roles: ['super_admin', 'content_manager'] },
       { name: 'Question Bank', href: '/dashboard/questions', icon: Database, roles: ['super_admin', 'content_manager'] },
       { name: 'Bulk Manager', href: '/dashboard/questions/bulk', icon: Database, roles: ['super_admin', 'content_manager'] },
+      { name: 'Bulk Upload', href: '/dashboard/questions/upload', icon: UploadCloud, roles: ['super_admin', 'content_manager'] },
       { name: 'AI Generator', href: '/dashboard/ai-generator', icon: Sparkles, roles: ['super_admin', 'content_manager'] },
     ]
   },
@@ -107,14 +109,20 @@ export function Sidebar() {
   const [signingOut, setSigningOut] = useState(false)
   const [wizardOpen, setWizardOpen] = useState(false)
 
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
+
   // Improvement 1: Collapsible sidebar sections
-  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => {
-    if (typeof window === 'undefined') return new Set()
+  useEffect(() => {
     try {
       const stored = localStorage.getItem('sidebar_collapsed')
-      return stored ? new Set(JSON.parse(stored)) : new Set()
-    } catch { return new Set() }
-  })
+      if (stored) {
+        // eslint-disable-next-line
+        setCollapsedSections(new Set(JSON.parse(stored)))
+      }
+    } catch {
+      // Do nothing
+    }
+  }, [])
 
   const toggleSection = (category: string) => {
     setCollapsedSections(prev => {

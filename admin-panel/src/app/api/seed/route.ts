@@ -1,11 +1,14 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requireSuperAdmin } from "@/lib/auth/admin"
 import { NextResponse } from 'next/server'
 
 export async function GET() {
-  const supabase = createAdminClient()
+  try {
+    await requireSuperAdmin()
+    const supabase = createAdminClient()
 
-  // Large pool of mock questions
-  const MOCK_QUESTIONS_POOL = [
+    // Large pool of mock questions
+    const MOCK_QUESTIONS_POOL = [
     { text: 'Which of the following Article of the Indian Constitution deals with the Election Commission of India?', options: ['Article 320', 'Article 324', 'Article 328', 'Article 330'], correctAnswer: 1, explanation: 'Article 324 of the Constitution provides that the power of superintendence, direction and control of elections to parliament, state legislatures, the office of president of India and the office of vice-president of India shall be vested in the election commission.', subject: 'Polity', difficulty: 'Medium', type: 'MCQ' },
     { text: 'Who among the following was the first Satyagrahi of the Individual Satyagraha Movement?', options: ['Jawaharlal Nehru', 'Sardar Patel', 'Vinoba Bhave', 'Subhash Chandra Bose'], correctAnswer: 2, explanation: 'The individual Satyagraha was started on 17 October 1940. Vinoba Bhave was the first Satyagrahi and Jawaharlal Nehru was the second.', subject: 'History', difficulty: 'Medium', type: 'MCQ' },
     { text: 'Which of the following is/are the tributary/tributaries of Brahmaputra River?', options: ['Dibang', 'Kameng', 'Lohit', 'All of the above'], correctAnswer: 3, explanation: 'The principal tributaries of the river Brahmaputra joining from right are the Lohit, the Dibang, the Subansiri, the Jiabharali, the Dhansiri, the Manas, the Torsa, the Sankosh and the Teesta.', subject: 'Geography', difficulty: 'Hard', type: 'MCQ' },
@@ -15,44 +18,51 @@ export async function GET() {
     { text: 'Which one of the following is the largest Committee of the Parliament?', options: ['The Committee on Public Accounts', 'The Committee on Estimates', 'The Committee on Public Undertakings', 'The Committee on Petitions'], correctAnswer: 1, explanation: 'The Estimates Committee is the largest committee of the Parliament. It consists of 30 members and all these members are from Lok Sabha.', subject: 'Polity', difficulty: 'Medium', type: 'MCQ' }
   ];
 
-  const { data: tests, error } = await supabase.from('tests').select('*');
-  let targetTestId;
-  if (!tests || tests.length === 0) {
-     const { data: series, error: sErr } = await supabase.from('test_series').select('id');
-     let sId;
-     if (series && series.length > 0) sId = series[0].id;
-     
-     const { data: newTest, error: insertTestErr } = await supabase.from('tests').insert({
-         title: 'UPSC Mock 1',
-         series_id: sId,
-         is_active: true,
-         total_questions: MOCK_QUESTIONS_POOL.length,
-         duration_minutes: 60
-     }).select('*').single();
-     if (insertTestErr) return NextResponse.json({ error: insertTestErr.message });
-     targetTestId = newTest.id;
-  } else {
-     targetTestId = tests[0].id;
+    const { data: tests, error } = await supabase.from('tests').select('*');
+    if (error) return NextResponse.json({ error: error.message });
+    let targetTestId;
+    if (!tests || tests.length === 0) {
+      const { data: series, error: sErr } = await supabase.from('test_series').select('id');
+      if (sErr) return NextResponse.json({ error: sErr.message });
+      let sId;
+      if (series && series.length > 0) sId = series[0].id;
+
+      const { data: newTest, error: insertTestErr } = await supabase.from('tests').insert({
+        title: 'UPSC Mock 1',
+        series_id: sId,
+        is_active: true,
+        total_questions: MOCK_QUESTIONS_POOL.length,
+        duration_minutes: 60
+      }).select('*').single();
+      if (insertTestErr) return NextResponse.json({ error: insertTestErr.message });
+      targetTestId = newTest.id;
+    } else {
+      targetTestId = tests[0].id;
+    }
+
+    // Insert questions into the first available test
+    const questionsToInsert = MOCK_QUESTIONS_POOL.map(q => ({
+      test_id: targetTestId,
+      // ensure mapping to database schema correctly
+      text: q.text,
+      options: JSON.stringify(q.options),
+      correct_answer: q.correctAnswer,
+      explanation: q.explanation,
+      subject: q.subject,
+      difficulty: q.difficulty,
+      type: q.type
+    }));
+
+    const { data, error: insertError } = await supabase.from('questions').insert(questionsToInsert).select();
+
+    if (insertError) {
+      return NextResponse.json({ error: insertError.message });
+    }
+
+    return NextResponse.json({ success: true, count: data?.length, test_id: targetTestId });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to seed data"
+    const status = message.toLowerCase().includes("access denied") ? 403 : 500
+    return NextResponse.json({ error: message }, { status })
   }
-
-  // Insert questions into the first available test
-  const questionsToInsert = MOCK_QUESTIONS_POOL.map(q => ({
-    test_id: targetTestId,
-    // ensure mapping to database schema correctly
-    text: q.text,
-    options: JSON.stringify(q.options),
-    correct_answer: q.correctAnswer,
-    explanation: q.explanation,
-    subject: q.subject,
-    difficulty: q.difficulty,
-    type: q.type
-  }));
-
-  const { data, error: insertError } = await supabase.from('questions').insert(questionsToInsert).select();
-  
-  if (insertError) {
-    return NextResponse.json({ error: insertError.message });
-  }
-
-  return NextResponse.json({ success: true, count: data?.length, test_id: targetTestId });
 }

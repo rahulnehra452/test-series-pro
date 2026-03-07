@@ -230,14 +230,9 @@ export async function logAdminAction(action: string, targetId: string, details?:
   try {
     const supabase = createAdminClient()
 
-    // Get current admin user for the audit trail
-    const { data: { user } } = await supabase.auth.getUser()
-    const adminId = user?.id || null
-
     const { error } = await supabase.from('admin_audit_log').insert({
       action,
       target_id: targetId,
-      admin_id: adminId,
       details: details ? JSON.stringify(details) : null,
     })
 

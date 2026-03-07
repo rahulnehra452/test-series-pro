@@ -3,7 +3,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { HelpTooltip } from "@/components/ui/help-tooltip"
-import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { Shield } from "lucide-react"
 

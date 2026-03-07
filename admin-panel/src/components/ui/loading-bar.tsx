@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation'
  * A thin animated progress bar at the top of the viewport.
  * Triggers on pathname changes via useEffect.
  */
-export function LoadingBar() {
+export default function LoadingBar() {
   const pathname = usePathname()
   const barRef = useRef<HTMLDivElement>(null)
   const prevPath = useRef<string | null>(null)

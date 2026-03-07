@@ -207,7 +207,7 @@ export default function StatsScreen() {
             {/* 3. Daily Study Hours */}
             <Card style={styles.card}>
               <SectionTitle title="Study Hours" icon="time" />
-              {studyHours.labels.length > 0 ? (
+              {studyHours.labels.length > 0 && studyHours.datasets[0].data.some(d => d > 0) ? (
                 <View style={{ overflow: 'hidden', borderRadius: 16 }}>
                   <BarChart
                     data={studyHours}
@@ -294,7 +294,7 @@ export default function StatsScreen() {
             {/* 5. Questions: Attempted vs Correct */}
             <Card style={styles.card}>
               <SectionTitle title="Attempt Quality" icon="bar-chart" />
-              {dailyQuestions.labels.length > 0 ? (
+              {dailyQuestions.labels.length > 0 && dailyQuestions.data.some(d => d[0] > 0 || d[1] > 0) ? (
                 <View style={{ overflow: 'hidden', borderRadius: 16 }}>
                   <StackedBarChart
                     data={{

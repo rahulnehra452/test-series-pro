@@ -45,6 +45,24 @@ interface ExportHistoryItem {
   status: 'success' | 'failed'
 }
 
+type RowRecord = Record<string, unknown>
+
+function isRowRecord(value: unknown): value is RowRecord {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function formatCellValue(value: unknown, column: string): string {
+  if (value === null || value === undefined) return '—'
+  if (column === 'created_at') {
+    if (typeof value === 'string' || typeof value === 'number' || value instanceof Date) {
+      return format(new Date(value), 'MMM d, yyyy')
+    }
+  }
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (typeof value === 'string' || typeof value === 'number') return String(value)
+  return JSON.stringify(value)
+}
+
 export default function DataCenterPage() {
   const [activeTab, setActiveTab] = useState<Tab>('export')
 
@@ -95,7 +113,7 @@ function ExportTab() {
   const [isPending, startTransition] = useTransition()
   const [activeSource, setActiveSource] = useState<string | null>(null)
   const [exportFormat, setExportFormat] = useState<ExportFormat>('csv')
-  const [previewData, setPreviewData] = useState<Record<string, unknown>[]>([])
+  const [previewData, setPreviewData] = useState<RowRecord[]>([])
   const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set())
   const [expandedRow, setExpandedRow] = useState<number | null>(null)
 
@@ -118,7 +136,7 @@ function ExportTab() {
     URL.revokeObjectURL(url)
   }
 
-  const SOURCES: Record<string, { icon: React.ComponentType<any>, title: string, color: string, defaultCols: string[] }> = {
+  const SOURCES: Record<string, { icon: React.ComponentType<{ className?: string }>, title: string, color: string, defaultCols: string[] }> = {
     users: { icon: Users, title: 'Users', color: 'from-blue-500 to-cyan-500', defaultCols: ['id', 'full_name', 'email', 'is_pro', 'pro_plan', 'pro_expires_at', 'created_at'] },
     questions: { icon: Database, title: 'Questions', color: 'from-green-500 to-emerald-500', defaultCols: ['id', 'text', 'difficulty', 'marks', 'negative_marks', 'test_id', 'created_at'] },
     attempts: { icon: TrendingUp, title: 'Attempts', color: 'from-purple-500 to-pink-500', defaultCols: ['id', 'user_id', 'test_id', 'score', 'total_marks', 'status', 'created_at'] },
@@ -134,7 +152,10 @@ function ExportTab() {
     // Fetch preview data
     const { getExportPreview } = await import('@/actions/export-actions')
     const res = await getExportPreview(source === 'users' ? 'profiles' : source, [], 20)
-    if (res.data) setPreviewData(res.data)
+    if (Array.isArray(res.data)) {
+      const rows = (res.data as unknown[]).filter(isRowRecord)
+      setPreviewData(rows)
+    }
   }
 
   const toggleColumn = (col: string) => {
@@ -271,10 +292,8 @@ function ExportTab() {
                       {Array.from(selectedColumns)
                         .filter(c => !['options', 'explanation'].includes(c) || activeSource !== 'questions')
                         .map(col => (
-                          <td key={col} className="p-3 truncate max-w-[200px]" title={String(row[col])}>
-                            {col === 'created_at' && row[col] ? format(new Date(row[col]), 'MMM d, yyyy') :
-                              typeof row[col] === 'boolean' ? (row[col] ? 'Yes' : 'No') :
-                                (row[col] === null ? '—' : String(row[col]))}
+                          <td key={col} className="p-3 truncate max-w-[200px]" title={String(row[col] ?? '')}>
+                            {formatCellValue(row[col], col)}
                           </td>
                         ))}
                       {activeSource === 'questions' && (
@@ -291,20 +310,24 @@ function ExportTab() {
                             <div>
                               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Question Text</p>
                               <p className="text-sm font-medium text-[#1D1D1F] dark:text-white bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-black/5 dark:border-white/5">
-                                {row.text || 'No text content'}
+                                {formatCellValue(row.text, 'text')}
                               </p>
                             </div>
 
-                            {row.options && Array.isArray(row.options) && row.options.length > 0 && (
+                            {Array.isArray(row.options) && row.options.length > 0 && (
                               <div>
                                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Options</p>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                  {row.options.map((opt: Record<string, unknown> | string, idx: number) => {
-                                    const optText = typeof opt === 'string' ? opt : (opt?.text || '—')
+                                  {row.options.map((opt: unknown, idx: number) => {
+                                    const optText = typeof opt === 'string'
+                                      ? opt
+                                      : (isRowRecord(opt) && (typeof opt.text === 'string' || typeof opt.text === 'number')
+                                        ? String(opt.text)
+                                        : '—')
                                     return (
                                       <div key={idx} className={`p-2.5 rounded-xl border text-xs flex items-start gap-2 ${row.correct_answer === idx ? 'bg-green-500/10 border-green-500/20 text-green-700 dark:text-green-400 font-medium' : 'bg-white dark:bg-[#1C1C1E] border-black/5 dark:border-white/5 text-muted-foreground'}`}>
                                         <span className="shrink-0 inline-flex items-center justify-center h-5 w-5 rounded-full bg-secondary text-[10px] font-bold">{String.fromCharCode(65 + idx)}</span>
-                                        <span className="pt-0.5">{String(optText)}</span>
+                                        <span className="pt-0.5">{optText}</span>
                                         {row.correct_answer === idx && <CheckCircle2 className="h-3.5 w-3.5 ml-auto text-green-500 shrink-0 mt-0.5" />}
                                       </div>
                                     )
@@ -313,11 +336,11 @@ function ExportTab() {
                               </div>
                             )}
 
-                            {row.explanation && (
+                            {Boolean(row.explanation) && (
                               <div>
                                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Explanation</p>
                                 <div className="text-xs text-muted-foreground bg-white dark:bg-[#1C1C1E] p-3 rounded-xl border border-black/5 dark:border-white/5">
-                                  {row.explanation}
+                                  {String(row.explanation)}
                                 </div>
                               </div>
                             )}

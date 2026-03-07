@@ -12,6 +12,16 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "src/lib/papaparse/**",
+    "src/lib/papaparse.js",
+    "src/lib/xlsx/**",
+    "src/lib/xlsx.js",
+    "src/lib/react-dropzone/**",
+    "src/lib/file-selector/**",
+    "src/lib/attr-accept/**",
+    "src/lib/prop-types/**",
+    "test.js",
+    "temp_script/**",
   ]),
 ]);
 

@@ -86,9 +86,38 @@ interface TestState {
   currentExamId: string | null;
   testSeries: TestSeries[];
   fetchExams: () => Promise<void>;
-  fetchTestSeries: (examId: string) => Promise<void>;
+  fetchTestSeries: (examId?: string) => Promise<void>;
   setCurrentExam: (examId: string | null) => void;
 }
+
+// Helper to safely parse stringified options from the backend
+const safeParseOptions = (optionsRaw: any): string[] => {
+  if (Array.isArray(optionsRaw)) {
+    // Already an array
+    if (optionsRaw.length > 0 && typeof optionsRaw[0] === 'object') {
+      // Legacy or admin form might have saved objects like { text: "..." }
+      return optionsRaw.map(o => o.text || String(o));
+    }
+    return optionsRaw.map(String);
+  }
+
+  if (typeof optionsRaw === 'string') {
+    try {
+      const parsed = JSON.parse(optionsRaw);
+      if (Array.isArray(parsed)) {
+        if (parsed.length > 0 && typeof parsed[0] === 'object') {
+          return parsed.map(o => o.text || String(o));
+        }
+        return parsed.map(String);
+      }
+    } catch (e) {
+      // Failed to parse, maybe it's just a raw string?
+      console.warn("Could not parse options JSON:", optionsRaw);
+    }
+  }
+
+  return [];
+};
 
 // Helper to calculate score
 const calculateScore = (questions: Question[], answers: Record<string, number>, negativeMarking = 0.66) => {
@@ -286,14 +315,19 @@ export const useTestStore = create<TestState>()(
         }
       },
 
-      fetchTestSeries: async (examId) => {
+      fetchTestSeries: async (examId?: string) => {
         set({ isLoadingTests: true });
         try {
-          const { data, error } = await supabase
+          let query = supabase
             .from('test_series')
             .select('*, tests(*)') // Fetch series and nested tests
-            .eq('exam_id', examId)
             .eq('is_active', true);
+
+          if (examId) {
+            query = query.eq('exam_id', examId);
+          }
+
+          const { data, error } = await query;
 
           if (error) throw error;
 
@@ -333,6 +367,7 @@ export const useTestStore = create<TestState>()(
         );
 
         if (resumeAttempt) {
+          const resumedSeconds = resumeAttempt.timeRemaining ?? duration * 60;
           // RESUME
           set({
             currentTestId: testId,
@@ -340,9 +375,9 @@ export const useTestStore = create<TestState>()(
             questions: resumeAttempt.questions && resumeAttempt.questions.length > 0
               ? resumeAttempt.questions
               : questions, // Fallback if old attempt didn't store questions
-            timeRemaining: resumeAttempt.timeRemaining || duration * 60,
+            timeRemaining: resumedSeconds,
             totalTime: duration * 60,
-            endTime: Date.now() + (resumeAttempt.timeRemaining || duration * 60) * 1000,
+            endTime: Date.now() + resumedSeconds * 1000,
             sessionStartTime: resumeAttempt.startTime,
             currentIndex: resumeAttempt.currentIndex || 0,
             answers: resumeAttempt.answers || {},
@@ -514,7 +549,7 @@ export const useTestStore = create<TestState>()(
                   question: q.text,
                   subject: q.subject,
                   difficulty: q.difficulty,
-                  options: q.options,
+                  options: safeParseOptions(q.options),
                   correctAnswer: q.correctAnswer,
                   explanation: q.explanation,
                   questionType: q.type,
@@ -597,7 +632,7 @@ export const useTestStore = create<TestState>()(
                   difficulty: item.difficulty,
                   exam: item.exam,
                   examId: item.examId,
-                  options: item.options,
+                  options: safeParseOptions(item.options),
                   correctAnswer: item.correctAnswer,
                   explanation: item.explanation,
                   questionType: item.questionType,
@@ -698,7 +733,7 @@ export const useTestStore = create<TestState>()(
           return data.map(q => ({
             id: q.id,
             text: q.text,
-            options: q.options || [],
+            options: safeParseOptions(q.options),
             correctAnswer: q.correct_answer,
             explanation: q.explanation,
             subject: q.subject,
@@ -731,6 +766,7 @@ export const useTestStore = create<TestState>()(
           const { data, error } = await supabase
             .from('attempts')
             .select('*')
+            .eq('user_id', session.session.user.id)
             .eq('status', 'Completed')
             .order('started_at', { ascending: false })
             .range(from, to);
@@ -825,7 +861,7 @@ export const useTestStore = create<TestState>()(
         // generated UUID validation regex
         // Allow any string ID (UUID or simple string)
         if (!attempt.testId) {
-          console.log('Skipping upload: No Test ID');
+          // Skipping upload: No Test ID
           return;
         }
 
@@ -929,7 +965,7 @@ export const useTestStore = create<TestState>()(
                 question: item.question_data?.text || 'Question',
                 subject: item.question_data?.subject,
                 difficulty: item.question_data?.difficulty,
-                options: item.question_data?.options,
+                options: safeParseOptions(item.question_data?.options),
                 correctAnswer: item.question_data?.correctAnswer,
                 explanation: item.question_data?.explanation,
                 questionType: item.question_data?.questionType,
@@ -1122,7 +1158,7 @@ export const useTestStore = create<TestState>()(
               difficulty: item.difficulty,
               exam: item.exam,
               examId: item.examId,
-              options: item.options,
+              options: safeParseOptions(item.options),
               correctAnswer: item.correctAnswer,
               explanation: item.explanation,
               questionType: item.questionType,
@@ -1199,7 +1235,7 @@ export const useTestStore = create<TestState>()(
                 difficulty: currentItem.difficulty,
                 exam: currentItem.exam,
                 examId: currentItem.examId,
-                options: currentItem.options,
+                options: safeParseOptions(currentItem.options),
                 correctAnswer: currentItem.correctAnswer,
                 explanation: currentItem.explanation,
                 questionType: currentItem.questionType,

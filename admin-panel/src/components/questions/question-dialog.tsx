@@ -46,11 +46,11 @@ export function QuestionDialog({ initialData, tests, trigger, open, onOpenChange
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[1200px] max-h-[95vh] overflow-y-hidden bg-white/60 dark:bg-background/80 backdrop-blur-2xl">
-        <DialogHeader>
-          <DialogTitle>{initialData && initialData.id !== "" ? "Edit Question" : initialData ? "Duplicate Question" : "Create Question"}</DialogTitle>
-          <DialogDescription>
-            {initialData && initialData.id !== "" ? "Modify question details." : "Add a new question to the test."}
+      <DialogContent className="sm:max-w-[1100px] max-h-[92vh] overflow-y-hidden rounded-3xl border-black/[0.06] dark:border-white/[0.08] bg-white/80 dark:bg-[#1C1C1E]/90 backdrop-blur-3xl shadow-2xl">
+        <DialogHeader className="pb-1">
+          <DialogTitle className="text-lg font-bold tracking-tight">{initialData && initialData.id !== "" ? "Edit Question" : initialData ? "Duplicate Question" : "New Question"}</DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground/60">
+            {initialData && initialData.id !== "" ? "Modify question details and preview changes live." : "Build a new question with a live mobile preview."}
           </DialogDescription>
         </DialogHeader>
         <QuestionForm initialData={initialData} tests={tests} onSuccess={handleSuccess} />

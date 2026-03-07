@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Dialog,
@@ -21,16 +21,14 @@ import {
 } from '@/components/ui/select'
 import { createExam } from '@/actions/exam-actions'
 import { createTestSeries } from '@/actions/test-series-actions'
-import { createTest } from '@/actions/test-actions'
+import { createTest, getWizardData } from '@/actions/test-actions'
 import { createTestSection } from '@/actions/section-actions'
-import { createClient } from '@/lib/supabase/client'
 import {
   FileText,
   Plus,
   Loader2,
   Sparkles,
   Timer,
-  Award,
   BookOpen,
   LayoutList,
   Target,
@@ -93,7 +91,6 @@ export function QuickCreateWizard({
   const [testDescription, setTestDescription] = useState('')
   const [durationMinutes, setDurationMinutes] = useState('60')
   const [totalMarks, setTotalMarks] = useState('100')
-  const [passMarks, setPassMarks] = useState('40')
 
   // Step 3 — Sections
   const [sections, setSections] = useState<Section[]>([])
@@ -103,19 +100,19 @@ export function QuickCreateWizard({
   // Load data on open
   const loadData = useCallback(async () => {
     if (dataLoaded) return
-    const supabase = createClient()
-    const [{ data: examData }, { data: seriesData }] = await Promise.all([
-      supabase.from('exams').select('id, title').eq('is_active', true).order('title'),
-      supabase.from('test_series').select('id, title, exam_id').eq('is_active', true).order('title'),
-    ])
+    const { exams: examData, series: seriesData, error } = await getWizardData()
+    if (error) {
+      toast.error('Failed to load test metadata', { description: error })
+      return
+    }
     setExams(examData || [])
     setSeriesList(seriesData || [])
     setDataLoaded(true)
   }, [dataLoaded])
 
-  // When dialog opens
-  const handleOpenChange = (isOpen: boolean) => {
-    if (isOpen) {
+  // Data Loading & Reset Effect
+  useEffect(() => {
+    if (open) {
       loadData()
       // Reset state
       setSelectedExamId('')
@@ -129,11 +126,9 @@ export function QuickCreateWizard({
       setTestDescription('')
       setDurationMinutes('60')
       setTotalMarks('100')
-      setPassMarks('40')
       setSections([])
     }
-    onOpenChange(isOpen)
-  }
+  }, [open, loadData])
 
   // Filter series by selected exam
   const filteredSeries = seriesList.filter(s => s.exam_id === selectedExamId)
@@ -176,19 +171,8 @@ export function QuickCreateWizard({
           icon_url: '',
           is_active: true,
         })
-        if (result.error) throw new Error(result.error)
-
-        // Fetch the newly created exam
-        const supabase = createClient()
-        const { data: newExam } = await supabase
-          .from('exams')
-          .select('id')
-          .eq('slug', slug)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single()
-        if (!newExam) throw new Error('Failed to find created exam')
-        examId = newExam.id
+        if (result.error || !result.id) throw new Error(result.error || 'Failed to find created exam ID')
+        examId = result.id
       }
 
       // Create series if inline
@@ -201,20 +185,8 @@ export function QuickCreateWizard({
           cover_image_url: undefined,
           is_active: true,
         })
-        if (result.error) throw new Error(result.error)
-
-        // Fetch newly created series
-        const supabase = createClient()
-        const { data: newSeries } = await supabase
-          .from('test_series')
-          .select('id')
-          .eq('title', newSeriesTitle.trim())
-          .eq('exam_id', examId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single()
-        if (!newSeries) throw new Error('Failed to find created series')
-        seriesId = newSeries.id
+        if (result.error || !result.id) throw new Error(result.error || 'Failed to find created series ID')
+        seriesId = result.id
       }
 
       // Create test
@@ -224,26 +196,17 @@ export function QuickCreateWizard({
         series_id: seriesId,
         duration_minutes: parseInt(durationMinutes),
         total_marks: parseInt(totalMarks),
-        pass_marks: parseInt(passMarks) || 0,
+        pass_marks: 0,
         is_active: true,
       })
-      if (testResult.error) throw new Error(testResult.error)
+      if (testResult.error || !testResult.id) throw new Error(testResult.error || 'Failed to create test')
 
-      // Find the new test to get its ID for sections
-      const supabase = createClient()
-      const { data: newTest } = await supabase
-        .from('tests')
-        .select('id')
-        .eq('title', testTitle.trim())
-        .eq('series_id', seriesId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
+      const newTestId = testResult.id
 
       // Create sections
-      if (newTest && sections.length > 0) {
+      if (newTestId && sections.length > 0) {
         for (const section of sections) {
-          await createTestSection(newTest.id, section.name, section.durationMinutes)
+          await createTestSection(newTestId, section.name, section.durationMinutes)
         }
       }
 
@@ -255,8 +218,8 @@ export function QuickCreateWizard({
 
       onOpenChange(false)
 
-      if (newTest) {
-        router.push(`/dashboard/tests/${newTest.id}/builder`)
+      if (newTestId) {
+        router.push(`/dashboard/tests/${newTestId}/builder`)
       } else {
         router.push('/dashboard/tests')
       }
@@ -271,7 +234,7 @@ export function QuickCreateWizard({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent style={{ maxWidth: '1024px', width: '95vw' }} className="p-0 gap-0 overflow-hidden rounded-[32px] border border-black/5 dark:border-white/5 bg-[#F5F5F7] dark:bg-[#1C1C1E] shadow-2xl">
         {/* Header */}
         <DialogHeader className="px-8 pt-8 pb-6 bg-white dark:bg-[#2C2C2E] border-b border-black/5 dark:border-white/5 relative z-10">
@@ -402,7 +365,7 @@ export function QuickCreateWizard({
                 Parameters
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1"><Timer className="h-3 w-3" /> Time (Min) *</Label>
                   <Input type="number" min="1" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} className="h-11 rounded-xl text-lg font-bold text-center bg-[#F5F5F7] dark:bg-[#1C1C1E] border-black/5 dark:border-white/5 tabular-nums focus-visible:ring-orange-500" />
@@ -410,10 +373,6 @@ export function QuickCreateWizard({
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1"><Target className="h-3 w-3" /> Total Marks *</Label>
                   <Input type="number" min="1" value={totalMarks} onChange={(e) => setTotalMarks(e.target.value)} className="h-11 rounded-xl text-lg font-bold text-center bg-[#F5F5F7] dark:bg-[#1C1C1E] border-black/5 dark:border-white/5 tabular-nums focus-visible:ring-orange-500" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1"><Award className="h-3 w-3" /> Pass Marks</Label>
-                  <Input type="number" min="0" value={passMarks} onChange={(e) => setPassMarks(e.target.value)} className="h-11 rounded-xl text-lg font-bold text-center bg-[#F5F5F7] dark:bg-[#1C1C1E] border-black/5 dark:border-white/5 tabular-nums focus-visible:ring-orange-500" />
                 </div>
               </div>
             </div>

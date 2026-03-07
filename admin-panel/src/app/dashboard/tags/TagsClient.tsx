@@ -10,9 +10,9 @@ import {
   Tag, Search, Plus, X, Hash, Palette, BarChart3,
   Merge, PenLine, Trash2, Check, Loader2,
   Sparkles, Copy, Filter, EyeOff, ChevronDown, ChevronRight,
-  Zap, BookOpen, Target, Layers, Cloud, GitBranch,
+  BookOpen, Target, Layers, Cloud, GitBranch,
   Download, AlertTriangle, Lightbulb, LayoutGrid,
-  ListTree, Network, FileText, Wand2, RefreshCcw, Settings2
+  ListTree, Network, FileText, Wand2, Settings2
 } from "lucide-react"
 import { updateQuestionTags } from "@/actions/tag-actions"
 import { toast } from "sonner"
@@ -64,6 +64,7 @@ const TAG_TEMPLATES: { name: string; tags: string[]; icon: string }[] = [
 ]
 
 export function TagsClient({ tags, questions }: TagsClientProps) {
+  void tags
   const [search, setSearch] = useState("")
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [questionRows, setQuestionRows] = useState<QuestionInfo[]>(questions)
@@ -73,7 +74,6 @@ export function TagsClient({ tags, questions }: TagsClientProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [sortMode, setSortMode] = useState<SortMode>('count')
   const [questionSearch, setQuestionSearch] = useState("")
-  const [showBulkTag, setShowBulkTag] = useState(false)
   const [bulkTagValue, setBulkTagValue] = useState("")
   const [selectedQuestions, setSelectedQuestions] = useState<Set<string>>(new Set())
   const [showRenameTag, setShowRenameTag] = useState<string | null>(null)
@@ -89,7 +89,7 @@ export function TagsClient({ tags, questions }: TagsClientProps) {
   const computedTags = useMemo(() => {
     const tagMap = new Map<string, number>()
     questionRows.forEach(q => q.tags.forEach(t => tagMap.set(t, (tagMap.get(t) || 0) + 1)))
-    let result = Array.from(tagMap.entries()).map(([name, count]) => ({ name, count }))
+    const result = Array.from(tagMap.entries()).map(([name, count]) => ({ name, count }))
     switch (sortMode) {
       case 'alpha': result.sort((a, b) => a.name.localeCompare(b.name)); break
       case 'count': result.sort((a, b) => b.count - a.count); break
@@ -215,7 +215,7 @@ export function TagsClient({ tags, questions }: TagsClientProps) {
         setQuestionRows(prev => prev.map(x => x.id === qId ? { ...x, tags: updated } : x))
       }
       toast.success(`Added tags to ${selectedQuestions.size} questions`)
-      setSelectedQuestions(new Set()); setBulkTagValue(""); setShowBulkTag(false)
+      setSelectedQuestions(new Set()); setBulkTagValue("")
     })
   }
 
@@ -571,114 +571,123 @@ export function TagsClient({ tags, questions }: TagsClientProps) {
               {computedTags.length === 0 && <p className="text-xs text-muted-foreground">No tags yet</p>}
             </div>
           </CardContent>
-        </Card>
-      )}
+        </Card >
+      )
+      }
 
       {/* Co-occurrence */}
-      {activePanel === 'cooccurrence' && (
-        <Card className="rounded-2xl border border-black/5 dark:border-white/5">
-          <CardContent className="p-4 space-y-3">
-            <p className="text-xs font-bold flex items-center gap-2"><Network className="h-4 w-4 text-pink-600" /> Tag Co-occurrence — Tags that appear together</p>
-            {cooccurrence.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-6">No co-occurring tags yet. Questions need 2+ tags.</p>
-            ) : (
-              <div className="space-y-1.5">
-                {cooccurrence.map((pair, i) => {
-                  const maxPair = cooccurrence[0]?.count || 1
-                  return (
-                    <div key={i} className="flex items-center gap-2">
-                      <span className="text-[9px] font-bold text-muted-foreground w-5">#{i + 1}</span>
-                      <Badge className={`text-[9px] border ${getTagColor(pair.tagA)}`}>#{pair.tagA}</Badge>
-                      <GitBranch className="h-3 w-3 text-muted-foreground/30" />
-                      <Badge className={`text-[9px] border ${getTagColor(pair.tagB)}`}>#{pair.tagB}</Badge>
-                      <div className="flex-1 h-3 bg-secondary/20 rounded-full overflow-hidden ml-2">
-                        <div className="h-full bg-gradient-to-r from-pink-500 to-rose-500 rounded-full" style={{ width: `${(pair.count / maxPair) * 100}%` }} />
+      {
+        activePanel === 'cooccurrence' && (
+          <Card className="rounded-2xl border border-black/5 dark:border-white/5">
+            <CardContent className="p-4 space-y-3">
+              <p className="text-xs font-bold flex items-center gap-2"><Network className="h-4 w-4 text-pink-600" /> Tag Co-occurrence — Tags that appear together</p>
+              {cooccurrence.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-6">No co-occurring tags yet. Questions need 2+ tags.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {cooccurrence.map((pair, i) => {
+                    const maxPair = cooccurrence[0]?.count || 1
+                    return (
+                      <div key={i} className="flex items-center gap-2">
+                        <span className="text-[9px] font-bold text-muted-foreground w-5">#{i + 1}</span>
+                        <Badge className={`text-[9px] border ${getTagColor(pair.tagA)}`}>#{pair.tagA}</Badge>
+                        <GitBranch className="h-3 w-3 text-muted-foreground/30" />
+                        <Badge className={`text-[9px] border ${getTagColor(pair.tagB)}`}>#{pair.tagB}</Badge>
+                        <div className="flex-1 h-3 bg-secondary/20 rounded-full overflow-hidden ml-2">
+                          <div className="h-full bg-gradient-to-r from-pink-500 to-rose-500 rounded-full" style={{ width: `${(pair.count / maxPair) * 100}%` }} />
+                        </div>
+                        <span className="text-[10px] font-bold w-8 text-right">{pair.count}×</span>
                       </div>
-                      <span className="text-[10px] font-bold w-8 text-right">{pair.count}×</span>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )
+      }
 
       {/* Analytics */}
-      {activePanel === 'analytics' && (
-        <Card className="rounded-2xl border border-black/5 dark:border-white/5">
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-bold flex items-center gap-2"><BarChart3 className="h-4 w-4 text-green-600" /> Tag Distribution</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              {testTagMap.slice(0, 10).map(t => (
-                <div key={t.title} className="flex items-center gap-3">
-                  <span className="text-[10px] font-semibold w-40 truncate">{t.title}</span>
-                  <div className="flex-1 h-5 bg-secondary/30 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-violet-500 to-purple-500 rounded-full transition-all" style={{ width: `${Math.min(100, (t.tagCount / Math.max(1, t.questionCount)) * 33)}%` }} />
+      {
+        activePanel === 'analytics' && (
+          <Card className="rounded-2xl border border-black/5 dark:border-white/5">
+            <CardHeader className="pb-2"><CardTitle className="text-sm font-bold flex items-center gap-2"><BarChart3 className="h-4 w-4 text-green-600" /> Tag Distribution</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                {testTagMap.slice(0, 10).map(t => (
+                  <div key={t.title} className="flex items-center gap-3">
+                    <span className="text-[10px] font-semibold w-40 truncate">{t.title}</span>
+                    <div className="flex-1 h-5 bg-secondary/30 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-violet-500 to-purple-500 rounded-full transition-all" style={{ width: `${Math.min(100, (t.tagCount / Math.max(1, t.questionCount)) * 33)}%` }} />
+                    </div>
+                    <span className="text-[9px] font-bold text-muted-foreground w-24 text-right">{t.tagCount} tags / {t.questionCount} Qs</span>
                   </div>
-                  <span className="text-[9px] font-bold text-muted-foreground w-24 text-right">{t.tagCount} tags / {t.questionCount} Qs</span>
+                ))}
+              </div>
+              {/* Mini bar chart */}
+              <div className="pt-3 border-t border-black/5 dark:border-white/5">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Top 15 Tags</p>
+                <div className="flex items-end gap-[2px] h-16">
+                  {computedTags.slice(0, 15).map(t => {
+                    const max = Math.max(1, computedTags[0]?.count || 1)
+                    return (
+                      <div key={t.name} className="flex-1 flex flex-col items-center gap-0.5 group relative">
+                        <div className={`w-full rounded-t-sm ${getTagBg(t.name)}`} style={{ height: `${Math.max(8, (t.count / max) * 100)}%` }} />
+                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-black text-white text-[7px] px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-10">{t.name}: {t.count}</div>
+                      </div>
+                    )
+                  })}
                 </div>
-              ))}
-            </div>
-            {/* Mini bar chart */}
-            <div className="pt-3 border-t border-black/5 dark:border-white/5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Top 15 Tags</p>
-              <div className="flex items-end gap-[2px] h-16">
-                {computedTags.slice(0, 15).map(t => {
-                  const max = Math.max(1, computedTags[0]?.count || 1)
+                <div className="flex gap-[2px] mt-0.5">
+                  {computedTags.slice(0, 15).map(t => <span key={t.name} className="flex-1 text-[6px] font-bold text-muted-foreground text-center truncate">{t.name}</span>)}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )
+      }
+
+      {/* Coverage Heatmap */}
+      {
+        activePanel === 'coverage' && (
+          <Card className="rounded-2xl border border-black/5 dark:border-white/5">
+            <CardContent className="p-4 space-y-3">
+              <p className="text-xs font-bold flex items-center gap-2"><Target className="h-4 w-4 text-orange-600" /> Tag Coverage by Test</p>
+              <div className="space-y-2">
+                {testCoverage.map(t => {
+                  const pct = t.total > 0 ? Math.round((t.tagged / t.total) * 100) : 0
+                  const color = pct >= 80 ? 'from-green-500 to-emerald-500' : pct >= 50 ? 'from-amber-500 to-orange-500' : 'from-red-500 to-rose-500'
                   return (
-                    <div key={t.name} className="flex-1 flex flex-col items-center gap-0.5 group relative">
-                      <div className={`w-full rounded-t-sm ${getTagBg(t.name)}`} style={{ height: `${Math.max(8, (t.count / max) * 100)}%` }} />
-                      <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-black text-white text-[7px] px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-10">{t.name}: {t.count}</div>
+                    <div key={t.title} className="flex items-center gap-3">
+                      <span className="text-[10px] font-semibold w-44 truncate">{t.title}</span>
+                      <div className="flex-1 h-6 bg-secondary/20 rounded-lg overflow-hidden relative">
+                        <div className={`h-full bg-gradient-to-r ${color} rounded-lg transition-all`} style={{ width: `${pct}%` }} />
+                        <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold">{pct}%</span>
+                      </div>
+                      <span className="text-[9px] font-bold text-muted-foreground w-16 text-right">{t.tagged}/{t.total} Qs</span>
                     </div>
                   )
                 })}
               </div>
-              <div className="flex gap-[2px] mt-0.5">
-                {computedTags.slice(0, 15).map(t => <span key={t.name} className="flex-1 text-[6px] font-bold text-muted-foreground text-center truncate">{t.name}</span>)}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Coverage Heatmap */}
-      {activePanel === 'coverage' && (
-        <Card className="rounded-2xl border border-black/5 dark:border-white/5">
-          <CardContent className="p-4 space-y-3">
-            <p className="text-xs font-bold flex items-center gap-2"><Target className="h-4 w-4 text-orange-600" /> Tag Coverage by Test</p>
-            <div className="space-y-2">
-              {testCoverage.map(t => {
-                const pct = t.total > 0 ? Math.round((t.tagged / t.total) * 100) : 0
-                const color = pct >= 80 ? 'from-green-500 to-emerald-500' : pct >= 50 ? 'from-amber-500 to-orange-500' : 'from-red-500 to-rose-500'
-                return (
-                  <div key={t.title} className="flex items-center gap-3">
-                    <span className="text-[10px] font-semibold w-44 truncate">{t.title}</span>
-                    <div className="flex-1 h-6 bg-secondary/20 rounded-lg overflow-hidden relative">
-                      <div className={`h-full bg-gradient-to-r ${color} rounded-lg transition-all`} style={{ width: `${pct}%` }} />
-                      <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold">{pct}%</span>
-                    </div>
-                    <span className="text-[9px] font-bold text-muted-foreground w-16 text-right">{t.tagged}/{t.total} Qs</span>
-                  </div>
-                )
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        )
+      }
 
       {/* Export */}
-      {activePanel === 'export' && (
-        <Card className="rounded-2xl border border-black/5 dark:border-white/5">
-          <CardContent className="p-4 space-y-3">
-            <p className="text-xs font-bold flex items-center gap-2"><Download className="h-4 w-4 text-indigo-600" /> Export Tag Data</p>
-            <p className="text-[10px] text-muted-foreground">Download all questions with their tags as a CSV file. Columns: question_text, test, tags.</p>
-            <Button onClick={handleExportTags} className="gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white h-9 text-xs">
-              <FileText className="h-3.5 w-3.5" /> Export {questionRows.length} Questions with Tags (CSV)
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      {
+        activePanel === 'export' && (
+          <Card className="rounded-2xl border border-black/5 dark:border-white/5">
+            <CardContent className="p-4 space-y-3">
+              <p className="text-xs font-bold flex items-center gap-2"><Download className="h-4 w-4 text-indigo-600" /> Export Tag Data</p>
+              <p className="text-[10px] text-muted-foreground">Download all questions with their tags as a CSV file. Columns: question_text, test, tags.</p>
+              <Button onClick={handleExportTags} className="gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white h-9 text-xs">
+                <FileText className="h-3.5 w-3.5" /> Export {questionRows.length} Questions with Tags (CSV)
+              </Button>
+            </CardContent>
+          </Card>
+        )
+      }
 
       {/* ═══════ MAIN LAYOUT ═══════ */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">

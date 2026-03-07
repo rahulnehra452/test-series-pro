@@ -1,7 +1,7 @@
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm, useFieldArray } from "react-hook-form"
+import { useForm, useFieldArray, useWatch } from "react-hook-form"
 import { Button } from "@/components/ui/button"
 import {
   Form,
@@ -23,18 +23,15 @@ import { questionSchema, type QuestionFormValues } from "@/lib/validations/quest
 import { createQuestion, updateQuestion } from "@/actions/question-actions"
 import { toast } from "sonner"
 import { RichTextEditor } from "@/components/ui/rich-text-editor"
-import { Checkbox } from "@/components/ui/checkbox"
 import { useState, useEffect } from "react"
-import { Loader2, Plus, Trash2 } from "lucide-react"
+import { Loader2, Plus, Trash2, CheckCircle2, GripVertical, Sparkles } from "lucide-react"
+import { MobileSimulator } from "./mobile-simulator"
 
 interface QuestionFormProps {
   initialData?: QuestionFormValues & { id: string }
   tests: { id: string; title: string }[]
   onSuccess: () => void
 }
-
-import { useWatch } from "react-hook-form"
-import { MobileSimulator } from "./mobile-simulator"
 
 export function QuestionForm({ initialData, tests, onSuccess }: QuestionFormProps) {
   const [loading, setLoading] = useState(false)
@@ -92,20 +89,11 @@ export function QuestionForm({ initialData, tests, onSuccess }: QuestionFormProp
     name: "options",
   })
 
-  const setSingleCorrectOption = (correctIndex: number, isChecked: boolean) => {
+  const setSingleCorrectOption = (correctIndex: number) => {
     const currentOptions = form.getValues("options")
-
-    if (!isChecked && currentOptions[correctIndex]?.is_correct) {
-      const correctCount = currentOptions.filter((opt) => opt.is_correct).length
-      if (correctCount <= 1) {
-        toast.info("Exactly one correct option is required.")
-        return
-      }
-    }
-
     const nextOptions = currentOptions.map((opt, idx) => ({
       ...opt,
-      is_correct: isChecked ? idx === correctIndex : idx === correctIndex ? false : opt.is_correct,
+      is_correct: idx === correctIndex,
     }))
 
     form.setValue("options", nextOptions, {
@@ -162,169 +150,242 @@ export function QuestionForm({ initialData, tests, onSuccess }: QuestionFormProp
     }
   }
 
+  const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-5 gap-0">
         {/* LEFT COLUMN: Form Fields */}
-        <div className="lg:col-span-3 space-y-4 pr-1 max-h-[70vh] overflow-y-auto hide-scrollbar">
-          <FormField
-            control={form.control}
-            name="test_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Select Test</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a test" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {tests.map((test) => (
-                      <SelectItem key={test.id} value={test.id}>
-                        {test.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <div className="lg:col-span-3 max-h-[75vh] overflow-y-auto hide-scrollbar pr-6">
+          <div className="space-y-6">
 
-          <FormField
-            control={form.control}
-            name="question_text"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Question Text</FormLabel>
-                <FormControl>
-                  <RichTextEditor placeholder="Enter your question here..." value={field.value} onChange={field.onChange} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="marks"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Marks</FormLabel>
-                  <FormControl>
-                    <Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="negative_marks"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Negative Marks</FormLabel>
-                  <FormControl>
-                    <Input type="number" step="0.25" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <FormLabel>Options</FormLabel>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => append({ text: "", is_correct: false })}
-              >
-                <Plus className="mr-2 h-4 w-4" /> Add Option
-              </Button>
-            </div>
-            {fields.map((field, index) => (
-              <div key={field.id} className="flex items-start space-x-3">
-                <FormField
-                  control={form.control}
-                  name={`options.${index}.is_correct`}
-                  render={({ field }) => (
-                    <FormItem className="pt-3">
-                      <FormControl>
-                        <Checkbox
-                          checked={Boolean(field.value)}
-                          onCheckedChange={(checked) => {
-                            setSingleCorrectOption(index, checked === true)
-                          }}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <div className="flex-1">
+            {/* ── Section: Test & Scoring ── */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="h-5 w-1 rounded-full bg-[#0066CC]" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Test & Scoring</span>
+              </div>
+              <div className="grid grid-cols-4 gap-3">
+                <div className="col-span-2">
                   <FormField
                     control={form.control}
-                    name={`options.${index}.text`}
+                    name="test_id"
                     render={({ field }) => (
                       <FormItem>
-                        <FormControl>
-                          <RichTextEditor placeholder={`Option ${index + 1}`} value={field.value} onChange={field.onChange} minHeight="60px" />
-                        </FormControl>
+                        <FormLabel className="text-xs font-medium text-muted-foreground">Test</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="h-10 rounded-xl bg-secondary/30 border-0 text-sm font-medium">
+                              <SelectValue placeholder="Select a test" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {tests.map((test) => (
+                              <SelectItem key={test.id} value={test.id}>
+                                {test.title}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
+                <FormField
+                  control={form.control}
+                  name="marks"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-medium text-muted-foreground">Marks</FormLabel>
+                      <FormControl>
+                        <Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} className="h-10 rounded-xl bg-secondary/30 border-0 text-sm font-medium text-center" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="negative_marks"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-medium text-muted-foreground">Negative</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.25" {...field} onChange={(e) => field.onChange(Number(e.target.value))} className="h-10 rounded-xl bg-secondary/30 border-0 text-sm font-medium text-center" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* ── Divider ── */}
+            <div className="border-t border-black/[0.04] dark:border-white/[0.06]" />
+
+            {/* ── Section: Question Text ── */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="h-5 w-1 rounded-full bg-violet-500" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Question</span>
+              </div>
+              <FormField
+                control={form.control}
+                name="question_text"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <RichTextEditor placeholder="Type your question here..." value={field.value} onChange={field.onChange} minHeight="120px" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* ── Divider ── */}
+            <div className="border-t border-black/[0.04] dark:border-white/[0.06]" />
+
+            {/* ── Section: Options ── */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-5 w-1 rounded-full bg-emerald-500" />
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Answer Options</span>
+                </div>
                 <Button
                   type="button"
                   variant="ghost"
-                  size="icon"
-                  onClick={() => handleRemoveOption(index)}
-                  disabled={fields.length <= MIN_OPTIONS}
-                  className="text-red-500 hover:text-red-600"
+                  size="sm"
+                  onClick={() => append({ text: "", is_correct: false })}
+                  className="h-7 gap-1.5 text-xs font-medium text-[#0066CC] hover:text-[#0066CC] hover:bg-[#0066CC]/5 rounded-lg"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Plus className="h-3.5 w-3.5" /> Add Option
                 </Button>
               </div>
-            ))}
-            <FormMessage>{form.formState.errors.options?.message}</FormMessage>
-            <FormMessage>{form.formState.errors.options?.root?.message}</FormMessage>
-          </div>
 
-          <FormField
-            control={form.control}
-            name="explanation"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Explanation (Optional)</FormLabel>
-                <FormControl>
-                  <RichTextEditor placeholder="Explain the correct answer..." value={field.value || ""} onChange={field.onChange} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+              <div className="space-y-2">
+                {fields.map((field, index) => {
+                  const isCorrect = watchedValues.options?.[index]?.is_correct
+                  return (
+                    <div
+                      key={field.id}
+                      className={`
+                        group flex items-center gap-3 p-3 rounded-xl border transition-all duration-200
+                        ${isCorrect
+                          ? 'border-emerald-500/30 bg-emerald-500/[0.04] dark:bg-emerald-500/[0.06] shadow-sm shadow-emerald-500/5'
+                          : 'border-black/[0.04] dark:border-white/[0.06] bg-secondary/20 hover:bg-secondary/30'
+                        }
+                      `}
+                    >
+                      {/* Drag Handle (visual only) */}
+                      <GripVertical className="h-4 w-4 text-muted-foreground/20 shrink-0" />
 
-          <div className="flex justify-start space-x-2 pt-4 pb-8">
-            <Button type="submit" disabled={loading} className="w-full md:w-auto">
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {initialData && initialData.id !== "" ? "Save Changes" : "Create Question"}
-            </Button>
+                      {/* Option Label */}
+                      <button
+                        type="button"
+                        onClick={() => setSingleCorrectOption(index)}
+                        className={`
+                          shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200
+                          ${isCorrect
+                            ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
+                            : 'bg-secondary/60 text-muted-foreground hover:bg-secondary'
+                          }
+                        `}
+                        title={isCorrect ? "Correct answer" : "Mark as correct"}
+                      >
+                        {isCorrect ? <CheckCircle2 className="h-4 w-4" /> : OPTION_LABELS[index]}
+                      </button>
+
+                      {/* Option Text */}
+                      <FormField
+                        control={form.control}
+                        name={`options.${index}.text`}
+                        render={({ field }) => (
+                          <FormItem className="flex-1 space-y-0">
+                            <FormControl>
+                              <Input
+                                {...field}
+                                placeholder={`Option ${OPTION_LABELS[index]}`}
+                                className={`
+                                  h-9 rounded-lg border-0 bg-transparent text-sm font-medium placeholder:text-muted-foreground/40
+                                  focus-visible:ring-1 focus-visible:ring-[#0066CC]/30
+                                  ${isCorrect ? 'text-emerald-700 dark:text-emerald-400' : ''}
+                                `}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* Delete Button */}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRemoveOption(index)}
+                        disabled={fields.length <= MIN_OPTIONS}
+                        className="h-7 w-7 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-500 hover:bg-red-500/5 shrink-0"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )
+                })}
+              </div>
+              <FormMessage>{form.formState.errors.options?.message}</FormMessage>
+              <FormMessage>{form.formState.errors.options?.root?.message}</FormMessage>
+
+              <p className="text-[10px] text-muted-foreground/60 flex items-center gap-1.5 pl-1">
+                <Sparkles className="h-3 w-3" /> Click the circle to mark the correct answer
+              </p>
+            </div>
+
+            {/* ── Divider ── */}
+            <div className="border-t border-black/[0.04] dark:border-white/[0.06]" />
+
+            {/* ── Section: Explanation ── */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="h-5 w-1 rounded-full bg-amber-500" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Explanation <span className="font-normal text-muted-foreground/50">(Optional)</span></span>
+              </div>
+              <FormField
+                control={form.control}
+                name="explanation"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <RichTextEditor placeholder="Explain why the answer is correct..." value={field.value || ""} onChange={field.onChange} minHeight="100px" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* ── Submit ── */}
+            <div className="flex items-center gap-3 pt-2 pb-6">
+              <Button type="submit" disabled={loading} className="h-10 px-6 rounded-xl bg-[#0066CC] hover:bg-[#0055AA] text-white font-semibold text-sm shadow-md shadow-[#0066CC]/10">
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {initialData && initialData.id !== "" ? "Save Changes" : "Create Question"}
+              </Button>
+            </div>
           </div>
         </div>
 
         {/* RIGHT COLUMN: Mobile Simulator */}
-        <div className="lg:col-span-2 hidden lg:block sticky top-0">
-          <MobileSimulator
-            questionText={watchedValues.question_text || ""}
-            options={(watchedValues.options as { text: string; is_correct: boolean }[]) || []}
-            marks={watchedValues.marks}
-            negativeMarks={watchedValues.negative_marks}
-          />
+        <div className="lg:col-span-2 hidden lg:flex items-start justify-center pl-6 border-l border-black/[0.04] dark:border-white/[0.06]">
+          <div className="sticky top-0 pt-2">
+            <MobileSimulator
+              questionText={watchedValues.question_text || ""}
+              options={(watchedValues.options as { text: string; is_correct: boolean }[]) || []}
+              marks={watchedValues.marks}
+              negativeMarks={watchedValues.negative_marks}
+            />
+          </div>
         </div>
       </form>
     </Form>

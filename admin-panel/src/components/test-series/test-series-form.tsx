@@ -133,11 +133,19 @@ export function TestSeriesForm({ initialData, exams, onSuccess }: TestSeriesForm
             name="price"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Price (₹)</FormLabel>
-                <FormControl>
-                  <Input type="number" placeholder="0" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
-                </FormControl>
-                <FormDescription>Set 0 for free.</FormDescription>
+                <FormLabel>Access Tier</FormLabel>
+                <Select onValueChange={(val) => field.onChange(val === 'pro' ? 999 : 0)} defaultValue={field.value > 0 ? "pro" : "free"}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select access tier" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="free">Free (Open to everyone)</SelectItem>
+                    <SelectItem value="pro">PRO (Requires Subscription)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormDescription>Does this require a subscription?</FormDescription>
                 <FormMessage />
               </FormItem>
             )}

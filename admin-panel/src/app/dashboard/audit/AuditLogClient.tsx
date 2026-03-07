@@ -10,7 +10,7 @@ interface AuditEntry {
   id: string
   action: string
   target_id: string | null
-  details: string | null
+  details: any // Supabase returns jsonb as JS Objects, not strings
   created_at: string
 }
 
@@ -24,11 +24,14 @@ const actionColors: Record<string, string> = {
 export function AuditLogClient({ logs, error }: { logs: AuditEntry[]; error: string | null }) {
   const [search, setSearch] = useState('')
 
-  const filtered = logs.filter(l =>
-    l.action.toLowerCase().includes(search.toLowerCase()) ||
-    l.target_id?.toLowerCase().includes(search.toLowerCase()) ||
-    l.details?.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = logs.filter(l => {
+    const detailsStr = typeof l.details === 'string' ? l.details : JSON.stringify(l.details || '')
+    return (
+      l.action.toLowerCase().includes(search.toLowerCase()) ||
+      l.target_id?.toLowerCase().includes(search.toLowerCase()) ||
+      detailsStr.toLowerCase().includes(search.toLowerCase())
+    )
+  })
 
   return (
     <div className="space-y-6">
@@ -69,7 +72,9 @@ export function AuditLogClient({ logs, error }: { logs: AuditEntry[]; error: str
           {filtered.map(log => {
             let parsedDetails: Record<string, unknown> | null = null
             try {
-              if (log.details) parsedDetails = JSON.parse(log.details)
+              if (log.details) {
+                parsedDetails = typeof log.details === 'string' ? JSON.parse(log.details) : log.details
+              }
             } catch { /* ignore */ }
 
             return (

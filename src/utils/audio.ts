@@ -21,7 +21,7 @@ class AudioService {
       });
 
     } catch (error) {
-      console.log('Error loading sounds:', error);
+      // Ignore audio loading errors in production
     }
   }
 
@@ -32,10 +32,9 @@ class AudioService {
       } else {
         // Fallback or attempt to load dynamically if we had a URI
         // For now, valid implementation awaits file existence
-        console.log('Audio: Success (File missing)');
       }
     } catch (error) {
-      console.log('Error playing success sound:', error);
+      // Ignore audio playing errors
     }
   }
 
@@ -44,10 +43,10 @@ class AudioService {
       if (this.failureSound) {
         await this.failureSound.replayAsync();
       } else {
-        console.log('Audio: Failure (File missing)');
+        // Fallback
       }
     } catch (error) {
-      console.log('Error playing failure sound:', error);
+      // Ignore audio playing errors
     }
   }
 }

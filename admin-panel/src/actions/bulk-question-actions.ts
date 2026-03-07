@@ -128,7 +128,7 @@ export async function fetchBulkQuestions(filters?: {
     }
 
     if (filters?.difficulty) {
-      query = query.eq('difficulty', filters.difficulty)
+      query = query.ilike('difficulty', filters.difficulty)
     }
 
     if (filters?.search) {
@@ -171,7 +171,7 @@ export async function inlineUpdateQuestion(id: string, field: string, value: unk
     await requireAdminRole(["super_admin", "content_manager"])
     const supabase = createAdminClient()
 
-    const allowedFields = ['text', 'marks', 'negative_marks', 'difficulty', 'correct_answer']
+    const allowedFields = ['text', 'marks', 'negative_marks', 'difficulty', 'correct_answer', 'options', 'explanation']
     if (!allowedFields.includes(field)) return { error: `Field "${field}" is not editable` }
 
     const { error } = await supabase
@@ -216,7 +216,16 @@ export async function bulkReorderQuestions(orderedIds: string[]) {
     const updates = orderedIds.map((id, index) =>
       supabase.from('questions').update({ order_index: index }).eq('id', id)
     )
-    await Promise.all(updates)
+    const results = await Promise.all(updates)
+    const failed = results.find((result) => result.error)
+    if (failed?.error) {
+      return { error: failed.error.message || "Failed to reorder questions" }
+    }
+
+    const updatedCount = results.filter((result) => !result.error).length
+    if (updatedCount !== orderedIds.length) {
+      return { error: "Some questions were not reordered. Please refresh and try again." }
+    }
 
     revalidatePath('/dashboard/questions/bulk')
     return { success: true }

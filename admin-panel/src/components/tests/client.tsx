@@ -6,7 +6,7 @@ import { TestDialog } from "./test-dialog"
 import { Button } from "@/components/ui/button"
 import { Download, CheckCircle, XCircle, Trash2, Loader2 } from "lucide-react"
 import { toast } from "sonner"
-import { useState, useTransition } from "react"
+import { useTransition } from "react"
 import { batchToggleTests, batchDeleteTests } from "@/actions/advanced-actions"
 import { useRouter } from "next/navigation"
 
@@ -15,16 +15,22 @@ interface TestsClientProps {
   seriesList: { id: string; title: string }[]
 }
 
+type TableRow = { original: { id: string } }
+type TableLike = {
+  getFilteredSelectedRowModel: () => { rows: TableRow[] }
+  toggleAllRowsSelected: (selected: boolean) => void
+}
+
 export function TestsClient({ data, seriesList }: TestsClientProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const columns = createColumns(seriesList)
 
   const handleBulkAction = (
-    table: any,
+    table: TableLike,
     action: 'activate' | 'deactivate' | 'delete'
   ) => {
-    const selectedIds = table.getFilteredSelectedRowModel().rows.map((row: any) => row.original.id as string)
+    const selectedIds = table.getFilteredSelectedRowModel().rows.map((row) => row.original.id)
     if (selectedIds.length === 0) return
 
     if (action === 'delete' && !confirm(`Delete ${selectedIds.length} tests? This cannot be undone.`)) return
